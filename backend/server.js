@@ -28,7 +28,7 @@ async function start() {
   app.use('/uploads', express.static(path.join(__dirname, 'data/uploads')))
 
   app.use('/api', routes)
-  app.get('/health', (_req, res) => res.json({ status: 'ok', db: IS_PG ? 'postgres' : 'sqlite', time: new Date().toISOString() }))
+  app.get('/health', (_req, res) => res.json({ status: 'ok', db: IS_PG ? 'postgres' : 'sqlite', time: new Date().toISOString(), version: 'v6-autosetup-fix' }))
 
   // ── Error handler global (captura async errors + express-async-errors) ──────
   // eslint-disable-next-line no-unused-vars
