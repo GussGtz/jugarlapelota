@@ -508,7 +508,7 @@ router.get('/tournaments/:slug/players/phase-stats', async (req, res) => {
     LEFT JOIN matches m ON m.id = e.match_id AND m.phase_id = ANY($1::bigint[])
     WHERE t.tournament_id = $2
     ${catFilter}
-    GROUP BY p.id
+    GROUP BY p.id, p.name, p.photo, p.number, p.position, p.team_id, t.name, t.logo
     ORDER BY goals DESC, assists DESC, p.name ASC
   `, params)).rows
 
