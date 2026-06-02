@@ -631,7 +631,7 @@ const eventTypes = [
 ]
 
 const pevPlayers = computed(() => {
-  const pool = pev.teamId === activeMatch.value?.home_team ? homePlayers.value : awayPlayers.value
+  const pool = String(pev.teamId) === String(activeMatch.value?.home_team) ? homePlayers.value : awayPlayers.value
   const q = pevSearch.value.toLowerCase().trim()
   if (!q) return pool
   return pool.filter(p => p.name.toLowerCase().includes(q) || String(p.number||'').includes(q))
@@ -642,7 +642,7 @@ function selectPevTeam(id) { pev.teamId = id; pev.playerId = null; pevSearch.val
 const confirmPev = reactive({ show: false, title: '', body: '' })
 function confirmPevAdd() {
   if (!pev.type || !pev.teamId) return
-  const teamName = pev.teamId === activeMatch.value?.home_team ? activeMatch.value?.homeTeam : activeMatch.value?.awayTeam
+  const teamName = String(pev.teamId) === String(activeMatch.value?.home_team) ? activeMatch.value?.homeTeam : activeMatch.value?.awayTeam
   const player   = [...homePlayers.value, ...awayPlayers.value].find(p => p.id === pev.playerId)
   const labels   = { goal:'Gol', own_goal:'Gol en propia', assist:'Asistencia', yellow_card:'T. Amarilla', red_card:'T. Roja' }
   confirmPev.title = `¿Registrar ${labels[pev.type]}?`

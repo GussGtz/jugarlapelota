@@ -680,8 +680,9 @@ router.post('/matches/:id/events', authMiddleware, refereeOrAdmin, async (req, r
   if (!type) return res.status(400).json({ error: 'El tipo de evento es requerido' })
   if (!teamId) return res.status(400).json({ error: 'El equipo es requerido' })
   if (match.status === 'finished') return res.status(400).json({ error: 'El partido ya ha finalizado' })
-  const allowedTeams = [match.home_team, match.away_team]
-  if (!allowedTeams.includes(parseInt(teamId))) return res.status(400).json({ error: 'Equipo no pertenece al partido' })
+  // Comparar como strings para evitar mismatch number/string de PostgreSQL
+  const allowedTeams = [String(match.home_team), String(match.away_team)]
+  if (!allowedTeams.includes(String(teamId))) return res.status(400).json({ error: 'Equipo no pertenece al partido' })
 
   const r = await query('INSERT INTO match_events (match_id,type,player_id,team_id,minute,second,note) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', [matchId, type, playerId || null, teamId || null, minute ?? null, second ?? 0, note || null])
 
