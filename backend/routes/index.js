@@ -1288,7 +1288,7 @@ router.get('/tournaments/:slug/inscriptions', authMiddleware, adminOnly, async (
   res.json(result)
 })
 router.post('/inscriptions', async (req, res) => {  // Public — no auth
-  const {tournamentId,categoryIds,team_name,contact_name,contact_email,contact_phone,players_count,notes,players} = req.body
+  const {tournamentId,categoryIds,team_name,contact_name,contact_email,contact_phone,players_count,notes,players,logo} = req.body
   if(!team_name||!contact_name||!contact_email) return res.status(400).json({error:'Campos requeridos faltantes'})
   // Resolver nombres de categorías para guardar en JSON
   let categories = []
@@ -1298,8 +1298,8 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
   }
   const firstCatId = categories[0]?.id || null
   const r = await query(
-    'INSERT INTO inscriptions (tournament_id,category_id,categories_json,team_name,contact_name,contact_email,contact_phone,players_count,notes,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,\'pending\') RETURNING id',
-    [tournamentId, firstCatId, JSON.stringify(categories), team_name, contact_name, contact_email, contact_phone||null, players_count||0, notes||null]
+    'INSERT INTO inscriptions (tournament_id,category_id,categories_json,logo,team_name,contact_name,contact_email,contact_phone,players_count,notes,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,\'pending\') RETURNING id',
+    [tournamentId, firstCatId, JSON.stringify(categories), logo||null, team_name, contact_name, contact_email, contact_phone||null, players_count||0, notes||null]
   )
   const id = r.rows[0]?.id || r.lastInsertRowid
   if(players?.length) {

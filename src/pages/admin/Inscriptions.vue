@@ -72,6 +72,8 @@
         <div class="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div class="flex items-center gap-3 mb-1">
+              <img v-if="insc.logo" :src="insc.logo" class="w-9 h-9 rounded-lg object-cover border border-muted shrink-0"/>
+              <div v-else class="w-9 h-9 rounded-lg bg-slate-100 border border-muted shrink-0 flex items-center justify-center text-slate-300 text-xs font-bold">?</div>
               <h3 class="font-bold text-slate-900 text-lg">{{ insc.team_name }}</h3>
               <span class="text-xs px-2 py-0.5 rounded-full font-bold" :class="statusClass(insc.status)">
                 {{ statusLabel(insc.status) }}

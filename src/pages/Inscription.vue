@@ -113,6 +113,26 @@
                   class="w-full bg-white border border-muted rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
                   placeholder="Ej. Guerreros FC"/>
               </div>
+              <!-- Logo del equipo -->
+              <div class="sm:col-span-2">
+                <label class="text-xs text-slate-500 font-semibold mb-1.5 block uppercase tracking-wide">Logo del equipo <span class="text-slate-400 font-normal normal-case">(opcional)</span></label>
+                <div class="flex items-center gap-4">
+                  <!-- Preview -->
+                  <div class="w-16 h-16 rounded-xl border-2 border-dashed border-muted bg-slate-50 flex items-center justify-center shrink-0 overflow-hidden">
+                    <img v-if="form.logo" :src="form.logo" class="w-full h-full object-cover rounded-xl"/>
+                    <IconShirt v-else class="w-7 h-7 text-slate-300"/>
+                  </div>
+                  <div class="flex-1">
+                    <input ref="logoInput" type="file" accept="image/*" class="hidden" @change="onLogoChange"/>
+                    <button type="button" @click="logoInput.click()"
+                      class="text-sm font-semibold text-primary border border-primary/30 px-4 py-2 rounded-xl hover:bg-primary/5 transition-colors">
+                      {{ form.logo ? 'Cambiar logo' : 'Subir logo' }}
+                    </button>
+                    <p class="text-xs text-slate-400 mt-1">JPG, PNG o WebP · máx 2 MB</p>
+                    <button v-if="form.logo" type="button" @click="form.logo=''" class="text-xs text-red-400 hover:text-red-600 mt-1">Quitar</button>
+                  </div>
+                </div>
+              </div>
               <div>
                 <label class="text-xs text-slate-500 font-semibold mb-1.5 block uppercase tracking-wide">Número estimado de jugadores</label>
                 <input v-model.number="form.players_count" type="number" min="1" max="30"
@@ -216,13 +236,23 @@ const sent       = ref(false)
 const submitting = ref(false)
 const error      = ref('')
 const catError   = ref('')
+const logoInput  = ref(null)
 
 const form = reactive({
   categoryIds: [],
   team_name: '', players_count: 11,
   contact_name: '', contact_email: '', contact_phone: '',
-  notes: '', players: []
+  notes: '', players: [], logo: ''
 })
+
+function onLogoChange(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  if (file.size > 2 * 1024 * 1024) { alert('El logo debe pesar menos de 2 MB'); return }
+  const reader = new FileReader()
+  reader.onload = ev => { form.logo = ev.target.result }
+  reader.readAsDataURL(file)
+}
 
 // Agrupar categorías igual que CategorySelector
 const GROUP_LABELS = {

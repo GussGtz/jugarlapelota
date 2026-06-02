@@ -160,6 +160,7 @@ const PG_MIGRATIONS = [
   `ALTER TABLE players ADD COLUMN IF NOT EXISTS matches_played  INTEGER DEFAULT 0`,
   `ALTER TABLE teams   ADD COLUMN IF NOT EXISTS inscription_id BIGINT`,
   `ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS categories_json TEXT`,
+  `ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS logo TEXT`,
   `ALTER TABLE users   ADD COLUMN IF NOT EXISTS google_id TEXT`,
   `ALTER TABLE users   ADD COLUMN IF NOT EXISTS username  TEXT`,
   `ALTER TABLE users   ADD COLUMN IF NOT EXISTS tournament_id BIGINT`,
