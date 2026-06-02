@@ -1149,10 +1149,10 @@ router.get('/tournaments/:slug/standings', async (req, res) => {
   // Fallback: standings tabla (para compatibilidad)
   let sql = `SELECT s.*,te.name AS "teamName",te.logo,(s.goals_for-s.goals_against) AS "goalDiff",c.name AS "categoryName"
     FROM standings s JOIN teams te ON s.team_id=te.id LEFT JOIN categories c ON s.category_id=c.id
-    WHERE s.tournament_id=? AND s.group_id IS NULL`
+    WHERE s.tournament_id=$1 AND s.group_id IS NULL`
   const params = [t.id]
-  if (catId)   { sql+=' AND s.category_id=?';  params.push(catId) }
-  if (phaseId) { sql+=' AND s.phase_id=?';     params.push(phaseId) }
+  if (catId)   { params.push(catId);   sql+=` AND s.category_id=$${params.length}` }
+  if (phaseId) { params.push(phaseId); sql+=` AND s.phase_id=$${params.length}` }
   sql += ' ORDER BY s.points DESC,(s.goals_for-s.goals_against) DESC,s.goals_for DESC'
   res.json((await query(sql, [...params])).rows)
 })
@@ -1338,8 +1338,8 @@ router.get('/tournaments/:slug/awards', async (req, res) => {
   const catId = req.query.cat ? parseInt(req.query.cat) : null
   const base = `SELECT a.*,p.name AS "playerName",p.photo AS "playerPhoto",te.name AS "teamName",te.logo AS "teamLogo",c.name AS "categoryName" FROM awards a LEFT JOIN players p ON a.player_id=p.id LEFT JOIN teams te ON a.team_id=te.id LEFT JOIN categories c ON a.category_id=c.id`
   const rows = catId
-    ? (await query(`${base} WHERE a.tournament_id=? AND a.category_id=? ORDER BY a.id`, [t.id,catId])).rows
-    : (await query(`${base} WHERE a.tournament_id=? ORDER BY a.id`, [t.id])).rows
+    ? (await query(`${base} WHERE a.tournament_id=$1 AND a.category_id=$2 ORDER BY a.id`, [t.id,catId])).rows
+    : (await query(`${base} WHERE a.tournament_id=$1 ORDER BY a.id`, [t.id])).rows
   res.json(rows)
 })
 router.post('/awards', authMiddleware, adminOnly, async (req, res) => {
@@ -2062,7 +2062,7 @@ router.get('/referees', authMiddleware, adminOnly, async (req, res) => {
     LEFT JOIN matches m ON m.referee_id = u.id
     LEFT JOIN tournaments t ON t.id = u.tournament_id
     WHERE u.role = 'referee'
-    GROUP BY u.id
+    GROUP BY u.id, u.name, u.email, u.username, u.is_active, u.created_at, u.tournament_id, t.name
     ORDER BY u.name ASC
   `, [])).rows
   res.json(rows)
@@ -2204,8 +2204,8 @@ router.get('/referee/matches', authMiddleware, async (req, res) => {
   `
   const params = []
   if (tournamentId) {
-    sql += ' AND m.tournament_id=?'
     params.push(tournamentId)
+    sql += ` AND m.tournament_id=$${params.length}`
   }
   sql += ' ORDER BY m.date ASC LIMIT 100'
 
