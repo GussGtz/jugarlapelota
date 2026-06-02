@@ -2350,11 +2350,13 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
 
 // ── Push Notifications ────────────────────────────────────────────────────
 const webpush = require('web-push')
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || 'mailto:admin@jugarlapelota.com',
-  process.env.PUBLIC_VAPID_KEY,
-  process.env.PRIVATE_VAPID_KEY
-)
+if (process.env.PUBLIC_VAPID_KEY && process.env.PRIVATE_VAPID_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:admin@jugarlapelota.com',
+    process.env.PUBLIC_VAPID_KEY,
+    process.env.PRIVATE_VAPID_KEY
+  )
+}
 
 // Get VAPID public key (needed by frontend to subscribe)
 router.get('/push/vapid-public-key', async (_req, res) => {
