@@ -70,7 +70,7 @@
 
         <!-- CTAs -->
         <div class="flex flex-wrap gap-4 mt-10">
-          <button type="button" @click="document.getElementById('torneos')?.scrollIntoView({behavior:'smooth'})" class="hero-btn-primary">
+          <button type="button" @click="scrollToTournaments" class="hero-btn-primary">
             Ver torneos
           </button>
           <router-link to="/login" class="hero-btn-ghost">
@@ -111,6 +111,10 @@
 
 <script setup>
 import { Trophy, Radio, BarChart2, Smartphone } from 'lucide-vue-next'
+
+function scrollToTournaments() {
+  document.getElementById('torneos')?.scrollIntoView({ behavior: 'smooth' })
+}
 
 // Video de fondo — Streamable embed (autoplay, sin controles, sin sonido)
 const VIDEO_URL = 'https://streamable.com/e/c9hu23?autoplay=1&muted=1&loop=1&nocontrols=1'
