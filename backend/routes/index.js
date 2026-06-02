@@ -1192,16 +1192,27 @@ router.get('/news/:id', async (req, res) => {
 })
 router.post('/news', authMiddleware, adminOnly, async (req, res) => {
   const {tournamentId,title,content,cover} = req.body
-  const r = await query('INSERT INTO news (tournament_id,title,content,cover) VALUES ($1,$2,$3,$4) RETURNING id', [tournamentId,title,content,cover])
-  // Notify followers of any team in this tournament
-  const teamIds = (await query('SELECT id FROM teams WHERE tournament_id=$1', [tournamentId])).rows.map(t => t.id)
-  global.sendPushToTeams?.(teamIds, { type:'news', title:'📰 Nueva noticia', body: title, url:'/noticias' })
-  res.status(201).json((await queryOne('SELECT * FROM news WHERE id=$1', [r.lastInsertRowid])))
+  const r = await query(
+    'INSERT INTO news (tournament_id,title,content,cover,created_at) VALUES ($1,$2,$3,$4,NOW()) RETURNING *',
+    [tournamentId, title, content, cover||null]
+  )
+  const news = r.rows[0]
+  // Push en background — no bloquea la respuesta
+  setImmediate(async () => {
+    try {
+      const teamIds = (await query('SELECT id FROM teams WHERE tournament_id=$1', [tournamentId])).rows.map(t => t.id)
+      global.sendPushToTeams?.(teamIds, { type:'news', title:'📰 Nueva noticia', body: title, url:'/noticias' })
+    } catch {}
+  })
+  res.status(201).json(news)
 })
 router.put('/news/:id', authMiddleware, adminOnly, async (req, res) => {
   const {title,content,cover} = req.body
-  await query('UPDATE news SET title=$1,content=$2,cover=$3 WHERE id=$4', [title,content,cover,req.params.id])
-  res.json((await queryOne('SELECT * FROM news WHERE id=$1', [req.params.id])))
+  const r = await query(
+    'UPDATE news SET title=$1,content=$2,cover=$3 WHERE id=$4 RETURNING *',
+    [title, content, cover||null, req.params.id]
+  )
+  res.json(r.rows[0])
 })
 router.delete('/news/:id', authMiddleware, adminOnly, async (req, res) => {
   await query('DELETE FROM news WHERE id=$1', [req.params.id]); res.status(204).end()
