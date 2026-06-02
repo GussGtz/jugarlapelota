@@ -944,9 +944,117 @@ async function checkPhaseCompletion(phaseId, io) {
 
   if (isComplete) {
     await autoGenerateAwardsForPhase(phaseId)
+
+    // Si es fase de grupos → generar bracket de eliminatoria automáticamente
+    if (phase.type === 'groups') {
+      await autoGenerateKnockoutBracket(phase, io)
+    }
+
     io?.to(`tournament:${phase.tournament_id}`).emit('phase:complete', {
       phaseId, phaseName: phase.name, type: phase.type
     })
+  }
+}
+
+// ── Auto-generar bracket de eliminatoria desde fase de grupos ─────────────────
+async function autoGenerateKnockoutBracket(groupsPhase, io) {
+  try {
+    // Buscar la fase knockout del mismo torneo/categoría
+    const knockoutPhase = await queryOne(`
+      SELECT * FROM phases
+      WHERE tournament_id=$1 AND type='knockout'
+        AND ($2::bigint IS NULL OR category_id=$2)
+        AND order_index > $3
+      ORDER BY order_index ASC LIMIT 1
+    `, [groupsPhase.tournament_id, groupsPhase.category_id || null, groupsPhase.order_index])
+
+    if (!knockoutPhase) return // No hay eliminatoria configurada
+
+    // Obtener el primer round de la eliminatoria
+    const firstRound = await queryOne(
+      'SELECT * FROM rounds WHERE phase_id=$1 ORDER BY order_index ASC LIMIT 1',
+      [knockoutPhase.id]
+    )
+    if (!firstRound) return
+
+    // ¿Ya hay partidos en ese round? No regenerar
+    const existing = await queryOne('SELECT COUNT(*) as c FROM matches WHERE round_id=$1', [firstRound.id])
+    if (parseInt(existing.c) > 0) return
+
+    // Obtener grupos de la fase y sus clasificados
+    const groups = (await query('SELECT * FROM phase_groups WHERE phase_id=$1 ORDER BY order_index ASC', [groupsPhase.id])).rows
+    const advancingTeams = [] // [{ team_id, groupPos, groupIdx }]
+
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi]
+      const advanceCount = g.advance_count || 2
+      // Standings del grupo ordenados: pts DESC, gd DESC, gf DESC
+      const standings = (await query(`
+        SELECT team_id,
+          SUM(CASE WHEN home_team=team_id THEN home_score ELSE away_score END) AS gf,
+          SUM(CASE WHEN home_team=team_id THEN away_score ELSE home_score END) AS ga,
+          SUM(CASE WHEN (home_team=team_id AND home_score>away_score) OR (away_team=team_id AND away_score>home_score) THEN 3
+                   WHEN home_score=away_score THEN 1 ELSE 0 END) AS pts
+        FROM matches
+        WHERE phase_id=$1 AND group_id=$2 AND status='finished'
+          AND (home_team=team_id OR away_team=team_id)
+        GROUP BY team_id
+        ORDER BY pts DESC, (gf-ga) DESC, gf DESC
+      `, [groupsPhase.id, g.id])).rows
+
+      // Si no hay standings, usar teams del grupo
+      const groupTeams = standings.length > 0 ? standings :
+        (await query('SELECT team_id FROM phase_group_teams WHERE group_id=$1', [g.id])).rows
+
+      for (let pos = 0; pos < Math.min(advanceCount, groupTeams.length); pos++) {
+        advancingTeams.push({ team_id: groupTeams[pos].team_id, pos, groupIdx: gi })
+      }
+    }
+
+    if (advancingTeams.length < 2) return
+
+    // Sembrar bracket: 1ro Grupo A vs 2do Grupo B, 1ro Grupo B vs 2do Grupo A...
+    // Separar por posición
+    const byPos = {}
+    for (const t of advancingTeams) {
+      if (!byPos[t.pos]) byPos[t.pos] = []
+      byPos[t.pos].push(t.team_id)
+    }
+
+    // Construir pares: pos0[0] vs pos1[1], pos0[1] vs pos1[0], etc. (cruzado)
+    const firstPlace  = byPos[0] || []
+    const secondPlace = byPos[1] || []
+    const pairs = []
+
+    // Cruzado clásico: 1A vs 2B, 1B vs 2A, 1C vs 2D, ...
+    const n = Math.min(firstPlace.length, secondPlace.length)
+    for (let i = 0; i < n; i++) {
+      const j = (firstPlace.length - 1 - i) % secondPlace.length
+      pairs.push([firstPlace[i], secondPlace[j]])
+    }
+    // Si sobran equipos sin par, agregarlos como BYE
+    if (firstPlace.length > n) {
+      for (let i = n; i < firstPlace.length; i++) pairs.push([firstPlace[i], null])
+    }
+
+    // Insertar partidos del primer round
+    let slot = 1
+    for (const [home, away] of pairs) {
+      if (!away) continue // bye — equipo avanza automáticamente (no generamos partido)
+      await query(
+        `INSERT INTO matches (tournament_id,category_id,phase_id,round_id,home_team,away_team,status,bracket_slot)
+         VALUES ($1,$2,$3,$4,$5,$6,'scheduled',$7)`,
+        [knockoutPhase.tournament_id, knockoutPhase.category_id||null,
+         knockoutPhase.id, firstRound.id, home, away, slot++]
+      )
+    }
+
+    io?.to(`tournament:${knockoutPhase.tournament_id}`).emit('bracket:generated', {
+      phaseId: knockoutPhase.id, teams: advancingTeams.length
+    })
+    console.log(`[bracket] Generado: ${pairs.length} partidos en fase ${knockoutPhase.id}`)
+  } catch (e) {
+    console.error('[bracket]', e.message)
   }
 }
 
