@@ -27,7 +27,6 @@
 .cb-overlay {
   position: absolute;
   inset: 0;
-  background: url('/hero-bg.mp4') center/cover no-repeat;
   opacity: 0.08;
   pointer-events: none;
 }

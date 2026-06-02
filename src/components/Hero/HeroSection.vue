@@ -110,7 +110,9 @@
 <script setup>
 import { Trophy, Radio, BarChart2, Smartphone } from 'lucide-vue-next'
 
-const videoSrc = '/hero-bg.mp4'
+// Video alojado en Google Drive (no sube al repo por su tamaño)
+const VIDEO_DRIVE_ID = '181X7UKU5gwkF8zzIudHxZ-6MS3PeVB-I'
+const videoSrc = `https://drive.google.com/uc?export=download&id=${VIDEO_DRIVE_ID}`
 
 const features = [
   { title: 'Inscripciones en línea',    desc: 'Los equipos se registran solos, tú solo apruebas' },
