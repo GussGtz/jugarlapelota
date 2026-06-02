@@ -98,16 +98,16 @@ async function handleLogin() {
   loading.value = true
   try {
     const id = form.identifier.trim()
-    // Detectar si es email (contiene @) o username
     const isEmail = id.includes('@')
     await auth.login(isEmail ? id : null, form.password, isEmail ? null : id)
-    // Redirigir según rol
+
     const role = auth.user?.role
-    if (role === 'referee') {
-      router.push('/arbitro')
-    } else {
-      router.push(redirectTo.value || '/admin')
-    }
+    let dest = '/admin'
+    if (role === 'referee')    dest = '/arbitro'
+    else if (role === 'fan')   dest = '/'
+
+    // Usar window.location para evitar problemas con router.push y caché del router
+    window.location.href = dest
   } catch (e) {
     error.value = e.response?.data?.error || 'Credenciales incorrectas. Verifica tu correo y contraseña.'
   } finally {
