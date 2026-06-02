@@ -22,8 +22,7 @@
     <div
       ref="editor"
       contenteditable="true"
-      class="min-h-40 p-4 text-white text-sm focus:outline-none leading-relaxed prose-invert"
-      :class="{ 'text-gray-500': !hasContent }"
+      class="min-h-40 p-4 text-slate-900 bg-white text-sm focus:outline-none leading-relaxed"
       @input="onInput"
       @focus="hasContent = editor?.innerHTML?.trim() !== ''"
     ></div>
@@ -90,11 +89,12 @@ watch(() => props.modelValue, (val) => {
 </script>
 
 <style scoped>
-[contenteditable] h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: white; }
-[contenteditable] p  { margin-bottom: 0.75rem; }
+[contenteditable] h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: #0f172a; }
+[contenteditable] p  { margin-bottom: 0.75rem; color: #1e293b; }
 [contenteditable] ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
 [contenteditable] ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
 [contenteditable] img { max-width: 100%; border-radius: 0.5rem; margin: 0.5rem 0; }
-[contenteditable] hr { border-color: #1F2937; margin: 1rem 0; }
-[contenteditable] a  { color: #00C2FF; text-decoration: underline; }
+[contenteditable] hr { border-color: #e2e8f0; margin: 1rem 0; }
+[contenteditable] a  { color: #0ea5e9; text-decoration: underline; }
+[contenteditable]:empty:before { content: 'Escribe el contenido de la noticia...'; color: #94a3b8; }
 </style>
