@@ -2398,7 +2398,7 @@ router.post('/push/subscribe', optionalAuth, (req, res) => {
     db.prepare(`
       INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent, user_id)
       VALUES (?,?,?,?,?)
-      ON CONFLICT(endpoint) DO UPDATE SET p256dh=excluded.p256dh, auth=excluded.auth, user_id=COALESCE(excluded.user_id, user_id)
+      ON CONFLICT(endpoint) DO UPDATE SET p256dh=excluded.p256dh, auth=excluded.auth, user_id=COALESCE(excluded.user_id, push_subscriptions.user_id)
     `).run(endpoint, keys.p256dh, keys.auth, req.headers['user-agent']?.slice(0,200) || '', userId)
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
@@ -2426,7 +2426,7 @@ router.post('/follows/add', (req, res) => {
   const { endpoint, teamId } = req.body
   if (!endpoint || !teamId) return res.status(400).json({ error: 'Faltan datos' })
   try {
-    db.prepare('INSERT OR IGNORE INTO team_follows (endpoint, team_id) VALUES (?,?)').run(endpoint, teamId)
+    db.prepare('INSERT INTO team_follows (endpoint, team_id) VALUES (?,?) ON CONFLICT DO NOTHING').run(endpoint, teamId)
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
