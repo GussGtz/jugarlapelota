@@ -96,11 +96,18 @@ async function recalculateStandings(tournamentId, categoryId, phaseId, groupId =
   const { rows: matches } = await query(sql, params)
   const stats = {}
   for (const m of matches) {
-    for (const [tid, gf, ga] of [[m.home_team,m.home_score,m.away_score],[m.away_team,m.away_score,m.home_score]]) {
+    for (const [tid, gf, ga] of [
+      [m.home_team, m.home_score, m.away_score],
+      [m.away_team, m.away_score, m.home_score]
+    ]) {
       if (!stats[tid]) stats[tid] = {played:0,won:0,drawn:0,lost:0,gf:0,ga:0,pts:0}
-      const s = stats[tid]
-      s.played++; s.gf+=gf; s.ga+=ga
-      if (gf>ga){s.won++;s.pts+=3} else if(gf===ga){s.drawn++;s.pts++} else s.lost++
+      const s  = stats[tid]
+      const gfN = parseInt(gf) || 0   // convertir a número siempre
+      const gaN = parseInt(ga) || 0
+      s.played++; s.gf += gfN; s.ga += gaN
+      if      (gfN > gaN) { s.won++;   s.pts += 3 }  // victoria: 3 pts
+      else if (gfN === gaN) { s.drawn++; s.pts += 1 } // empate: 1 pt
+      else                  { s.lost++ }               // derrota: 0 pts
     }
   }
   const teamIds = Object.keys(stats)

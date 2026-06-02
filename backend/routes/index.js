@@ -603,7 +603,7 @@ router.put('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
   await query('UPDATE matches SET category_id=$1,phase_id=$2,round_id=$3,home_team=$4,away_team=$5,home_score=$6,away_score=$7,date=$8,location=$9,status=$10,match_notes=$11 WHERE id=$12', [categoryId||null,phaseId||null,roundId||null,homeTeam,awayTeam,home_score||0,away_score||0,date,location,status||'scheduled',match_notes||null,req.params.id])
   const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
   if (m.status === 'finished') {
-    if (m.category_id) recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
+    if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
@@ -622,7 +622,7 @@ router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, r
   }
   const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
   if (m.status === 'finished') {
-    if (m.category_id) recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
+    if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
@@ -635,7 +635,7 @@ router.patch('/matches/:id/status', authMiddleware, adminOnly, async (req, res) 
   await query('UPDATE matches SET status=$1 WHERE id=$2', [status, req.params.id])
   const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id WHERE m.id=$1`, [req.params.id]))
   if (status === 'finished') {
-    if (m.category_id) recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
+    if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
