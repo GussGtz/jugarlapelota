@@ -111,7 +111,6 @@
     <!-- ── Banner contratar ───────────────────────────────── -->
     <ContratarBanner />
 
-    <!-- <SponsorSlider :sponsors="sponsors" /> -->
   </div>
 </template>
 
@@ -121,13 +120,11 @@ import { useTournamentsStore } from '@/stores/tournaments'
 import api from '@/api'
 import HeroSection      from '@/components/Hero/HeroSection.vue'
 import MatchCard        from '@/components/MatchCard/MatchCard.vue'
-import SponsorSlider    from '@/components/SponsorSlider/SponsorSlider.vue'
 import FeatureSections  from '@/components/FeatureSections/FeatureSections.vue'
 import ContratarBanner  from '@/components/ContratarBanner/ContratarBanner.vue'
 
 const tournaments = useTournamentsStore()
 const liveMatches = ref([])
-const sponsors    = ref([])
 const searchQuery = ref('')
 const showAll     = ref(false)
 

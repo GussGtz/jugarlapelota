@@ -1208,46 +1208,6 @@ router.delete('/news/:id', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ── Sponsors ──────────────────────────────────────────────────────────────
-router.get('/tournaments/:slug/sponsors', async (req, res) => {
-  const t = await getTournament(req.params.slug); if(!t) return notFound(res)
-  res.json((await query('SELECT * FROM sponsors WHERE tournament_id=$1 ORDER BY id', [t.id])).rows)
-})
-router.post('/sponsors', authMiddleware, adminOnly, async (req, res) => {
-  const {tournamentId,name,logo,url} = req.body
-  const r = await query('INSERT INTO sponsors (tournament_id,name,logo,url) VALUES ($1,$2,$3,$4) RETURNING id', [tournamentId,name,logo,url])
-  res.status(201).json((await queryOne('SELECT * FROM sponsors WHERE id=$1', [r.lastInsertRowid])))
-})
-router.put('/sponsors/:id', authMiddleware, adminOnly, async (req, res) => {
-  const {name,logo,url} = req.body
-  await query('UPDATE sponsors SET name=$1,logo=$2,url=$3 WHERE id=$4', [name,logo,url,req.params.id])
-  res.json((await queryOne('SELECT * FROM sponsors WHERE id=$1', [req.params.id])))
-})
-router.delete('/sponsors/:id', authMiddleware, adminOnly, async (req, res) => {
-  await query('DELETE FROM sponsors WHERE id=$1', [req.params.id]); res.status(204).end()
-})
-
-// ── Banners ───────────────────────────────────────────────────────────────
-router.get('/tournaments/:slug/banners', async (req, res) => {
-  const t = await getTournament(req.params.slug); if(!t) return notFound(res)
-  const pos = req.query.position
-  const rows = pos
-    ? (await query("SELECT * FROM banners WHERE tournament_id=$1 AND position=$2 AND is_active=1 AND (ends_at IS NULL OR ends_at >= date('now')) ORDER BY id", [t.id,pos])).rows
-    : (await query("SELECT * FROM banners WHERE tournament_id=$1 ORDER BY position,id", [t.id])).rows
-  res.json(rows)
-})
-router.post('/banners', authMiddleware, adminOnly, async (req, res) => {
-  const {tournamentId,position,image_url,link_url,alt_text,starts_at,ends_at} = req.body
-  const r = await query('INSERT INTO banners (tournament_id,position,image_url,link_url,alt_text,starts_at,ends_at,is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,1) RETURNING id', [tournamentId,position,image_url,link_url,alt_text,starts_at||null,ends_at||null])
-  res.status(201).json((await queryOne('SELECT * FROM banners WHERE id=$1', [r.lastInsertRowid])))
-})
-router.put('/banners/:id', authMiddleware, adminOnly, async (req, res) => {
-  const {position,image_url,link_url,alt_text,starts_at,ends_at,is_active} = req.body
-  await query('UPDATE banners SET position=$1,image_url=$2,link_url=$3,alt_text=$4,starts_at=$5,ends_at=$6,is_active=$7 WHERE id=$8', [position,image_url,link_url,alt_text,starts_at||null,ends_at||null,is_active?1:0,req.params.id])
-  res.json((await queryOne('SELECT * FROM banners WHERE id=$1', [req.params.id])))
-})
-router.delete('/banners/:id', authMiddleware, adminOnly, async (req, res) => {
-  await query('DELETE FROM banners WHERE id=$1', [req.params.id]); res.status(204).end()
-})
 
 // ── Galleries ─────────────────────────────────────────────────────────────
 router.get('/tournaments/:slug/galleries', async (req, res) => {

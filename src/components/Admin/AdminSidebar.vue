@@ -150,13 +150,6 @@ const navGroups = [
     ]
   },
   {
-    label: 'Marketing',
-    items: [
-      { icon: Handshake,    label: 'Sponsors',       to: '/admin/sponsors' },
-      { icon: Bookmark,     label: 'Banners',        to: '/admin/banners' },
-    ]
-  },
-  {
     label: null,
     items: [
       { icon: TrendingUp,   label: 'Analytics',      to: '/admin/analytics' },

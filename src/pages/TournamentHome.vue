@@ -821,29 +821,6 @@
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════════ -->
-    <!-- SECCIÓN 8 — Sponsors (fondo blanco)                       -->
-    <!-- ══════════════════════════════════════════════════════════ -->
-    <section v-if="sponsors.length" class="py-14 md:py-20 bg-white">
-      <div class="max-w-5xl mx-auto px-4">
-        <div class="text-center mb-10">
-          <h2 class="text-2xl md:text-3xl font-black uppercase text-slate-900 tracking-wide">Patrocinadores</h2>
-          <div class="mt-3 flex items-center justify-center gap-3">
-            <div class="h-px w-16 bg-slate-200"></div>
-            <div class="w-2 h-2 rounded-full" :style="{ background: tournament?.primary_color || '#0ea5e9' }"></div>
-            <div class="h-px w-16 bg-slate-200"></div>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center justify-center gap-8 md:gap-12">
-          <a v-for="sp in sponsors" :key="sp.id"
-            :href="sp.url || '#'" target="_blank" rel="noopener"
-            class="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity">
-            <img v-if="sp.logo" :src="sp.logo" class="h-12 md:h-16 object-contain" />
-            <span v-else class="text-slate-600 font-black text-lg uppercase tracking-wide">{{ sp.name }}</span>
-          </a>
-        </div>
-      </div>
-    </section>
 
 
   </div>
@@ -863,7 +840,6 @@ const standings    = ref([])
 const news         = ref([])
 const teams        = ref([])
 const galleries    = ref([])
-const sponsors     = ref([])
 const awards       = ref([])
 const playerCount  = ref(0)
 const loading      = ref(false)
@@ -1179,7 +1155,6 @@ onMounted(async () => {
       api.get(`/tournaments/${slug.value}/teams`),
       api.get(`/tournaments/${slug.value}/players`).catch(() => ({ data: [] })),
       api.get(`/tournaments/${slug.value}/galleries`).catch(() => ({ data: [] })),
-      api.get(`/tournaments/${slug.value}/sponsors`).catch(() => ({ data: [] })),
       api.get(`/tournaments/${slug.value}/awards`).catch(() => ({ data: [] })),
     ])
     matches.value     = m.data
@@ -1187,7 +1162,6 @@ onMounted(async () => {
     teams.value       = t.data
     playerCount.value = p.data.length
     galleries.value   = g.data
-    sponsors.value    = sp.data
     awards.value      = aw.data
 
     // Standings: cargar de TODAS las categorías para mostrar mejores equipos en general
