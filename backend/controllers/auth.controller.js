@@ -8,7 +8,7 @@ async function login(req, res) {
   try {
     const user = username
       ? await queryOne('SELECT * FROM users WHERE username=$1', [username])
-      : await queryOne('SELECT * FROM users WHERE email=$1', [email])
+      : await queryOne('SELECT * FROM users WHERE email=$1', [email?.trim().toLowerCase()])
 
     if (!user || !bcrypt.compareSync(password, user.password))
       return res.status(401).json({ error: 'Credenciales incorrectas' })

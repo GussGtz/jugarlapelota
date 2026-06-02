@@ -649,11 +649,11 @@
               </div>
             </div>
           </div>
-          <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
-            <p class="text-xs text-amber-800 font-semibold flex items-start gap-1.5">
-              <IconAlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5"/>
-              Guarda estas credenciales ahora — la contraseña <strong>no volverá a mostrarse</strong>.
-              El árbitro debe ingresar en <strong>/login</strong> con su correo.
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+            <IconAlertTriangle class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"/>
+            <p class="text-xs text-amber-800 font-semibold leading-relaxed">
+              Guarda estas credenciales — la contraseña no volverá a mostrarse.
+              El árbitro inicia sesión en <strong>/login</strong> con su correo.
             </p>
           </div>
           <button @click="newCredentials.show=false"
