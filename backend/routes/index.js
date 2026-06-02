@@ -2101,17 +2101,23 @@ router.post('/referees', authMiddleware, adminOnly, async (req, res) => {
   const username      = generateUsername(name)
   const hash          = await bcrypt.hash(plainPassword, 12)
 
-  const r = await query(`
-    INSERT INTO users (name, email, username, password, role, is_active, tournament_id)
-    VALUES ($1, $2, $3, $4, 'referee', 1, $5) RETURNING id`, [name.trim(), email.trim().toLowerCase(), username, hash, tournamentId || null])
+  let r
+  try {
+    r = await query(`
+      INSERT INTO users (name, email, username, password, role, is_active, tournament_id)
+      VALUES ($1, $2, $3, $4, 'referee', 1, $5) RETURNING id`, [name.trim(), email.trim().toLowerCase(), username, hash, tournamentId || null])
+  } catch (e) {
+    if (e.code === '23505') return res.status(400).json({ error: 'El correo ya está registrado' })
+    throw e
+  }
 
-  // Devolver datos completos con nombre del torneo si aplica
+  const newId = r.rows[0]?.id || r.lastInsertRowid
   const created = (await queryOne(`
     SELECT u.id, u.name, u.email, u.username, u.role, u.is_active, u.tournament_id,
            t.name AS "tournamentName"
     FROM users u LEFT JOIN tournaments t ON t.id = u.tournament_id
     WHERE u.id = $1
-  `, [r.lastInsertRowid]))
+  `, [newId]))
 
   res.status(201).json({ ...created, plainPassword })
 })
