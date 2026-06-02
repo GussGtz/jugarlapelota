@@ -247,7 +247,13 @@ router.post('/tournaments/:slug/auto-setup', authMiddleware, adminOnly, async (r
     })
   }
 
-  const insPhase = (...__a) => query('INSERT INTO phases (tournament_id,category_id,name,type,order_index,is_active) VALUES ($1,$2,$3,$4,$5,1) RETURNING id', __a.flat())
+  const insPhase = async (...__a) => {
+    const r = await query('INSERT INTO phases (tournament_id,category_id,name,type,order_index,is_active) VALUES ($1,$2,$3,$4,$5,1) RETURNING id', __a.flat())
+    const id = r.rows[0]?.id || r.lastInsertRowid
+    console.log('[insPhase] rows:', JSON.stringify(r.rows), 'id:', id)
+    if (!id) throw new Error('No se pudo obtener el id de la fase. rows=' + JSON.stringify(r.rows))
+    return id
+  }
   const insRound = (...__a) => query('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3) RETURNING id', __a.flat())
 
   function knockoutRounds(n, withThird = false) {
@@ -269,39 +275,36 @@ router.post('/tournaments/:slug/auto-setup', authMiddleware, adminOnly, async (r
 
   const created = []
 
-  const phaseId = (r) => r.rows[0]?.id ?? r.lastInsertRowid
-
-  // Helper: inserta rondas en secuencia
+  // Helper: inserta rondas en secuencia (pid ya es el id numérico/string de la fase)
   async function insertRounds(pid, names) {
-    if (!pid) throw new Error('No se pudo obtener el id de la fase recién creada')
     for (let i = 0; i < names.length; i++) await insRound(pid, names[i], i)
   }
 
   try {
     if (modality === 'copa') {
-      const p      = await insPhase(t.id, categoryId || null, 'Eliminatoria', 'knockout', 0)
+      const pid    = await insPhase(t.id, categoryId || null, 'Eliminatoria', 'knockout', 0)
       const rounds = knockoutRounds(n, !!options.thirdPlace)
-      await insertRounds(phaseId(p), rounds)
+      await insertRounds(pid, rounds)
       created.push({ name: 'Eliminatoria', type: 'knockout', rounds })
 
     } else if (modality === 'liga') {
       const legs   = Math.max(1, parseInt(options.legs) || 1)
-      const p      = await insPhase(t.id, categoryId || null, 'Fase Regular', 'league', 0)
+      const pid    = await insPhase(t.id, categoryId || null, 'Fase Regular', 'league', 0)
       const rounds = leagueRounds(n, legs)
-      await insertRounds(phaseId(p), rounds)
+      await insertRounds(pid, rounds)
       created.push({ name: 'Fase Regular', type: 'league', rounds })
 
     } else if (modality === 'mixto') {
       const legs      = Math.max(1, parseInt(options.legs) || 1)
       const advancing = Math.max(2, Math.min(parseInt(options.advancing) || Math.floor(n / 2), n - 1))
-      const p1 = await insPhase(t.id, categoryId || null, 'Fase Regular', 'league', 0)
-      const r1 = leagueRounds(n, legs)
-      await insertRounds(phaseId(p1), r1)
+      const pid1 = await insPhase(t.id, categoryId || null, 'Fase Regular', 'league', 0)
+      const r1   = leagueRounds(n, legs)
+      await insertRounds(pid1, r1)
       created.push({ name: 'Fase Regular', type: 'league', rounds: r1 })
 
-      const p2 = await insPhase(t.id, categoryId || null, 'Liguilla', 'knockout', 1)
-      const r2 = knockoutRounds(advancing, !!options.thirdPlace)
-      await insertRounds(phaseId(p2), r2)
+      const pid2 = await insPhase(t.id, categoryId || null, 'Liguilla', 'knockout', 1)
+      const r2   = knockoutRounds(advancing, !!options.thirdPlace)
+      await insertRounds(pid2, r2)
       created.push({ name: 'Liguilla', type: 'knockout', rounds: r2 })
 
     } else if (modality === 'grupos_eliminacion') {
@@ -311,15 +314,15 @@ router.post('/tournaments/:slug/auto-setup', authMiddleware, adminOnly, async (r
 
       if (teamsPerGroup < 2) throw new Error('Demasiados grupos para los equipos disponibles.')
 
-      const p1 = await insPhase(t.id, categoryId || null, 'Fase de Grupos', 'groups', 0)
-      const r1 = leagueRounds(teamsPerGroup, 1)
-      await insertRounds(phaseId(p1), r1)
+      const pid1 = await insPhase(t.id, categoryId || null, 'Fase de Grupos', 'groups', 0)
+      const r1   = leagueRounds(teamsPerGroup, 1)
+      await insertRounds(pid1, r1)
       created.push({ name: 'Fase de Grupos', type: 'groups', rounds: r1 })
 
       const advancingTotal = groupCount * advanceCount
-      const p2 = await insPhase(t.id, categoryId || null, 'Eliminatoria', 'knockout', 1)
-      const r2 = knockoutRounds(advancingTotal)
-      await insertRounds(phaseId(p2), r2)
+      const pid2 = await insPhase(t.id, categoryId || null, 'Eliminatoria', 'knockout', 1)
+      const r2   = knockoutRounds(advancingTotal)
+      await insertRounds(pid2, r2)
       created.push({ name: 'Eliminatoria', type: 'knockout', rounds: r2 })
     }
 
