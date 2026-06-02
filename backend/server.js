@@ -4,7 +4,15 @@ const cors       = require('cors')
 const http       = require('http')
 const { Server } = require('socket.io')
 const path       = require('path')
-const { init, IS_PG } = require('./config/db')
+const { init, IS_PG, query } = require('./config/db')
+
+// ── Evitar crash por promesas no capturadas ───────────────────────────────
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason?.message || reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err.message)
+})
 
 async function start() {
   // Inicializar base de datos (SQLite local o PostgreSQL/Neon en producción)
@@ -42,6 +50,13 @@ async function start() {
     socket.on('join:tournament', slug => socket.join(`tournament:${slug}`))
     socket.on('disconnect', () => {})
   })
+
+  // ── Keep-alive: evita que Neon y Render duerman ─────────────────────────
+  if (IS_PG) {
+    setInterval(() => {
+      query('SELECT 1').catch(e => console.error('[keepalive]', e.message))
+    }, 4 * 60 * 1000) // cada 4 minutos
+  }
 
   const PORT = process.env.PORT || 3001
   server.listen(PORT, () => {
