@@ -78,23 +78,38 @@ const saving      = ref(false)
 const coverInput  = ref(null)
 const form = reactive({tournamentId:null, title:'', content:'', cover:''})
 
-function readImageFile(file) {
+// Comprime y redimensiona la imagen a máx 1200px y calidad 0.75
+// para evitar payloads grandes que crashean el servidor
+function compressImage(file, maxW = 1200, quality = 0.75) {
   return new Promise((resolve, reject) => {
-    if (file.size > 5 * 1024 * 1024) { alert('La imagen supera 5 MB'); return reject() }
+    if (!file.type.startsWith('image/')) return reject()
     const reader = new FileReader()
-    reader.onload = e => resolve(e.target.result)
     reader.onerror = reject
+    reader.onload = e => {
+      const img = new Image()
+      img.onerror = reject
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width)
+        const w = Math.round(img.width * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      }
+      img.src = e.target.result
+    }
     reader.readAsDataURL(file)
   })
 }
 async function onCoverChange(e) {
   const file = e.target.files[0]; if (!file) return
-  try { form.cover = await readImageFile(file) } catch {}
+  try { form.cover = await compressImage(file) } catch {}
   e.target.value = ''
 }
 async function onCoverDrop(e) {
   const file = e.dataTransfer.files[0]; if (!file || !file.type.startsWith('image/')) return
-  try { form.cover = await readImageFile(file) } catch {}
+  try { form.cover = await compressImage(file) } catch {}
 }
 const fmtDate = d => d ? new Date(d).toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'}) : ''
 

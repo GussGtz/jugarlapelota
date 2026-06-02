@@ -123,25 +123,36 @@ const tournamentCategories = ref([])
 function openGalleryForm() { galleryForm.title=''; galleryForm.categoryId=null; showGalleryForm.value=true }
 function openImageForm(g) { activeGallery.value=g; imageForm.previews=[]; imageForm.description=''; showImageForm.value=true }
 
-function readFile(file) {
+function compressImage(file, maxW = 1200, quality = 0.75) {
   return new Promise((resolve, reject) => {
-    if (file.size > 5 * 1024 * 1024) { alert(`${file.name} supera 5 MB`); return reject() }
     const reader = new FileReader()
-    reader.onload = e => resolve({ url: e.target.result, name: file.name })
     reader.onerror = reject
+    reader.onload = e => {
+      const img = new Image()
+      img.onerror = reject
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width)
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+        resolve({ url: canvas.toDataURL('image/jpeg', quality), name: file.name })
+      }
+      img.src = e.target.result
+    }
     reader.readAsDataURL(file)
   })
 }
 async function onFilesChange(e) {
   for (const file of e.target.files) {
-    try { imageForm.previews.push(await readFile(file)) } catch {}
+    try { imageForm.previews.push(await compressImage(file)) } catch {}
   }
   e.target.value = ''
 }
 async function onDrop(e) {
   for (const file of e.dataTransfer.files) {
     if (!file.type.startsWith('image/')) continue
-    try { imageForm.previews.push(await readFile(file)) } catch {}
+    try { imageForm.previews.push(await compressImage(file)) } catch {}
   }
 }
 

@@ -246,11 +246,20 @@ const form = reactive({
 })
 
 function onLogoChange(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  if (file.size > 2 * 1024 * 1024) { alert('El logo debe pesar menos de 2 MB'); return }
+  const file = e.target.files[0]; if (!file) return
   const reader = new FileReader()
-  reader.onload = ev => { form.logo = ev.target.result }
+  reader.onload = ev => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, 400 / img.width)
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+      form.logo = canvas.toDataURL('image/jpeg', 0.8)
+    }
+    img.src = ev.target.result
+  }
   reader.readAsDataURL(file)
 }
 
