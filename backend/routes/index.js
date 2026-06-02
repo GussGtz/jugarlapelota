@@ -30,6 +30,20 @@ const upload = multer({
 
 router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Archivo no válido o muy grande (máx 5 MB)' })
+
+  // En producción usar Cloudinary si está configurado
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
+    const cloudinary = require('../config/cloudinary')
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'jugarlapelota',
+      resource_type: 'auto',
+    })
+    // Eliminar el archivo temporal local
+    require('fs').unlink(req.file.path, () => {})
+    return res.json({ url: result.secure_url })
+  }
+
+  // Local: servir desde /uploads
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol
   const host = `${protocol}://${req.get('host')}`
   res.json({ url: `${host}/uploads/${req.file.filename}` })
@@ -96,8 +110,8 @@ router.get('/tournaments/:slug/phases', async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
   const catId = req.query.cat ? parseInt(req.query.cat) : null
   const rows = catId
-    ? (await query('SELECT p.*,c.name AS categoryName FROM phases p LEFT JOIN categories c ON p.category_id=c.id WHERE p.tournament_id=$1 AND p.category_id=$2 ORDER BY p.order_index', [t.id,catId])).rows
-    : (await query('SELECT p.*,c.name AS categoryName FROM phases p LEFT JOIN categories c ON p.category_id=c.id WHERE p.tournament_id=$1 ORDER BY c.order_index,p.order_index', [t.id])).rows
+    ? (await query('SELECT p.*,c.name AS "categoryName" FROM phases p LEFT JOIN categories c ON p.category_id=c.id WHERE p.tournament_id=$1 AND p.category_id=$2 ORDER BY p.order_index', [t.id,catId])).rows
+    : (await query('SELECT p.*,c.name AS "categoryName" FROM phases p LEFT JOIN categories c ON p.category_id=c.id WHERE p.tournament_id=$1 ORDER BY c.order_index,p.order_index', [t.id])).rows
   const phases = await Promise.all(rows.map(async p => {
     const rounds   = (await query('SELECT * FROM rounds WHERE phase_id=$1 ORDER BY order_index', [p.id])).rows
     const groupRows = (await query(`
@@ -110,8 +124,8 @@ router.get('/tournaments/:slug/phases', async (req, res) => {
       ...g,
       matches: (await query(`
         SELECT m.id, m.round_id, m.status, m.home_score, m.away_score,
-               ht.name AS homeTeam, ht.logo AS homeLogo,
-               at.name AS awayTeam, at.logo AS awayLogo
+               ht.name AS "homeTeam", ht.logo AS "homeLogo",
+               at.name AS "awayTeam", at.logo AS "awayLogo"
         FROM matches m
         JOIN teams ht ON m.home_team = ht.id
         JOIN teams at ON m.away_team = at.id
@@ -357,19 +371,19 @@ router.get('/tournaments/:slug/teams', async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
   const catId = req.query.cat ? parseInt(req.query.cat) : null
   const rows = catId
-    ? (await query('SELECT t.*,c.name AS categoryName,c.gender,c.group_name FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.tournament_id=$1 AND t.category_id=$2 ORDER BY t.name', [t.id,catId])).rows
-    : (await query('SELECT t.*,c.name AS categoryName,c.gender,c.group_name FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.tournament_id=$1 ORDER BY c.order_index,t.name', [t.id])).rows
+    ? (await query('SELECT t.*,c.name AS "categoryName",c.gender,c.group_name FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.tournament_id=$1 AND t.category_id=$2 ORDER BY t.name', [t.id,catId])).rows
+    : (await query('SELECT t.*,c.name AS "categoryName",c.gender,c.group_name FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.tournament_id=$1 ORDER BY c.order_index,t.name', [t.id])).rows
   res.json(rows)
 })
-router.get('/teams', async (_, res) => res.json((await query('SELECT t.*,c.name AS categoryName,tr.slug AS tournamentSlug,tr.name AS tournamentName FROM teams t LEFT JOIN categories c ON t.category_id=c.id LEFT JOIN tournaments tr ON t.tournament_id=tr.id ORDER BY t.name', [])).rows))
+router.get('/teams', async (_, res) => res.json((await query('SELECT t.*,c.name AS "categoryName",tr.slug AS "tournamentSlug",tr.name AS "tournamentName" FROM teams t LEFT JOIN categories c ON t.category_id=c.id LEFT JOIN tournaments tr ON t.tournament_id=tr.id ORDER BY t.name', [])).rows))
 
 router.get('/matches/live', async (_, res) => {
   const rows = (await query(`
     SELECT m.id, m.home_score, m.away_score, m.date, m.status, m.started_at,
-           ht.name AS homeTeam, ht.logo AS homeLogo,
-           at.name AS awayTeam, at.logo AS awayLogo,
-           t.name AS tournamentName, t.slug AS tournamentSlug,
-           c.name AS categoryName
+           ht.name AS "homeTeam", ht.logo AS "homeLogo",
+           at.name AS "awayTeam", at.logo AS "awayLogo",
+           t.name AS "tournamentName", t.slug AS "tournamentSlug",
+           c.name AS "categoryName"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id
     JOIN teams at ON m.away_team=at.id
@@ -387,7 +401,7 @@ router.post('/teams', authMiddleware, adminOnly, async (req, res) => {
   const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND category_id IS NOT DISTINCT FROM $3', [tournamentId, name.trim(), categoryId || null]))
   if (dup) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
   const r = await query('INSERT INTO teams (tournament_id,category_id,name,logo,coach,captain,description) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', [tournamentId, categoryId || null, name.trim(), logo || null, coach || null, captain || null, description || null])
-  res.status(201).json((await queryOne('SELECT t.*,c.name AS categoryName FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.id=$1', [r.lastInsertRowid])))
+  res.status(201).json((await queryOne('SELECT t.*,c.name AS "categoryName" FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.id=$1', [r.lastInsertRowid])))
 })
 
 router.put('/teams/:id', authMiddleware, adminOnly, async (req, res) => {
@@ -419,8 +433,8 @@ router.get('/tournaments/:slug/players', async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
   const catId = req.query.cat ? parseInt(req.query.cat) : null
   const rows = catId
-    ? (await query(`SELECT p.*,te.name AS teamName,te.category_id,c.name AS categoryName FROM players p JOIN teams te ON p.team_id=te.id LEFT JOIN categories c ON te.category_id=c.id WHERE te.tournament_id=$1 AND te.category_id=$2 ORDER BY p.goals DESC,p.assists DESC,p.name`, [t.id,catId])).rows
-    : (await query(`SELECT p.*,te.name AS teamName,te.category_id,c.name AS categoryName FROM players p JOIN teams te ON p.team_id=te.id LEFT JOIN categories c ON te.category_id=c.id WHERE te.tournament_id=$1 ORDER BY p.goals DESC,p.assists DESC,p.name`, [t.id])).rows
+    ? (await query(`SELECT p.*,te.name AS "teamName",te.category_id,c.name AS "categoryName" FROM players p JOIN teams te ON p.team_id=te.id LEFT JOIN categories c ON te.category_id=c.id WHERE te.tournament_id=$1 AND te.category_id=$2 ORDER BY p.goals DESC,p.assists DESC,p.name`, [t.id,catId])).rows
+    : (await query(`SELECT p.*,te.name AS "teamName",te.category_id,c.name AS "categoryName" FROM players p JOIN teams te ON p.team_id=te.id LEFT JOIN categories c ON te.category_id=c.id WHERE te.tournament_id=$1 ORDER BY p.goals DESC,p.assists DESC,p.name`, [t.id])).rows
   res.json(rows)
 })
 
@@ -453,7 +467,7 @@ router.get('/tournaments/:slug/players/phase-stats', async (req, res) => {
   const stats = (await query(`
     SELECT
       p.id, p.name, p.photo, p.number, p.position, p.team_id,
-      t.name AS teamName, t.logo AS teamLogo,
+      t.name AS "teamName", t.logo AS "teamLogo",
       COALESCE(SUM(CASE WHEN e.type='goal' THEN 1 ELSE 0 END), 0) AS goals,
       COALESCE(SUM(CASE WHEN e.type='assist' THEN 1 ELSE 0 END), 0) AS assists,
       COALESCE(SUM(CASE WHEN e.type='own_goal' THEN 1 ELSE 0 END), 0) AS own_goals,
@@ -480,12 +494,12 @@ async function checkPlayerDuplicate(teamId, name, excludePlayerId = null) {
   if (!team) return null
 
   const sql = excludePlayerId
-    ? `SELECT p.*, t.name AS teamName FROM players p
+    ? `SELECT p.*, t.name AS "teamName" FROM players p
        JOIN teams t ON p.team_id = t.id
        WHERE t.tournament_id = $1 AND t.category_id IS NOT DISTINCT FROM $2
          AND LOWER(TRIM(p.name)) = LOWER(TRIM($3))
          AND p.id != $4 AND p.team_id != $5`
-    : `SELECT p.*, t.name AS teamName FROM players p
+    : `SELECT p.*, t.name AS "teamName" FROM players p
        JOIN teams t ON p.team_id = t.id
        WHERE t.tournament_id = $1 AND t.category_id IS NOT DISTINCT FROM $2
          AND LOWER(TRIM(p.name)) = LOWER(TRIM($3))
@@ -551,12 +565,12 @@ router.get('/tournaments/:slug/matches', async (req, res) => {
   const phaseId = req.query.phase ? parseInt(req.query.phase) : null
   const roundId = req.query.round ? parseInt(req.query.round) : null
   let sql = `SELECT m.*,
-    CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.name END AS homeTeam,
-    CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.logo END AS homeLogo,
-    CASE WHEN m.away_is_tbd=1 THEN NULL ELSE at.name END AS awayTeam,
-    CASE WHEN m.away_is_tbd=1 THEN NULL ELSE at.logo END AS awayLogo,
-    c.name AS categoryName, ph.name AS phaseName, ph.type AS phaseType, r.name AS roundName,
-    u.name AS refereeName, u.id AS refereeId
+    CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.name END AS "homeTeam",
+    CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.logo END AS "homeLogo",
+    CASE WHEN m.away_is_tbd=1 THEN NULL ELSE at.name END AS "awayTeam",
+    CASE WHEN m.away_is_tbd=1 THEN NULL ELSE at.logo END AS "awayLogo",
+    c.name AS "categoryName", ph.name AS "phaseName", ph.type AS "phaseType", r.name AS "roundName",
+    u.name AS "refereeName", u.id AS "refereeId"
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN rounds r ON m.round_id=r.id
     LEFT JOIN users u ON m.referee_id=u.id
@@ -570,12 +584,12 @@ router.get('/tournaments/:slug/matches', async (req, res) => {
 })
 router.get('/matches/:id', async (req, res) => {
   const row = (await queryOne(`SELECT m.*,
-    CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.name END AS homeTeam,
-    CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.logo END AS homeLogo,
-    CASE WHEN m.away_is_tbd=1 THEN NULL ELSE at.name END AS awayTeam,
-    CASE WHEN m.away_is_tbd=1 THEN NULL ELSE at.logo END AS awayLogo,
-    c.name AS categoryName, ph.name AS phaseName, r.name AS roundName,
-    u.name AS refereeName, u.id AS refereeId
+    CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.name END AS "homeTeam",
+    CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.logo END AS "homeLogo",
+    CASE WHEN m.away_is_tbd=1 THEN NULL ELSE at.name END AS "awayTeam",
+    CASE WHEN m.away_is_tbd=1 THEN NULL ELSE at.logo END AS "awayLogo",
+    c.name AS "categoryName", ph.name AS "phaseName", r.name AS "roundName",
+    u.name AS "refereeName", u.id AS "refereeId"
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN rounds r ON m.round_id=r.id
     LEFT JOIN users u ON m.referee_id=u.id
@@ -592,7 +606,7 @@ router.post('/matches', authMiddleware, adminOnly, async (req, res) => {
 router.put('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
   const {categoryId,phaseId,roundId,homeTeam,awayTeam,home_score,away_score,date,location,status,match_notes} = req.body
   await query('UPDATE matches SET category_id=$1,phase_id=$2,round_id=$3,home_team=$4,away_team=$5,home_score=$6,away_score=$7,date=$8,location=$9,status=$10,match_notes=$11 WHERE id=$12', [categoryId||null,phaseId||null,roundId||null,homeTeam,awayTeam,home_score||0,away_score||0,date,location,status||'scheduled',match_notes||null,req.params.id])
-  const m = (await queryOne(`SELECT m.*,ht.name AS homeTeam,at.name AS awayTeam,ht.logo AS homeLogo,at.logo AS awayLogo,c.name AS categoryName,ph.type AS phaseType,u.name AS refereeName FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
+  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
   if (m.status === 'finished') {
     if (m.category_id) recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null)
     await advanceBracketWinner(m.id, req.io)
@@ -611,7 +625,7 @@ router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, r
   } else {
     await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [homeScore, awayScore, req.params.id])
   }
-  const m = (await queryOne(`SELECT m.*,ht.name AS homeTeam,at.name AS awayTeam,ht.logo AS homeLogo,at.logo AS awayLogo,c.name AS categoryName,ph.type AS phaseType,u.name AS refereeName FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
+  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
   if (m.status === 'finished') {
     if (m.category_id) recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null)
     await advanceBracketWinner(m.id, req.io)
@@ -624,7 +638,7 @@ router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, r
 router.patch('/matches/:id/status', authMiddleware, adminOnly, async (req, res) => {
   const { status } = req.body
   await query('UPDATE matches SET status=$1 WHERE id=$2', [status, req.params.id])
-  const m = (await queryOne(`SELECT m.*,ht.name AS homeTeam,at.name AS awayTeam FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id WHERE m.id=$1`, [req.params.id]))
+  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id WHERE m.id=$1`, [req.params.id]))
   if (status === 'finished') {
     if (m.category_id) recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null)
     await advanceBracketWinner(m.id, req.io)
@@ -651,8 +665,8 @@ router.delete('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
 // ── Match events (árbitro) ────────────────────────────────────────────────
 router.get('/matches/:id/events', async (req, res) => {
   const events = (await query(`
-    SELECT e.*, p.name AS playerName, p.number AS playerNumber,
-           t.name AS teamName
+    SELECT e.*, p.name AS "playerName", p.number AS "playerNumber",
+           t.name AS "teamName"
     FROM match_events e
     LEFT JOIN players p ON e.player_id = p.id
     LEFT JOIN teams   t ON e.team_id   = t.id
@@ -700,8 +714,8 @@ router.post('/matches/:id/events', authMiddleware, refereeOrAdmin, async (req, r
 
   // Leer datos enriquecidos del evento para el ticker en vivo
   const richEvent = (await queryOne(`
-    SELECT e.*, p.name AS playerName, p.number AS playerNumber,
-           t.name AS teamName, t.logo AS teamLogo
+    SELECT e.*, p.name AS "playerName", p.number AS "playerNumber",
+           t.name AS "teamName", t.logo AS "teamLogo"
     FROM match_events e
     LEFT JOIN players p ON e.player_id = p.id
     LEFT JOIN teams   t ON e.team_id   = t.id
@@ -710,8 +724,8 @@ router.post('/matches/:id/events', authMiddleware, refereeOrAdmin, async (req, r
 
   // Partido con nombres de equipos para el socket
   const updatedMatch = (await queryOne(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam,
-           ht.logo AS homeLogo, at.logo AS awayLogo
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
+           ht.logo AS "homeLogo", at.logo AS "awayLogo"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     WHERE m.id=$1
@@ -760,7 +774,7 @@ router.patch('/matches/:id/start', authMiddleware, refereeOrAdmin, async (req, r
   const now = new Date().toISOString()
   const refereeId = req.user?.id || null
   await query("UPDATE matches SET status='live', started_at=$1, referee_id=COALESCE(referee_id,$2) WHERE id=$3", [now, refereeId, req.params.id])
-  const m = (await queryOne(`SELECT m.*,ht.name AS homeTeam,at.name AS awayTeam FROM matches m
+  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam" FROM matches m
     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id WHERE m.id=$1`, [req.params.id]))
   global.sendPushToTeams?.([m.home_team, m.away_team], {
     type:'match:live', title:'🔴 ¡Partido en vivo!',
@@ -1138,7 +1152,7 @@ router.get('/tournaments/:slug/standings', async (req, res) => {
   }
 
   // Fallback: standings tabla (para compatibilidad)
-  let sql = `SELECT s.*,te.name AS teamName,te.logo,(s.goals_for-s.goals_against) AS goalDiff,c.name AS categoryName
+  let sql = `SELECT s.*,te.name AS "teamName",te.logo,(s.goals_for-s.goals_against) AS "goalDiff",c.name AS "categoryName"
     FROM standings s JOIN teams te ON s.team_id=te.id LEFT JOIN categories c ON s.category_id=c.id
     WHERE s.tournament_id=? AND s.group_id IS NULL`
   const params = [t.id]
@@ -1153,8 +1167,8 @@ router.get('/tournaments/:slug/streams', async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
   const catId = req.query.cat ? parseInt(req.query.cat) : null
   const rows = catId
-    ? (await query('SELECT s.*,c.name AS categoryName FROM streams s LEFT JOIN categories c ON s.category_id=c.id WHERE s.tournament_id=$1 AND (s.category_id=$2 OR s.category_id IS NULL) ORDER BY s.is_live DESC,s.id DESC', [t.id,catId])).rows
-    : (await query('SELECT s.*,c.name AS categoryName FROM streams s LEFT JOIN categories c ON s.category_id=c.id WHERE s.tournament_id=$1 ORDER BY s.is_live DESC,s.id DESC', [t.id])).rows
+    ? (await query('SELECT s.*,c.name AS "categoryName" FROM streams s LEFT JOIN categories c ON s.category_id=c.id WHERE s.tournament_id=$1 AND (s.category_id=$2 OR s.category_id IS NULL) ORDER BY s.is_live DESC,s.id DESC', [t.id,catId])).rows
+    : (await query('SELECT s.*,c.name AS "categoryName" FROM streams s LEFT JOIN categories c ON s.category_id=c.id WHERE s.tournament_id=$1 ORDER BY s.is_live DESC,s.id DESC', [t.id])).rows
   res.json(rows)
 })
 router.post('/streams', authMiddleware, adminOnly, async (req, res) => {
@@ -1269,7 +1283,7 @@ router.delete('/gallery-images/:id', authMiddleware, adminOnly, async (req, res)
 // ── Inscriptions ──────────────────────────────────────────────────────────
 router.get('/tournaments/:slug/inscriptions', authMiddleware, adminOnly, async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
-  const rows = (await query(`SELECT i.*,c.name AS categoryName FROM inscriptions i LEFT JOIN categories c ON i.category_id=c.id WHERE i.tournament_id=$1 ORDER BY i.created_at DESC`, [t.id])).rows
+  const rows = (await query(`SELECT i.*,c.name AS "categoryName" FROM inscriptions i LEFT JOIN categories c ON i.category_id=c.id WHERE i.tournament_id=$1 ORDER BY i.created_at DESC`, [t.id])).rows
   const result = await Promise.all(rows.map(async r => ({...r, players: (await query('SELECT * FROM inscription_players WHERE inscription_id=$1', [r.id])).rows})))
   res.json(result)
 })
@@ -1327,7 +1341,7 @@ router.delete('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) =
 router.get('/tournaments/:slug/awards', async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
   const catId = req.query.cat ? parseInt(req.query.cat) : null
-  const base = `SELECT a.*,p.name AS playerName,p.photo AS playerPhoto,te.name AS teamName,te.logo AS teamLogo,c.name AS categoryName FROM awards a LEFT JOIN players p ON a.player_id=p.id LEFT JOIN teams te ON a.team_id=te.id LEFT JOIN categories c ON a.category_id=c.id`
+  const base = `SELECT a.*,p.name AS "playerName",p.photo AS "playerPhoto",te.name AS "teamName",te.logo AS "teamLogo",c.name AS "categoryName" FROM awards a LEFT JOIN players p ON a.player_id=p.id LEFT JOIN teams te ON a.team_id=te.id LEFT JOIN categories c ON a.category_id=c.id`
   const rows = catId
     ? (await query(`${base} WHERE a.tournament_id=? AND a.category_id=? ORDER BY a.id`, [t.id,catId])).rows
     : (await query(`${base} WHERE a.tournament_id=? ORDER BY a.id`, [t.id])).rows
@@ -1341,7 +1355,7 @@ router.post('/awards', authMiddleware, adminOnly, async (req, res) => {
 router.put('/awards/:id', authMiddleware, adminOnly, async (req, res) => {
   const {type,playerId,teamId,description} = req.body
   await query('UPDATE awards SET type=$1,player_id=$2,team_id=$3,description=$4 WHERE id=$5', [type,playerId||null,teamId||null,description||null,req.params.id])
-  res.json((await queryOne(`SELECT a.*,p.name AS playerName,p.photo AS playerPhoto,te.name AS teamName,te.logo AS teamLogo,c.name AS categoryName FROM awards a LEFT JOIN players p ON a.player_id=p.id LEFT JOIN teams te ON a.team_id=te.id LEFT JOIN categories c ON a.category_id=c.id WHERE a.id=$1`, [req.params.id])))
+  res.json((await queryOne(`SELECT a.*,p.name AS "playerName",p.photo AS "playerPhoto",te.name AS "teamName",te.logo AS "teamLogo",c.name AS "categoryName" FROM awards a LEFT JOIN players p ON a.player_id=p.id LEFT JOIN teams te ON a.team_id=te.id LEFT JOIN categories c ON a.category_id=c.id WHERE a.id=$1`, [req.params.id])))
 })
 router.delete('/awards/:id', authMiddleware, adminOnly, async (req, res) => {
   await query('DELETE FROM awards WHERE id=$1', [req.params.id]); res.status(204).end()
@@ -1395,7 +1409,7 @@ router.post('/phases/:id/awards/regenerate', authMiddleware, adminOnly, async (r
   const phaseId = parseInt(req.params.id)
   await query('DELETE FROM awards WHERE phase_id=$1 AND auto_generated=1', [phaseId])
   await autoGenerateAwardsForPhase(phaseId)
-  const awards = (await query(`SELECT a.*,p.name AS playerName,te.name AS teamName,c.name AS categoryName FROM awards a LEFT JOIN players p ON a.player_id=p.id LEFT JOIN teams te ON a.team_id=te.id LEFT JOIN categories c ON a.category_id=c.id WHERE a.phase_id=$1`, [phaseId])).rows
+  const awards = (await query(`SELECT a.*,p.name AS "playerName",te.name AS "teamName",c.name AS "categoryName" FROM awards a LEFT JOIN players p ON a.player_id=p.id LEFT JOIN teams te ON a.team_id=te.id LEFT JOIN categories c ON a.category_id=c.id WHERE a.phase_id=$1`, [phaseId])).rows
   res.json({ ok:true, awards })
 })
 // Categorías con fases completadas sin premios (para el dashboard)
@@ -1462,11 +1476,11 @@ router.get('/phases/:id/standings', async (req, res) => {
 router.get('/phases/:id/matches', async (req, res) => {
   const rows = (await query(`
     SELECT m.*,
-      CASE WHEN COALESCE(m.home_is_tbd,0)=1 THEN NULL ELSE ht.name END AS homeTeam,
-      CASE WHEN COALESCE(m.home_is_tbd,0)=1 THEN NULL ELSE ht.logo END AS homeLogo,
-      CASE WHEN COALESCE(m.away_is_tbd,0)=1 THEN NULL ELSE at.name END AS awayTeam,
-      CASE WHEN COALESCE(m.away_is_tbd,0)=1 THEN NULL ELSE at.logo END AS awayLogo,
-      r.name AS roundName
+      CASE WHEN COALESCE(m.home_is_tbd,0)=1 THEN NULL ELSE ht.name END AS "homeTeam",
+      CASE WHEN COALESCE(m.home_is_tbd,0)=1 THEN NULL ELSE ht.logo END AS "homeLogo",
+      CASE WHEN COALESCE(m.away_is_tbd,0)=1 THEN NULL ELSE at.name END AS "awayTeam",
+      CASE WHEN COALESCE(m.away_is_tbd,0)=1 THEN NULL ELSE at.logo END AS "awayLogo",
+      r.name AS "roundName"
     FROM matches m
     LEFT JOIN teams ht ON m.home_team = ht.id
     LEFT JOIN teams at ON m.away_team = at.id
@@ -1481,7 +1495,7 @@ router.get('/phases/:id/matches', async (req, res) => {
 // Get matches for a group
 router.get('/phase-groups/:id/matches', async (req, res) => {
   const rows = (await query(`
-    SELECT m.*,ht.name AS homeTeam,at.name AS awayTeam,r.name AS roundName
+    SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",r.name AS "roundName"
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     LEFT JOIN rounds r ON m.round_id=r.id WHERE m.group_id=$1 ORDER BY m.date ASC
   `, [req.params.id])).rows
@@ -1586,7 +1600,7 @@ async function getGroupStandings(groupId) {
   if (!teams.length) {
     // Fallback de emergencia si no hay phase_group_teams
     return (await query(`
-      SELECT s.*, t.name AS teamName, t.logo
+      SELECT s.*, t.name AS "teamName", t.logo
       FROM standings s JOIN teams t ON s.team_id=t.id
       WHERE s.group_id=$1
       ORDER BY s.points DESC, (s.goals_for-s.goals_against) DESC, s.goals_for DESC
@@ -1950,7 +1964,7 @@ router.get('/teams/:id/profile', async (req, res) => {
   const teamId = req.params.id
 
   const team = (await queryOne(`
-    SELECT t.*, c.name AS categoryName, c.gender, c.group_name, tour.name AS tournamentName, tour.slug
+    SELECT t.*, c.name AS "categoryName", c.gender, c.group_name, tour.name AS "tournamentName", tour.slug
     FROM teams t
     LEFT JOIN categories c ON t.category_id=c.id
     LEFT JOIN tournaments tour ON t.tournament_id=tour.id
@@ -1961,7 +1975,7 @@ router.get('/teams/:id/profile', async (req, res) => {
   const players = (await query(`SELECT * FROM players WHERE team_id=$1 ORDER BY number ASC, name ASC`, [teamId])).rows
 
   const standings = (await query(`
-    SELECT s.*, p.name AS phaseName, p.type AS phaseType, pg.name AS groupName, c.name AS catName
+    SELECT s.*, p.name AS "phaseName", p.type AS "phaseType", pg.name AS "groupName", c.name AS catName
     FROM standings s
     LEFT JOIN phases p ON s.phase_id=p.id
     LEFT JOIN phase_groups pg ON s.group_id=pg.id
@@ -1971,7 +1985,7 @@ router.get('/teams/:id/profile', async (req, res) => {
   `, [teamId])).rows
 
   const recentMatches = (await query(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam, r.name AS roundName, p.name AS phaseName
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam", r.name AS "roundName", p.name AS "phaseName"
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     LEFT JOIN rounds r ON m.round_id=r.id LEFT JOIN phases p ON m.phase_id=p.id
     WHERE (m.home_team=$1 OR m.away_team=$2) AND m.status='finished'
@@ -1979,7 +1993,7 @@ router.get('/teams/:id/profile', async (req, res) => {
   `, [teamId, teamId])).rows
 
   const upcomingMatches = (await query(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam, r.name AS roundName, p.name AS phaseName
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam", r.name AS "roundName", p.name AS "phaseName"
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     LEFT JOIN rounds r ON m.round_id=r.id LEFT JOIN phases p ON m.phase_id=p.id
     WHERE (m.home_team=$1 OR m.away_team=$2) AND m.status='scheduled'
@@ -1987,13 +2001,13 @@ router.get('/teams/:id/profile', async (req, res) => {
   `, [teamId, teamId])).rows
 
   const liveMatch = (await queryOne(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam"
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     WHERE (m.home_team=$1 OR m.away_team=$2) AND m.status='live' LIMIT 1
   `, [teamId, teamId]))
 
   const awards = (await query(`
-    SELECT a.*, p.name AS playerName FROM awards a LEFT JOIN players p ON a.player_id=p.id
+    SELECT a.*, p.name AS "playerName" FROM awards a LEFT JOIN players p ON a.player_id=p.id
     WHERE a.team_id=$1 OR p.team_id=$2 ORDER BY a.id
   `, [teamId, teamId])).rows
 
@@ -2047,7 +2061,7 @@ router.get('/referees', authMiddleware, adminOnly, async (req, res) => {
   const rows = (await query(`
     SELECT u.id, u.name, u.email, u.username, u.is_active, u.created_at,
            u.tournament_id,
-           t.name AS tournamentName,
+           t.name AS "tournamentName",
            COUNT(DISTINCT m.id) AS matches_refereed
     FROM users u
     LEFT JOIN matches m ON m.referee_id = u.id
@@ -2062,9 +2076,9 @@ router.get('/referees', authMiddleware, adminOnly, async (req, res) => {
 // GET /referees/:id/matches — historial de partidos arbitrados
 router.get('/referees/:id/matches', authMiddleware, adminOnly, async (req, res) => {
   const rows = (await query(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam,
-           ht.logo AS homeLogo, at.logo AS awayLogo,
-           t.name AS tournamentName, c.name AS categoryName
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
+           ht.logo AS "homeLogo", at.logo AS "awayLogo",
+           t.name AS "tournamentName", c.name AS "categoryName"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     JOIN tournaments t ON m.tournament_id=t.id
@@ -2099,7 +2113,7 @@ router.post('/referees', authMiddleware, adminOnly, async (req, res) => {
   // Devolver datos completos con nombre del torneo si aplica
   const created = (await queryOne(`
     SELECT u.id, u.name, u.email, u.username, u.role, u.is_active, u.tournament_id,
-           t.name AS tournamentName
+           t.name AS "tournamentName"
     FROM users u LEFT JOIN tournaments t ON t.id = u.tournament_id
     WHERE u.id = $1
   `, [r.lastInsertRowid]))
@@ -2142,7 +2156,7 @@ router.put('/referees/:id', authMiddleware, adminOnly, async (req, res) => {
   // Retornar datos completos con nombre del torneo
   const updated = (await queryOne(`
     SELECT u.id, u.name, u.email, u.username, u.role, u.is_active, u.tournament_id,
-           t.name AS tournamentName
+           t.name AS "tournamentName"
     FROM users u LEFT JOIN tournaments t ON t.id = u.tournament_id
     WHERE u.id = $1
   `, [ref.id]))
@@ -2179,11 +2193,11 @@ router.get('/referee/matches', authMiddleware, async (req, res) => {
   const tournamentId = referee?.tournament_id
 
   let sql = `
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam,
-           ht.logo AS homeLogo, at.logo AS awayLogo,
-           t.name AS tournamentName, t.slug AS tournamentSlug,
-           c.name AS categoryName,
-           u.name AS refereeName
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
+           ht.logo AS "homeLogo", at.logo AS "awayLogo",
+           t.name AS "tournamentName", t.slug AS "tournamentSlug",
+           c.name AS "categoryName",
+           u.name AS "refereeName"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     JOIN tournaments t ON m.tournament_id=t.id
@@ -2214,11 +2228,11 @@ router.get('/referee/matches', authMiddleware, async (req, res) => {
 // Todos los partidos para el panel de árbitros
 router.get('/admin/all-matches', authMiddleware, adminOnly, async (req, res) => {
   const rows = (await query(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam,
-           ht.logo AS homeLogo, at.logo AS awayLogo,
-           t.name AS tournamentName, t.slug AS tournamentSlug,
-           c.name AS categoryName,
-           u.name AS refereeName, u.id AS refereeId
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
+           ht.logo AS "homeLogo", at.logo AS "awayLogo",
+           t.name AS "tournamentName", t.slug AS "tournamentSlug",
+           c.name AS "categoryName",
+           u.name AS "refereeName", u.id AS "refereeId"
     FROM matches m
     JOIN teams ht ON m.home_team = ht.id
     JOIN teams at ON m.away_team = at.id
@@ -2237,10 +2251,10 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
   const today = new Date().toISOString().slice(0, 10)
 
   const liveMatches = (await query(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam,
-           ht.logo AS homeLogo, at.logo AS awayLogo,
-           t.name AS tournamentName, t.slug AS tournamentSlug,
-           c.name AS categoryName
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
+           ht.logo AS "homeLogo", at.logo AS "awayLogo",
+           t.name AS "tournamentName", t.slug AS "tournamentSlug",
+           c.name AS "categoryName"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id
     JOIN teams at ON m.away_team=at.id
@@ -2251,10 +2265,10 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
   `, [])).rows
 
   const todayMatches = (await query(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam,
-           ht.logo AS homeLogo, at.logo AS awayLogo,
-           t.name AS tournamentName, t.slug AS tournamentSlug,
-           c.name AS categoryName
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
+           ht.logo AS "homeLogo", at.logo AS "awayLogo",
+           t.name AS "tournamentName", t.slug AS "tournamentSlug",
+           c.name AS "categoryName"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id
     JOIN teams at ON m.away_team=at.id
@@ -2265,10 +2279,10 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
   `, [today])).rows
 
   const nextMatches = (await query(`
-    SELECT m.*, ht.name AS homeTeam, at.name AS awayTeam,
-           ht.logo AS homeLogo, at.logo AS awayLogo,
-           t.name AS tournamentName, t.slug AS tournamentSlug,
-           c.name AS categoryName
+    SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
+           ht.logo AS "homeLogo", at.logo AS "awayLogo",
+           t.name AS "tournamentName", t.slug AS "tournamentSlug",
+           c.name AS "categoryName"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id
     JOIN teams at ON m.away_team=at.id
@@ -2291,9 +2305,9 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
 
   const matchesNoScheduleList = (await query(`
     SELECT m.id, m.date, m.location,
-           ht.name AS homeTeam, at.name AS awayTeam,
-           t.name AS tournamentName, t.slug AS tournamentSlug,
-           c.name AS categoryName
+           ht.name AS "homeTeam", at.name AS "awayTeam",
+           t.name AS "tournamentName", t.slug AS "tournamentSlug",
+           c.name AS "categoryName"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     JOIN tournaments t ON m.tournament_id=t.id
