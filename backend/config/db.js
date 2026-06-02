@@ -10,15 +10,21 @@ let _db   = null
 async function query(sql, params = []) {
   if (IS_PG) {
     const upper = sql.trimStart().toUpperCase()
-    // Para INSERT añadimos RETURNING id si no lo tiene, así lastInsertRowid siempre funciona
-    let execSql = sql
-    if (upper.startsWith('INSERT') && !upper.includes('RETURNING')) {
-      execSql = sql + ' RETURNING id'
+    const needsId = upper.startsWith('INSERT') && !upper.includes('RETURNING')
+    const execSql = needsId ? sql + ' RETURNING id' : sql
+    try {
+      const res = await _pool.query(execSql, params)
+      const rawId = res.rows[0]?.id
+      const lastInsertRowid = rawId != null ? parseInt(rawId) : null
+      return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid }
+    } catch (e) {
+      // Tablas sin columna id (junction tables): reintentar sin RETURNING
+      if (needsId && e.code === '42703') {
+        const res = await _pool.query(sql, params)
+        return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid: null }
+      }
+      throw e
     }
-    const res = await _pool.query(execSql, params)
-    const rawId = res.rows[0]?.id
-    const lastInsertRowid = rawId != null ? parseInt(rawId) : null
-    return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid }
   } else {
     // SQLite sync envuelto en Promise
     let n = 0
