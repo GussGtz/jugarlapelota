@@ -11,16 +11,10 @@ const authCtrl        = require('../controllers/auth.controller')
 const tournamentsCtrl = require('../controllers/tournaments.controller')
 
 // ── File upload ───────────────────────────────────────────────────────────────
-const storage = multer.diskStorage({
-  destination: path.join(__dirname, '../data/uploads'),
-  filename: (_req, file, cb) => {
-    const ext  = path.extname(file.originalname).toLowerCase()
-    const name = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
-    cb(null, name)
-  }
-})
+// Usamos memoria en lugar de disco: la imagen se convierte a base64 y se guarda
+// directamente en la BD. Sin filesystem, sin servicios externos, funciona en Render.
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   fileFilter: (_req, file, cb) => {
     const allowed = ['.jpg','.jpeg','.png','.webp','.gif','.svg']
@@ -30,23 +24,8 @@ const upload = multer({
 
 router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Archivo no válido o muy grande (máx 5 MB)' })
-
-  // En producción usar Cloudinary si está configurado
-  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
-    const cloudinary = require('../config/cloudinary')
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'jugarlapelota',
-      resource_type: 'auto',
-    })
-    // Eliminar el archivo temporal local
-    require('fs').unlink(req.file.path, () => {})
-    return res.json({ url: result.secure_url })
-  }
-
-  // Local: servir desde /uploads
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol
-  const host = `${protocol}://${req.get('host')}`
-  res.json({ url: `${host}/uploads/${req.file.filename}` })
+  const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
+  res.json({ url: dataUrl })
 })
 
 // ── Helpers ───────────────────────────────────────────────────────────────
