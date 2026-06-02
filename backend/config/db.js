@@ -78,8 +78,8 @@ async function init() {
     }
 
     // Seed admin
-    const { rows } = await _pool.query("SELECT id FROM users WHERE email='admin@jugarlapelota.com'")
-    if (!rows.length) {
+    const adminCheck = await _pool.query("SELECT id FROM users WHERE email='admin@jugarlapelota.com'")
+    if (!adminCheck.rows.length) {
       const hash = bcrypt.hashSync('Admin1234!', 10)
       await _pool.query(
         "INSERT INTO users (name,email,password,role,is_active) VALUES ($1,$2,$3,'admin',1)",
