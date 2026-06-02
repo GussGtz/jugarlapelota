@@ -106,17 +106,16 @@
               {{ phase.matchStats?.total === 0 ? 'Generar partidos' : canRegenerate(phase) ? 'Regenerar' : 'Bloqueado' }}
             </button>
 
-            <!-- Botón especial: Generar Eliminatoria (solo en fase de grupos) -->
-            <button v-if="phase.type === 'groups' && phase.matchStats?.total > 0"
-              @click="openKnockoutPreview(phase)"
-              :disabled="knockoutGenerationBlocked(phase)"
+            <!-- Botón especial: Generar Eliminatoria (solo en fase de grupos con knockout vinculado) -->
+            <button v-if="phase.type === 'groups' && linkedKnockoutPhase(phase)"
+              @click="!knockoutGenerationBlocked(phase) && openKnockoutPreview(phase)"
               :title="knockoutGenerationTitle(phase)"
               class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all"
               :class="!knockoutGenerationBlocked(phase)
-                ? 'border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                ? 'border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer'
                 : 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed'">
               <IconTrophy class="w-3.5 h-3.5"/>
-              {{ knockoutAlreadyStarted(phase) ? 'Eliminatoria iniciada' : 'Generar Eliminatoria' }}
+              {{ knockoutAlreadyStarted(phase) ? '✓ Eliminatoria generada' : 'Generar Eliminatoria' }}
             </button>
 
             <button v-if="!(phase.type === 'knockout' && isKnockoutAfterGroups(phase))"
