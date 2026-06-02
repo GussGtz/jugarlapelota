@@ -9,8 +9,15 @@ let _db   = null
 // ── API PostgreSQL (async) ────────────────────────────────────────────────────
 async function query(sql, params = []) {
   if (IS_PG) {
-    const res = await _pool.query(sql, params)
-    const lastInsertRowid = res.rows[0]?.id ? parseInt(res.rows[0].id) : null
+    const upper = sql.trimStart().toUpperCase()
+    // Para INSERT añadimos RETURNING id si no lo tiene, así lastInsertRowid siempre funciona
+    let execSql = sql
+    if (upper.startsWith('INSERT') && !upper.includes('RETURNING')) {
+      execSql = sql + ' RETURNING id'
+    }
+    const res = await _pool.query(execSql, params)
+    const rawId = res.rows[0]?.id
+    const lastInsertRowid = rawId != null ? parseInt(rawId) : null
     return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid }
   } else {
     // SQLite sync envuelto en Promise
