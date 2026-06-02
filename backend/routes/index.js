@@ -686,20 +686,16 @@ router.post('/matches/:id/events', authMiddleware, refereeOrAdmin, async (req, r
 
   const r = await query('INSERT INTO match_events (match_id,type,player_id,team_id,minute,second,note) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', [matchId, type, playerId || null, teamId || null, minute ?? null, second ?? 0, note || null])
 
-  // Normalizar teamId a número para comparaciones (viene como string del body JSON)
-  const teamIdNum  = parseInt(teamId)
-  const homeTeamId = match.home_team   // número en BD
-  const awayTeamId = match.away_team   // número en BD
+  // Comparar como string para evitar mismatch number/string de PostgreSQL
+  const isHomeTeam = String(teamId) === String(match.home_team)
 
   if (type === 'goal' || type === 'own_goal') {
     let home = match.home_score
     let away = match.away_score
     if (type === 'goal') {
-      if (teamIdNum === homeTeamId) home++
-      else away++
-    } else { // own_goal: suma al contrario
-      if (teamIdNum === homeTeamId) away++
-      else home++
+      if (isHomeTeam) home++; else away++
+    } else { // own_goal: suma al equipo contrario
+      if (isHomeTeam) away++; else home++
     }
     await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [home, away, matchId])
     if (playerId) await query('UPDATE players SET goals=goals+1 WHERE id=$1', [playerId])
