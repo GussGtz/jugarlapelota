@@ -1903,7 +1903,7 @@ router.get('/phases/:id/knockout-preview', authMiddleware, adminOnly, async (req
     if (seeded[i] && seeded[i+1]) matchups.push({ home: seeded[i], away: seeded[i+1] })
   }
 
-  const nextPhase = findNextKnockout(phase.tournament_id, phase.category_id, phase.order_index)
+  const nextPhase = await findNextKnockout(phase.tournament_id, phase.category_id, phase.order_index)
   res.json({ pending, total, groupStandings, matchups, nextPhase: nextPhase || null })
 })
 
@@ -1959,7 +1959,7 @@ router.post('/phases/:id/advance-to-knockout', authMiddleware, adminOnly, async 
   // Encontrar o crear automáticamente la fase knockout
   let nextPhase = nextPhaseId
     ? (await queryOne('SELECT * FROM phases WHERE id=$1', [nextPhaseId]))
-    : findNextKnockout(phase.tournament_id, phase.category_id, phase.order_index)
+    : await findNextKnockout(phase.tournament_id, phase.category_id, phase.order_index)
 
   if (!nextPhase) {
     // Auto-crear la fase eliminatoria
