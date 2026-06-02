@@ -1,15 +1,18 @@
 <template>
   <section class="hero-root">
 
-    <!-- ── Video de fondo ─────────────────────────────── -->
-    <video
-      v-if="videoSrc"
-      class="hero-video"
-      autoplay muted loop playsinline
-      :src="videoSrc"
-    />
-    <!-- Fallback CSS: solo cuando no hay video -->
-    <div v-if="!videoSrc" class="hero-field-bg" aria-hidden="true">
+    <!-- ── Video de fondo: YouTube iframe ───────────────── -->
+    <div v-if="YOUTUBE_ID" class="hero-video" aria-hidden="true">
+      <iframe
+        :src="`https://www.youtube.com/embed/${YOUTUBE_ID}?autoplay=1&mute=1&loop=1&playlist=${YOUTUBE_ID}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1`"
+        allow="autoplay; encrypted-media"
+        allowfullscreen
+        frameborder="0"
+        style="pointer-events:none; width:100%; height:100%; position:absolute; inset:0;"
+      />
+    </div>
+    <!-- Fallback CSS: cuando no hay video configurado -->
+    <div v-if="!YOUTUBE_ID" class="hero-field-bg" aria-hidden="true">
       <div class="field-lines">
         <div class="field-center-circle"></div>
         <div class="field-center-line"></div>
@@ -110,9 +113,9 @@
 <script setup>
 import { Trophy, Radio, BarChart2, Smartphone } from 'lucide-vue-next'
 
-// Video alojado en Google Drive (no sube al repo por su tamaño)
-const VIDEO_DRIVE_ID = '181X7UKU5gwkF8zzIudHxZ-6MS3PeVB-I'
-const videoSrc = `https://drive.google.com/uc?export=download&id=${VIDEO_DRIVE_ID}`
+// Pon aquí el ID de YouTube del video de fondo (ej: dQw4w9WgXcQ de youtube.com/watch?v=dQw4w9WgXcQ)
+// Déjalo vacío ('') para usar el fondo CSS animado
+const YOUTUBE_ID = ''
 
 const features = [
   { title: 'Inscripciones en línea',    desc: 'Los equipos se registran solos, tú solo apruebas' },
@@ -145,7 +148,7 @@ const stats = [
   .hero-root { margin-top: -64px; padding-top: 64px; }
 }
 
-/* ── Video ── */
+/* ── Video / YouTube iframe container ── */
 .hero-video {
   position: absolute;
   inset: 0;
@@ -153,6 +156,19 @@ const stats = [
   height: 100%;
   object-fit: cover;
   opacity: 0.55;
+  overflow: hidden;
+}
+/* El iframe de YouTube necesita ser más grande para cubrir sin barras negras */
+.hero-video iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.5);
+  width: 100vw;
+  height: 56.25vw; /* 16:9 */
+  min-height: 100%;
+  min-width: 177.78vh; /* 16:9 */
+  pointer-events: none;
 }
 
 /* ── Fondo CSS campo de fútbol (fallback sin video) ── */
