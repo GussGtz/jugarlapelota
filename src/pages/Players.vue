@@ -356,7 +356,15 @@ const tabStatColor = computed(() => ({ goals:'text-accent', assists:'text-primar
 function tabStatValue(p) { return p[sortKey.value] || 0 }
 
 const enriched = computed(() =>
-  players.value.map(p => ({ ...p, combined: (p.goals||0) + (p.assists||0) }))
+  players.value.map(p => ({
+    ...p,
+    goals:        parseInt(p.goals||0),
+    assists:      parseInt(p.assists||0),
+    yellow_cards: parseInt(p.yellow_cards||0),
+    red_cards:    parseInt(p.red_cards||0),
+    matches_played: parseInt(p.matches_played||0),
+    combined:     parseInt(p.goals||0) + parseInt(p.assists||0)
+  }))
 )
 const positions = computed(() => [...new Set(enriched.value.map(p => p.position).filter(Boolean))].sort())
 const filteredPlayers = computed(() => {
@@ -366,10 +374,10 @@ const filteredPlayers = computed(() => {
 })
 const top3Players = computed(() => filteredPlayers.value.slice(0, 3).filter(p => tabStatValue(p) > 0))
 
-const totalGoals   = computed(() => enriched.value.reduce((s,p) => s+(p.goals||0), 0))
-const totalAssists = computed(() => enriched.value.reduce((s,p) => s+(p.assists||0), 0))
-const totalYellow  = computed(() => enriched.value.reduce((s,p) => s+(p.yellow_cards||0), 0))
-const totalRed     = computed(() => enriched.value.reduce((s,p) => s+(p.red_cards||0), 0))
+const totalGoals   = computed(() => enriched.value.reduce((s,p) => s + parseInt(p.goals||0), 0))
+const totalAssists = computed(() => enriched.value.reduce((s,p) => s + parseInt(p.assists||0), 0))
+const totalYellow  = computed(() => enriched.value.reduce((s,p) => s + parseInt(p.yellow_cards||0), 0))
+const totalRed     = computed(() => enriched.value.reduce((s,p) => s + parseInt(p.red_cards||0), 0))
 
 // ── Reconocimientos de equipo (calculados desde standings) ────
 const standingsWithPlayedMatches = computed(() =>
