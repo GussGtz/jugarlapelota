@@ -14,8 +14,8 @@ const tournamentsCtrl = require('../controllers/tournaments.controller')
 const cloudinary = require('cloudinary').v2
 cloudinary.config({
   cloud_name:  process.env.CLOUDINARY_CLOUD_NAME  || 'dok6cmxfp',
-  api_key:     process.env.CLOUDINARY_API_KEY     || '883232272995424',
-  api_secret:  process.env.CLOUDINARY_API_SECRET  || '533777788497876',
+  api_key:     process.env.CLOUDINARY_API_KEY     || '533777788497876',
+  api_secret:  process.env.CLOUDINARY_API_SECRET  || '46abylvaiBG_qQ_edxjASLrywLk',
 })
 
 // ── File upload → Cloudinary ──────────────────────────────────────────────────
