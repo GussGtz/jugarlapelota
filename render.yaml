@@ -1,0 +1,47 @@
+services:
+  # ── Backend API ─────────────────────────────────────────────────
+  - type: web
+    name: jugarlapelota-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false        # lo pegas desde Neon
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false        # URL del frontend en Render
+      - key: VAPID_SUBJECT
+        value: mailto:admin@jugarlapelota.com
+      - key: PUBLIC_VAPID_KEY
+        sync: false
+      - key: PRIVATE_VAPID_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  # ── Frontend SPA ─────────────────────────────────────────────────
+  - type: web
+    name: jugarlapelota-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false        # URL del backend en Render
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

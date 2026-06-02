@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg:         #F7F9FC;
+    --color-card:       #FFFFFF;
+    --color-border:     #E5E7EB;
+    --color-text:       #0F172A;
+    --color-text-soft:  #64748B;
+    --color-primary:    #0ea5e9;
+    --color-accent:     #10b981;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: #F7F9FC;
+    color: #0F172A;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #F7F9FC; }
+  ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #0ea5e9; }
+}
+
+/* ── Native feel animations ─────────────────────────────────────── */
+
+/* Page transitions */
+.page-enter-active { animation: pageSlideIn 0.25s ease-out; }
+.page-leave-active { animation: pageSlideOut 0.2s ease-in forwards; }
+@keyframes pageSlideIn  { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pageSlideOut { from { opacity:1; transform:translateY(0); }   to { opacity:0; transform:translateY(-8px); } }
+
+/* Card hover lift */
+.card { transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease; }
+.card:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(14,165,233,0.1); }
+
+/* Button press */
+.btn-primary:active, .btn-accent:active, .btn-ghost:active {
+  transform: scale(0.97);
+}
+
+/* Live pulse ring */
+@keyframes live-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+.live-ring { animation: live-ring 2s ease-in-out infinite; }
+
+/* Bounce in */
+@keyframes bounceIn {
+  0%   { transform: scale(0.3); opacity: 0; }
+  50%  { transform: scale(1.05); opacity: 1; }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.bounce-in { animation: bounceIn 0.4s cubic-bezier(0.36,0.07,0.19,0.97); }
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.5rem;
+}
+
+/* Tab bar tap animation */
+@keyframes tabTap {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+.tab-tap { animation: tabTap 0.25s cubic-bezier(0.36,0.07,0.19,0.97); }
+
+/* Bracket advance */
+@keyframes bracketAdvance {
+  0%   { opacity: 0; transform: translateX(-20px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+.bracket-advance { animation: bracketAdvance 0.35s ease-out; }
+
+/* Score update pop */
+@keyframes scorePop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.4); color: #0ea5e9; }
+  100% { transform: scale(1); }
+}
+.score-pop { animation: scorePop 0.3s ease; }
+
+/* Safe area utilities */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-sky-600 transition-all duration-200 shadow-sm;
+  }
+  .btn-accent {
+    @apply bg-accent text-white font-bold px-6 py-3 rounded-xl hover:bg-emerald-600 transition-all duration-200 shadow-sm;
+  }
+  .btn-ghost {
+    @apply border border-primary text-primary px-6 py-3 rounded-xl hover:bg-primary hover:text-white transition-all duration-200;
+  }
+  .card {
+    @apply bg-card rounded-2xl border border-muted p-4 hover:border-primary transition-colors duration-200 shadow-sm;
+  }
+  .section-title {
+    @apply text-2xl md:text-3xl font-extrabold;
+    color: #0F172A;
+  }
+  .live-dot {
+    @apply inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse-live;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+  }
+}
