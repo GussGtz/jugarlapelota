@@ -34,8 +34,23 @@
           <input v-model="form.title" class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
         </div>
         <div>
-          <label class="text-xs text-slate-700 mb-1 block">URL de imagen de portada</label>
-          <input v-model="form.cover" placeholder="https://..." class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
+          <label class="text-xs text-slate-700 mb-1.5 block font-semibold">Imagen de portada</label>
+          <input ref="coverInput" type="file" accept="image/*" class="hidden" @change="onCoverChange"/>
+          <div v-if="!form.cover"
+            @click="coverInput.click()"
+            @dragover.prevent @drop.prevent="onCoverDrop"
+            class="border-2 border-dashed border-muted rounded-xl p-6 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all">
+            <div class="text-2xl mb-1">🖼️</div>
+            <p class="text-sm font-semibold text-slate-700">Haz clic o arrastra una imagen</p>
+            <p class="text-xs text-slate-400 mt-0.5">JPG, PNG, WebP · máx 5 MB</p>
+          </div>
+          <div v-else class="relative rounded-xl overflow-hidden aspect-video bg-muted">
+            <img :src="form.cover" class="w-full h-full object-cover"/>
+            <button type="button" @click="form.cover=''"
+              class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-lg font-bold hover:bg-red-600">
+              Quitar
+            </button>
+          </div>
         </div>
         <div>
           <label class="text-xs text-slate-500 mb-2 block">Contenido *</label>
@@ -60,13 +75,33 @@ const tournaments = ref([])
 const showForm    = ref(false)
 const editing     = ref(null)
 const saving      = ref(false)
+const coverInput  = ref(null)
 const form = reactive({tournamentId:null, title:'', content:'', cover:''})
+
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (file.size > 5 * 1024 * 1024) { alert('La imagen supera 5 MB'); return reject() }
+    const reader = new FileReader()
+    reader.onload = e => resolve(e.target.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+async function onCoverChange(e) {
+  const file = e.target.files[0]; if (!file) return
+  try { form.cover = await readImageFile(file) } catch {}
+  e.target.value = ''
+}
+async function onCoverDrop(e) {
+  const file = e.dataTransfer.files[0]; if (!file || !file.type.startsWith('image/')) return
+  try { form.cover = await readImageFile(file) } catch {}
+}
 const fmtDate = d => d ? new Date(d).toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'}) : ''
 
 function openForm(n=null) {
   editing.value=n
-  if(n) Object.assign(form,{tournamentId:n.tournament_id,title:n.title,content:n.content||'',cover:n.cover||''})
-  else  Object.assign(form,{tournamentId:tournaments.value[0]?.id,title:'',content:'',cover:''})
+  if(n) Object.assign(form,{tournamentId:n.tournament_id,title:n.title,content:n.content||'',cover:n.cover||null})
+  else  Object.assign(form,{tournamentId:tournaments.value[0]?.id,title:'',content:'',cover:null})
   showForm.value=true
 }
 
