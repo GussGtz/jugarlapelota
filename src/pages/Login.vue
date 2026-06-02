@@ -108,8 +108,8 @@ async function handleLogin() {
     } else {
       router.push(redirectTo.value || '/admin')
     }
-  } catch {
-    error.value = 'Credenciales incorrectas. Verifica tu usuario y contraseña.'
+  } catch (e) {
+    error.value = e.response?.data?.error || 'Credenciales incorrectas. Verifica tu correo y contraseña.'
   } finally {
     loading.value = false
   }
