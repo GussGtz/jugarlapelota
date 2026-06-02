@@ -58,7 +58,7 @@
         <div>
           <label class="field-label">Cuéntanos más (opcional)</label>
           <textarea v-model="form.message" rows="4" class="input-base w-full resize-none"
-            placeholder="¿Cuántos equipos tienes? ¿Qué deporte? ¿En qué ciudad?" />
+            placeholder="¿Cuántos equipos tienes? ¿En qué ciudad? ¿Cuándo empieza el torneo?" />
         </div>
 
         <div v-if="error" class="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
