@@ -635,10 +635,10 @@
           </div>
           <div class="bg-slate-50 rounded-xl border border-muted p-4 space-y-3">
             <div>
-              <p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Usuario</p>
+              <p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Correo</p>
               <div class="flex items-center gap-2">
-                <code class="flex-1 font-mono text-sm bg-white border border-muted rounded-lg px-3 py-2 text-slate-900">{{ newCredentials.username }}</code>
-                <button @click="copy(newCredentials.username)" class="text-primary hover:text-primary/70 text-xs font-bold border border-primary/30 px-2.5 py-2 rounded-lg">Copiar</button>
+                <code class="flex-1 font-mono text-sm bg-white border border-muted rounded-lg px-3 py-2 text-slate-900">{{ newCredentials.email }}</code>
+                <button @click="copy(newCredentials.email)" class="text-primary hover:text-primary/70 text-xs font-bold border border-primary/30 px-2.5 py-2 rounded-lg">Copiar</button>
               </div>
             </div>
             <div>
@@ -653,7 +653,7 @@
             <p class="text-xs text-amber-800 font-semibold flex items-start gap-1.5">
               <IconAlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5"/>
               Guarda estas credenciales ahora — la contraseña <strong>no volverá a mostrarse</strong>.
-              El árbitro debe ingresar en <strong>/login</strong> con su usuario.
+              El árbitro debe ingresar en <strong>/login</strong> con su correo.
             </p>
           </div>
           <button @click="newCredentials.show=false"
@@ -1117,7 +1117,7 @@ async function saveRef() {
         matches_refereed: 0
       })
       Object.assign(newCredentials, {
-        show: true, username: data.username, password: data.plainPassword, name: data.name
+        show: true, email: refModal.email, password: refModal.password.trim() || data.plainPassword, name: data.name
       })
     }
     refModal.show = false
