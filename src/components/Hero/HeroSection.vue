@@ -70,9 +70,9 @@
 
         <!-- CTAs -->
         <div class="flex flex-wrap gap-4 mt-10">
-          <a href="#torneos" @click.prevent="document.getElementById('torneos')?.scrollIntoView({behavior:'smooth'})" class="hero-btn-primary">
+          <button type="button" @click="document.getElementById('torneos')?.scrollIntoView({behavior:'smooth'})" class="hero-btn-primary">
             Ver torneos
-          </a>
+          </button>
           <router-link to="/login" class="hero-btn-ghost">
             Comenzar
           </router-link>
