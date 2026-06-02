@@ -143,4 +143,27 @@ const PG_SCHEMA = [
   notes TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`
 ]
 
-module.exports = { PG_SCHEMA }
+// Migraciones: columnas añadidas después del deploy inicial.
+// ADD COLUMN IF NOT EXISTS es idempotente — no falla si ya existe.
+const PG_MIGRATIONS = [
+  `ALTER TABLE phases  ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 0`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS bracket_slot  INTEGER`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS next_match_id BIGINT`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS home_is_tbd   INTEGER DEFAULT 0`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS away_is_tbd   INTEGER DEFAULT 0`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS started_at    TEXT`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS finished_at   TEXT`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS match_notes   TEXT`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS stream_id     BIGINT`,
+  `ALTER TABLE matches ADD COLUMN IF NOT EXISTS referee_id    BIGINT REFERENCES users(id) ON DELETE SET NULL`,
+  `ALTER TABLE players ADD COLUMN IF NOT EXISTS minutes_played  INTEGER DEFAULT 0`,
+  `ALTER TABLE players ADD COLUMN IF NOT EXISTS matches_played  INTEGER DEFAULT 0`,
+  `ALTER TABLE teams   ADD COLUMN IF NOT EXISTS inscription_id BIGINT`,
+  `ALTER TABLE users   ADD COLUMN IF NOT EXISTS google_id TEXT`,
+  `ALTER TABLE users   ADD COLUMN IF NOT EXISTS username  TEXT`,
+  `ALTER TABLE users   ADD COLUMN IF NOT EXISTS tournament_id BIGINT`,
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rules_pdf TEXT`,
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS modality TEXT DEFAULT 'copa'`,
+]
+
+module.exports = { PG_SCHEMA, PG_MIGRATIONS }

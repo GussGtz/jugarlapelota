@@ -47,9 +47,10 @@ async function init() {
       ssl: { rejectUnauthorized: false },
       max: 10,
     })
-    // Crear schema
-    const { PG_SCHEMA } = require('./db-schema')
-    for (const stmt of PG_SCHEMA) await _pool.query(stmt)
+    // Crear schema + migraciones idempotentes
+    const { PG_SCHEMA, PG_MIGRATIONS } = require('./db-schema')
+    for (const stmt of PG_SCHEMA)      await _pool.query(stmt)
+    for (const stmt of PG_MIGRATIONS)  await _pool.query(stmt)
 
     // Seed admin
     const { rows } = await _pool.query("SELECT id FROM users WHERE email='admin@jugarlapelota.com'")
