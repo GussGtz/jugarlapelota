@@ -247,14 +247,24 @@ router.post('/tournaments/:slug/auto-setup', authMiddleware, adminOnly, async (r
     })
   }
 
-  const insPhase = async (...__a) => {
-    const r = await query('INSERT INTO phases (tournament_id,category_id,name,type,order_index,is_active) VALUES ($1,$2,$3,$4,$5,1) RETURNING id', __a.flat())
-    const id = r.rows[0]?.id || r.lastInsertRowid
-    console.log('[insPhase] rows:', JSON.stringify(r.rows), 'id:', id)
-    if (!id) throw new Error('No se pudo obtener el id de la fase. rows=' + JSON.stringify(r.rows))
-    return id
+  const insPhase = async (tournamentId, categoryId, name, type, order_index) => {
+    await query(
+      'INSERT INTO phases (tournament_id,category_id,name,type,order_index,is_active) VALUES ($1,$2,$3,$4,$5,1)',
+      [tournamentId, categoryId, name, type, order_index]
+    )
+    const row = await queryOne(
+      'SELECT id FROM phases WHERE tournament_id=$1 AND name=$2 ORDER BY id DESC LIMIT 1',
+      [tournamentId, name]
+    )
+    if (!row?.id) throw new Error(`No se pudo obtener el id de la fase "${name}"`)
+    return row.id
   }
-  const insRound = (...__a) => query('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3) RETURNING id', __a.flat())
+  const insRound = async (phaseId, name, order_index) => {
+    await query(
+      'INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3)',
+      [phaseId, name, order_index]
+    )
+  }
 
   function knockoutRounds(n, withThird = false) {
     const rounds = []
