@@ -384,7 +384,7 @@ router.post('/teams', authMiddleware, adminOnly, async (req, res) => {
   const {tournamentId, categoryId, name, logo, coach, captain, description} = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'El nombre del equipo es requerido' })
   if (!await checkOwnerByTournamentId(req, res, tournamentId)) return
-  const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND (category_id=$3 OR (category_id IS NULL AND $4 IS NULL))', [tournamentId, name.trim(), categoryId || null, categoryId || null]))
+  const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND category_id IS NOT DISTINCT FROM $3', [tournamentId, name.trim(), categoryId || null]))
   if (dup) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
   const r = await query('INSERT INTO teams (tournament_id,category_id,name,logo,coach,captain,description) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', [tournamentId, categoryId || null, name.trim(), logo || null, coach || null, captain || null, description || null])
   res.status(201).json((await queryOne('SELECT t.*,c.name AS categoryName FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.id=$1', [r.lastInsertRowid])))
@@ -398,7 +398,7 @@ router.put('/teams/:id', authMiddleware, adminOnly, async (req, res) => {
   if (!await checkOwnerByTournamentId(req, res, tid)) return
 
   // Duplicado al renombrar: mismo nombre en el torneo y categoría, excluyendo el equipo actual
-  const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND (category_id=$3 OR (category_id IS NULL AND $4 IS NULL)) AND id!=$5', [tid, name.trim(), categoryId || null, categoryId || null, id]))
+  const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND category_id IS NOT DISTINCT FROM $3 AND id!=$4', [tid, name.trim(), categoryId || null, id]))
   if (dup) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
 
   await query('UPDATE teams SET name=$1,logo=$2,coach=$3,captain=$4,description=$5,category_id=$6 WHERE id=$7', [name.trim(), logo || null, coach || null, captain || null, description || null, categoryId || null, id])
@@ -482,14 +482,14 @@ async function checkPlayerDuplicate(teamId, name, excludePlayerId = null) {
   const sql = excludePlayerId
     ? `SELECT p.*, t.name AS teamName FROM players p
        JOIN teams t ON p.team_id = t.id
-       WHERE t.tournament_id = ? AND t.category_id = ?
-         AND LOWER(TRIM(p.name)) = LOWER(TRIM(?))
-         AND p.id != ? AND p.team_id != ?`
+       WHERE t.tournament_id = $1 AND t.category_id IS NOT DISTINCT FROM $2
+         AND LOWER(TRIM(p.name)) = LOWER(TRIM($3))
+         AND p.id != $4 AND p.team_id != $5`
     : `SELECT p.*, t.name AS teamName FROM players p
        JOIN teams t ON p.team_id = t.id
-       WHERE t.tournament_id = ? AND t.category_id = ?
-         AND LOWER(TRIM(p.name)) = LOWER(TRIM(?))
-         AND p.team_id != ?`
+       WHERE t.tournament_id = $1 AND t.category_id IS NOT DISTINCT FROM $2
+         AND LOWER(TRIM(p.name)) = LOWER(TRIM($3))
+         AND p.team_id != $4`
 
   const args = excludePlayerId
     ? [team.tournament_id, team.category_id, name.trim(), excludePlayerId, teamId]
