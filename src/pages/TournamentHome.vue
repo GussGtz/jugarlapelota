@@ -672,7 +672,7 @@
             <div class="flex transition-transform duration-500 ease-in-out"
               :style="{ transform: `translateX(-${currentSlide * 100}%)` }">
               <div v-for="(photo, idx) in allPhotos" :key="idx" class="w-full shrink-0">
-                <img :src="photo.url || photo" class="w-full h-72 md:h-[500px] object-cover" />
+                <img :src="photo.image_url || photo.url || photo" class="w-full h-72 md:h-[500px] object-cover" />
               </div>
             </div>
           </div>
