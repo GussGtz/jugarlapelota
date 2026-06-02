@@ -126,7 +126,7 @@ async function handleGoogleCredential(response) {
 }
 
 onMounted(() => {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '681799651240-1ovf8j8hb7t6nekiq8fflifb6qarelma.apps.googleusercontent.com'
   if (!clientId) return
 
   const script = document.createElement('script')
