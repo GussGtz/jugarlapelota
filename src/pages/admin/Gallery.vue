@@ -63,21 +63,41 @@
     <div v-if="showImageForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div class="bg-card rounded-2xl border border-muted w-full max-w-md p-6 space-y-4">
         <h3 class="font-bold text-slate-900 text-lg">Agregar imagen a "{{ activeGallery?.title }}"</h3>
+
+        <!-- Upload area -->
         <div>
-          <label class="text-xs text-slate-700 mb-1 block">URL de la imagen *</label>
-          <input v-model="imageForm.imageUrl" placeholder="https://res.cloudinary.com/..." class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
+          <label class="text-xs text-slate-700 mb-1.5 block font-semibold">Imagen *</label>
+          <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="onFilesChange"/>
+          <div v-if="!imageForm.previews.length"
+            @click="fileInput.click()"
+            @dragover.prevent @drop.prevent="onDrop"
+            class="border-2 border-dashed border-muted rounded-xl p-8 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all">
+            <div class="text-3xl mb-2">🖼️</div>
+            <p class="text-sm font-semibold text-slate-700">Haz clic o arrastra imágenes aquí</p>
+            <p class="text-xs text-slate-400 mt-1">JPG, PNG, WebP · Puedes subir varias a la vez</p>
+          </div>
+          <!-- Previews -->
+          <div v-else class="space-y-2">
+            <div class="grid grid-cols-3 gap-2">
+              <div v-for="(p,i) in imageForm.previews" :key="i" class="relative group aspect-square rounded-lg overflow-hidden bg-slate-100">
+                <img :src="p.url" class="w-full h-full object-cover"/>
+                <button @click="imageForm.previews.splice(i,1)" type="button"
+                  class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+              </div>
+              <div @click="fileInput.click()" class="aspect-square rounded-lg border-2 border-dashed border-muted flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all text-slate-400 text-2xl">+</div>
+            </div>
+            <p class="text-xs text-slate-500">{{ imageForm.previews.length }} imagen{{ imageForm.previews.length !== 1 ? 'es' : '' }} lista{{ imageForm.previews.length !== 1 ? 's' : '' }}</p>
+          </div>
         </div>
+
         <div>
           <label class="text-xs text-slate-700 mb-1 block">Descripción (opcional)</label>
           <input v-model="imageForm.description" class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
         </div>
-        <!-- Preview -->
-        <div v-if="imageForm.imageUrl" class="rounded-xl overflow-hidden aspect-video bg-muted">
-          <img :src="imageForm.imageUrl" class="w-full h-full object-contain" @error="previewError=true"/>
-          <p v-if="previewError" class="text-slate-500 text-center py-4 text-sm">No se pudo cargar la imagen</p>
-        </div>
         <div class="flex gap-3">
-          <button @click="saveImage" :disabled="saving||!imageForm.imageUrl" class="btn-primary text-sm flex-1 disabled:opacity-50">{{ saving?'Guardando...':'Agregar imagen' }}</button>
+          <button @click="saveImage" :disabled="saving||!imageForm.previews.length" class="btn-primary text-sm flex-1 disabled:opacity-50">
+            {{ saving ? 'Guardando...' : `Agregar ${imageForm.previews.length||''} imagen${imageForm.previews.length!==1?'es':''}` }}
+          </button>
           <button @click="showImageForm=false" class="btn-ghost text-sm">Cancelar</button>
         </div>
       </div>
@@ -95,13 +115,35 @@ const activeGallery      = ref(null)
 const showGalleryForm    = ref(false)
 const showImageForm      = ref(false)
 const saving             = ref(false)
-const previewError       = ref(false)
+const fileInput          = ref(null)
 const galleryForm = reactive({ title:'', categoryId: null })
-const imageForm   = reactive({ imageUrl:'', description:'' })
+const imageForm   = reactive({ previews: [], description:'' })
 const tournamentCategories = ref([])
 
 function openGalleryForm() { galleryForm.title=''; galleryForm.categoryId=null; showGalleryForm.value=true }
-function openImageForm(g) { activeGallery.value=g; imageForm.imageUrl=''; imageForm.description=''; previewError.value=false; showImageForm.value=true }
+function openImageForm(g) { activeGallery.value=g; imageForm.previews=[]; imageForm.description=''; showImageForm.value=true }
+
+function readFile(file) {
+  return new Promise((resolve, reject) => {
+    if (file.size > 5 * 1024 * 1024) { alert(`${file.name} supera 5 MB`); return reject() }
+    const reader = new FileReader()
+    reader.onload = e => resolve({ url: e.target.result, name: file.name })
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+async function onFilesChange(e) {
+  for (const file of e.target.files) {
+    try { imageForm.previews.push(await readFile(file)) } catch {}
+  }
+  e.target.value = ''
+}
+async function onDrop(e) {
+  for (const file of e.dataTransfer.files) {
+    if (!file.type.startsWith('image/')) continue
+    try { imageForm.previews.push(await readFile(file)) } catch {}
+  }
+}
 
 async function saveGallery() {
   if (!galleryForm.title) return alert('El título es requerido')
@@ -111,9 +153,14 @@ async function saveGallery() {
 }
 
 async function saveImage() {
-  if (!imageForm.imageUrl) return
+  if (!imageForm.previews.length) return
   saving.value = true
-  try { await api.post('/gallery-images',{ galleryId:activeGallery.value.id, imageUrl:imageForm.imageUrl, description:imageForm.description }); await load(); showImageForm.value=false }
+  try {
+    for (const p of imageForm.previews) {
+      await api.post('/gallery-images',{ galleryId:activeGallery.value.id, imageUrl:p.url, description:imageForm.description||null })
+    }
+    await load(); showImageForm.value=false
+  }
   catch { alert('Error al guardar imagen') } finally { saving.value=false }
 }
 
