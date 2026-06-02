@@ -19,6 +19,11 @@ backend/data/*.db-wal
 # Uploads locales (en prod se usa Cloudinary)
 backend/data/uploads/
 
+# Archivos de video grandes (supera límite de GitHub 100MB)
+*.mp4
+*.mov
+*.avi
+
 # Sistema
 .DS_Store
 *.local
