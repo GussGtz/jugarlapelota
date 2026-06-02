@@ -270,6 +270,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import api from '@/api'
+import { useAutoRefresh } from '@/composables/useAutoRefresh'
 import { Target, Zap, AlertCircle as AlertCircleIcon } from 'lucide-vue-next'
 
 const players        = ref([])

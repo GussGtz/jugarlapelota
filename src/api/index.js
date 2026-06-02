@@ -13,9 +13,19 @@ api.interceptors.request.use(config => {
   return config
 })
 
+// Bus de eventos para refrescos automáticos de UI
+export const apiEvents = new EventTarget()
+
 // Reintento automático cuando el backend está durmiendo (red/CORS/timeout)
 api.interceptors.response.use(
-  res => res,
+  res => {
+    // Cuando una mutación tiene éxito, notificar a los componentes
+    const method = res.config?.method?.toUpperCase()
+    if (['POST','PUT','PATCH','DELETE'].includes(method)) {
+      apiEvents.dispatchEvent(new CustomEvent('mutation', { detail: { method, url: res.config.url } }))
+    }
+    return res
+  },
   async err => {
     const config = err.config
     // 401 fuera de la ruta de login → limpiar sesión y redirigir

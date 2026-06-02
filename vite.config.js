@@ -43,14 +43,21 @@ export default defineConfig({
         importScripts: ['/sw-push.js'],
         runtimeCaching: [
           {
+            // API: NUNCA cachear — siempre red directa, sin datos viejos
             urlPattern: /\/api\//,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'api-cache', expiration: { maxEntries: 100, maxAgeSeconds: 60 } }
+            handler: 'NetworkOnly',
           },
           {
+            // Imágenes de Cloudinary: cachear 30 días (no cambian)
+            urlPattern: /res\.cloudinary\.com/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'cloudinary-cache', expiration: { maxEntries: 300, maxAgeSeconds: 86400 * 30 } }
+          },
+          {
+            // Otras imágenes estáticas
             urlPattern: /\.(png|jpg|jpeg|svg|gif|webp)$/,
             handler: 'CacheFirst',
-            options: { cacheName: 'images-cache', expiration: { maxEntries: 200, maxAgeSeconds: 86400 * 30 } }
+            options: { cacheName: 'images-cache', expiration: { maxEntries: 200, maxAgeSeconds: 86400 * 7 } }
           }
         ]
       }

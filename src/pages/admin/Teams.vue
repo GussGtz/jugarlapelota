@@ -379,6 +379,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import api from '@/api'
+import { useAutoRefresh } from '@/composables/useAutoRefresh'
 import ImageUpload from '@/components/ImageUpload/ImageUpload.vue'
 
 const teams          = ref([])
