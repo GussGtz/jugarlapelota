@@ -247,8 +247,8 @@ router.post('/tournaments/:slug/auto-setup', authMiddleware, adminOnly, async (r
     })
   }
 
-  const insPhase = (...__a) => query('INSERT INTO phases (tournament_id,category_id,name,type,order_index,is_active) VALUES ($1,$2,$3,$4,$5,1)', __a.flat())
-  const insRound = (...__a) => query('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3)', __a.flat())
+  const insPhase = (...__a) => query('INSERT INTO phases (tournament_id,category_id,name,type,order_index,is_active) VALUES ($1,$2,$3,$4,$5,1) RETURNING id', __a.flat())
+  const insRound = (...__a) => query('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3) RETURNING id', __a.flat())
 
   function knockoutRounds(n, withThird = false) {
     const rounds = []
@@ -543,6 +543,7 @@ router.get('/tournaments/:slug/matches', async (req, res) => {
   const catId   = req.query.cat   ? parseInt(req.query.cat)   : null
   const phaseId = req.query.phase ? parseInt(req.query.phase) : null
   const roundId = req.query.round ? parseInt(req.query.round) : null
+  const params = [t.id]
   let sql = `SELECT m.*,
     CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.name END AS "homeTeam",
     CASE WHEN m.home_is_tbd=1 THEN NULL ELSE ht.logo END AS "homeLogo",
@@ -553,13 +554,12 @@ router.get('/tournaments/:slug/matches', async (req, res) => {
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
     LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN rounds r ON m.round_id=r.id
     LEFT JOIN users u ON m.referee_id=u.id
-    WHERE m.tournament_id=?`
-  const params = [t.id]
-  if (catId)   { sql += ' AND m.category_id=?';   params.push(catId) }
-  if (phaseId) { sql += ' AND m.phase_id=?';     params.push(phaseId) }
-  if (roundId) { sql += ' AND m.round_id=?';     params.push(roundId) }
+    WHERE m.tournament_id=$1`
+  if (catId)   { params.push(catId);   sql += ` AND m.category_id=$${params.length}` }
+  if (phaseId) { params.push(phaseId); sql += ` AND m.phase_id=$${params.length}` }
+  if (roundId) { params.push(roundId); sql += ` AND m.round_id=$${params.length}` }
   sql += ' ORDER BY m.date ASC'
-  res.json((await query(sql, [...params])).rows)
+  res.json((await query(sql, params)).rows)
 })
 router.get('/matches/:id', async (req, res) => {
   const row = (await queryOne(`SELECT m.*,
