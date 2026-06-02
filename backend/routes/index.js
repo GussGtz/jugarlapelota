@@ -1,4 +1,5 @@
 const express = require('express')
+require('express-async-errors')  // captura errores de async handlers en Express 4
 const router  = express.Router()
 const path    = require('path')
 const multer  = require('multer')

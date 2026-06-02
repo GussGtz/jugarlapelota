@@ -24,13 +24,19 @@ async function start() {
   app.use(express.urlencoded({ extended: true }))
   app.use((req, _res, next) => { req.io = io; next() })
 
-  // Archivos subidos (solo en local con SQLite; en prod se usa Cloudinary)
-  if (!IS_PG) {
-    app.use('/uploads', express.static(path.join(__dirname, 'data/uploads')))
-  }
+  // Servir uploads siempre (en prod Render sirve los archivos del deploy)
+  app.use('/uploads', express.static(path.join(__dirname, 'data/uploads')))
 
   app.use('/api', routes)
   app.get('/health', (_req, res) => res.json({ status: 'ok', db: IS_PG ? 'postgres' : 'sqlite', time: new Date().toISOString() }))
+
+  // ── Error handler global (captura async errors + express-async-errors) ──────
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, _next) => {
+    console.error('[ERROR]', req.method, req.path, err.message || err)
+    const status = err.status || err.statusCode || 500
+    res.status(status).json({ error: err.message || 'Error interno del servidor' })
+  })
 
   io.on('connection', (socket) => {
     socket.on('join:tournament', slug => socket.join(`tournament:${slug}`))
