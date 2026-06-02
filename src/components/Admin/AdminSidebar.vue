@@ -95,7 +95,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   BarChart2, Trophy, Layers, Shuffle, Shirt, User, Circle,
   ClipboardList, FileText, Award, Radio, Image, Newspaper,
-  Handshake, Bookmark, TrendingUp, Settings,
+  TrendingUp, Settings,
   PanelLeftClose, PanelLeftOpen, ShieldCheck, Users
 } from 'lucide-vue-next'
 

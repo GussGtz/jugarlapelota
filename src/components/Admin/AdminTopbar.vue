@@ -53,8 +53,6 @@ const titles = {
   '/admin/transmisiones':     'Transmisiones',
   '/admin/galeria':           'Galería',
   '/admin/noticias':          'Noticias',
-  '/admin/sponsors':          'Sponsors',
-  '/admin/banners':           'Banners y Publicidad',
   '/admin/analytics':         'Analytics',
   '/admin/config':            'Configuración',
   '/admin/superadmin':        'Administradores'

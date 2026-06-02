@@ -139,7 +139,6 @@ const drawerQuickLinks = [
   { to: '/admin/tabla',         label: 'Tabla',         icon: 'IconBarChart2' },
   { to: '/admin/premios',       label: 'Premios',       icon: 'IconMedal' },
   { to: '/admin/noticias',      label: 'Noticias',      icon: 'IconNewspaper' },
-  { to: '/admin/sponsors',      label: 'Sponsors',      icon: 'IconStar' },
   { to: '/admin/analytics',     label: 'Analytics',     icon: 'IconTrendingUp' },
 ]
 </script>
