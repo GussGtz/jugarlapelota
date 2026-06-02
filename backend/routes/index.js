@@ -2075,10 +2075,6 @@ router.post('/referees', authMiddleware, adminOnly, async (req, res) => {
   if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' })
   if (!email?.trim()) return res.status(400).json({ error: 'El correo es requerido' })
 
-  // Verificar email único
-  const existing = (await queryOne("SELECT id FROM users WHERE email=$1", [email.trim().toLowerCase()]))
-  if (existing) return res.status(400).json({ error: 'El correo ya está registrado' })
-
   // Siempre usar la contraseña que puso el admin (mínimo 6 chars)
   const plainPassword = clientPassword?.trim()
   if (!plainPassword || plainPassword.length < 6)

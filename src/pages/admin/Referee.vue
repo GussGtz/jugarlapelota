@@ -87,6 +87,7 @@
           <!-- Acciones -->
           <div class="flex flex-col gap-1.5 shrink-0">
             <button @click="openRefModal(ref)" class="text-xs text-primary font-bold hover:underline">Editar</button>
+            <button @click="resetPassword(ref)" class="text-xs text-amber-600 font-bold hover:underline">Resetear contraseña</button>
             <button @click="askToggleRef(ref)" class="text-xs font-bold hover:underline"
               :class="ref.is_active ? 'text-orange-500' : 'text-green-600'">
               {{ ref.is_active ? 'Desactivar' : 'Activar' }}
@@ -1123,6 +1124,20 @@ async function saveRef() {
     refModal.show = false
   } catch (e) {
     alert(e.response?.data?.error || 'Error al guardar árbitro')
+  }
+}
+
+async function resetPassword(ref) {
+  const newPwd = prompt(`Nueva contraseña para ${ref.name} (mínimo 6 caracteres):`)
+  if (!newPwd || newPwd.trim().length < 6) {
+    if (newPwd !== null) alert('La contraseña debe tener al menos 6 caracteres')
+    return
+  }
+  try {
+    await api.put(`/referees/${ref.id}`, { name: ref.name, email: ref.email, resetPassword: true, newPassword: newPwd.trim(), tournamentId: ref.tournament_id })
+    Object.assign(newCredentials, { show: true, email: ref.email, password: newPwd.trim(), name: ref.name })
+  } catch (e) {
+    alert(e.response?.data?.error || 'Error al resetear contraseña')
   }
 }
 
