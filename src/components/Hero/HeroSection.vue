@@ -1,18 +1,17 @@
 <template>
   <section class="hero-root">
 
-    <!-- ── Video de fondo: YouTube iframe ───────────────── -->
-    <div v-if="YOUTUBE_ID" class="hero-video" aria-hidden="true">
+    <!-- ── Video de fondo ────────────────────────────────── -->
+    <div v-if="VIDEO_URL" class="hero-video" aria-hidden="true">
       <iframe
-        :src="`https://www.youtube.com/embed/${YOUTUBE_ID}?autoplay=1&mute=1&loop=1&playlist=${YOUTUBE_ID}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1`"
+        :src="VIDEO_URL"
         allow="autoplay; encrypted-media"
-        allowfullscreen
         frameborder="0"
-        style="pointer-events:none; width:100%; height:100%; position:absolute; inset:0;"
+        style="pointer-events:none;"
       />
     </div>
     <!-- Fallback CSS: cuando no hay video configurado -->
-    <div v-if="!YOUTUBE_ID" class="hero-field-bg" aria-hidden="true">
+    <div v-if="!VIDEO_URL" class="hero-field-bg" aria-hidden="true">
       <div class="field-lines">
         <div class="field-center-circle"></div>
         <div class="field-center-line"></div>
@@ -113,9 +112,8 @@
 <script setup>
 import { Trophy, Radio, BarChart2, Smartphone } from 'lucide-vue-next'
 
-// Pon aquí el ID de YouTube del video de fondo (ej: dQw4w9WgXcQ de youtube.com/watch?v=dQw4w9WgXcQ)
-// Déjalo vacío ('') para usar el fondo CSS animado
-const YOUTUBE_ID = ''
+// Video de fondo — Streamable embed (autoplay, sin controles, sin sonido)
+const VIDEO_URL = 'https://streamable.com/e/c9hu23?autoplay=1&muted=1&loop=1&nocontrols=1'
 
 const features = [
   { title: 'Inscripciones en línea',    desc: 'Los equipos se registran solos, tú solo apruebas' },
