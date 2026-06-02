@@ -6,6 +6,19 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('jlp_token') || null)
   const user  = ref(JSON.parse(localStorage.getItem('jlp_user') || 'null'))
 
+  // Verificar token al cargar — si el usuario ya no existe en la BD, limpiar sesión
+  async function verifySession() {
+    if (!token.value) return
+    try {
+      const { data } = await api.get('/auth/me')
+      if (!data?.id) { token.value = null; user.value = null; localStorage.removeItem('jlp_token'); localStorage.removeItem('jlp_user') }
+      else user.value = data
+    } catch {
+      token.value = null; user.value = null
+      localStorage.removeItem('jlp_token'); localStorage.removeItem('jlp_user')
+    }
+  }
+
   const isAdmin      = computed(() => user.value?.role === 'admin' || user.value?.role === 'superadmin')
   const isSuperAdmin = computed(() => user.value?.role === 'superadmin')
   const isFan        = computed(() => user.value?.role === 'fan')
@@ -39,5 +52,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('jlp_user')
   }
 
-  return { token, user, isAdmin, isSuperAdmin, isFan, isLoggedIn, login, googleLogin, logout }
+  return { token, user, isAdmin, isSuperAdmin, isFan, isLoggedIn, login, googleLogin, logout, verifySession }
 })
