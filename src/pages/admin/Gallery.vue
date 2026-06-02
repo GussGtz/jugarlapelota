@@ -108,6 +108,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/api'
+import { uploadImage } from '@/utils/upload'
 const galleries          = ref([])
 const tournaments        = ref([])
 const selectedTournament  = ref(null)
@@ -123,36 +124,16 @@ const tournamentCategories = ref([])
 function openGalleryForm() { galleryForm.title=''; galleryForm.categoryId=null; showGalleryForm.value=true }
 function openImageForm(g) { activeGallery.value=g; imageForm.previews=[]; imageForm.description=''; showImageForm.value=true }
 
-function compressImage(file, maxW = 1200, quality = 0.75) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = reject
-    reader.onload = e => {
-      const img = new Image()
-      img.onerror = reject
-      img.onload = () => {
-        const scale = Math.min(1, maxW / img.width)
-        const w = Math.round(img.width * scale), h = Math.round(img.height * scale)
-        const canvas = document.createElement('canvas')
-        canvas.width = w; canvas.height = h
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-        resolve({ url: canvas.toDataURL('image/jpeg', quality), name: file.name })
-      }
-      img.src = e.target.result
-    }
-    reader.readAsDataURL(file)
-  })
-}
 async function onFilesChange(e) {
   for (const file of e.target.files) {
-    try { imageForm.previews.push(await compressImage(file)) } catch {}
+    imageForm.previews.push({ url: URL.createObjectURL(file), name: file.name, file })
   }
   e.target.value = ''
 }
 async function onDrop(e) {
   for (const file of e.dataTransfer.files) {
     if (!file.type.startsWith('image/')) continue
-    try { imageForm.previews.push(await compressImage(file)) } catch {}
+    imageForm.previews.push({ url: URL.createObjectURL(file), name: file.name, file })
   }
 }
 
@@ -168,11 +149,12 @@ async function saveImage() {
   saving.value = true
   try {
     for (const p of imageForm.previews) {
-      await api.post('/gallery-images',{ galleryId:activeGallery.value.id, imageUrl:p.url, description:imageForm.description||null })
+      const url = p.file ? await uploadImage(p.file) : p.url
+      await api.post('/gallery-images',{ galleryId:activeGallery.value.id, imageUrl: url, description:imageForm.description||null })
     }
     await load(); showImageForm.value=false
   }
-  catch { alert('Error al guardar imagen') } finally { saving.value=false }
+  catch (e) { alert('Error al guardar imagen: ' + (e.message||'')) } finally { saving.value=false }
 }
 
 async function deleteImage(id, gallery) {

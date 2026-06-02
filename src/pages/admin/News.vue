@@ -68,6 +68,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/api'
+import { uploadImage } from '@/utils/upload'
 import RichEditor from '@/components/RichEditor/RichEditor.vue'
 
 const news       = ref([])
@@ -76,40 +77,20 @@ const showForm    = ref(false)
 const editing     = ref(null)
 const saving      = ref(false)
 const coverInput  = ref(null)
+const uploading   = ref(false)
 const form = reactive({tournamentId:null, title:'', content:'', cover:''})
 
-// Comprime y redimensiona la imagen a máx 1200px y calidad 0.75
-// para evitar payloads grandes que crashean el servidor
-function compressImage(file, maxW = 1200, quality = 0.75) {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) return reject()
-    const reader = new FileReader()
-    reader.onerror = reject
-    reader.onload = e => {
-      const img = new Image()
-      img.onerror = reject
-      img.onload = () => {
-        const scale = Math.min(1, maxW / img.width)
-        const w = Math.round(img.width * scale)
-        const h = Math.round(img.height * scale)
-        const canvas = document.createElement('canvas')
-        canvas.width = w; canvas.height = h
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-        resolve(canvas.toDataURL('image/jpeg', quality))
-      }
-      img.src = e.target.result
-    }
-    reader.readAsDataURL(file)
-  })
-}
 async function onCoverChange(e) {
   const file = e.target.files[0]; if (!file) return
-  try { form.cover = await compressImage(file) } catch {}
-  e.target.value = ''
+  uploading.value = true
+  try { form.cover = await uploadImage(file) } catch { alert('Error al subir imagen') }
+  uploading.value = false; e.target.value = ''
 }
 async function onCoverDrop(e) {
   const file = e.dataTransfer.files[0]; if (!file || !file.type.startsWith('image/')) return
-  try { form.cover = await compressImage(file) } catch {}
+  uploading.value = true
+  try { form.cover = await uploadImage(file) } catch { alert('Error al subir imagen') }
+  uploading.value = false
 }
 const fmtDate = d => d ? new Date(d).toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'}) : ''
 

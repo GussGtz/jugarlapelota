@@ -10,22 +10,55 @@ const crypto = require('crypto')
 const authCtrl        = require('../controllers/auth.controller')
 const tournamentsCtrl = require('../controllers/tournaments.controller')
 
-// ── File upload ───────────────────────────────────────────────────────────────
-// Usamos memoria en lugar de disco: la imagen se convierte a base64 y se guarda
-// directamente en la BD. Sin filesystem, sin servicios externos, funciona en Render.
+// ── Cloudinary config ─────────────────────────────────────────────────────────
+const cloudinary = require('cloudinary').v2
+cloudinary.config({
+  cloud_name:  process.env.CLOUDINARY_CLOUD_NAME  || 'dok6cmxfp',
+  api_key:     process.env.CLOUDINARY_API_KEY     || '883232272995424',
+  api_secret:  process.env.CLOUDINARY_API_SECRET  || '533777788497876',
+})
+
+// ── File upload → Cloudinary ──────────────────────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (_req, file, cb) => {
-    const allowed = ['.jpg','.jpeg','.png','.webp','.gif','.svg']
+    const allowed = ['.jpg','.jpeg','.png','.webp','.gif','.svg','.mp4','.mov']
     cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()))
   }
 })
 
+// Subida pública (para inscripciones sin auth)
+async function uploadToCloudinary(buffer, mimetype) {
+  return new Promise((resolve, reject) => {
+    const isVideo = mimetype.startsWith('video/')
+    cloudinary.uploader.upload_stream(
+      { folder: 'jugarlapelota', resource_type: isVideo ? 'video' : 'image', quality: 'auto', fetch_format: 'auto' },
+      (err, result) => err ? reject(err) : resolve(result.secure_url)
+    ).end(buffer)
+  })
+}
+
 router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Archivo no válido o muy grande (máx 5 MB)' })
-  const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
-  res.json({ url: dataUrl })
+  if (!req.file) return res.status(400).json({ error: 'Archivo no válido o muy grande (máx 10 MB)' })
+  try {
+    const url = await uploadToCloudinary(req.file.buffer, req.file.mimetype)
+    res.json({ url })
+  } catch (e) {
+    console.error('[upload]', e.message)
+    res.status(500).json({ error: 'Error al subir imagen' })
+  }
+})
+
+// Upload público (inscripciones)
+router.post('/upload/public', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Archivo no válido' })
+  try {
+    const url = await uploadToCloudinary(req.file.buffer, req.file.mimetype)
+    res.json({ url })
+  } catch (e) {
+    res.status(500).json({ error: 'Error al subir imagen' })
+  }
 })
 
 // ── Helpers ───────────────────────────────────────────────────────────────

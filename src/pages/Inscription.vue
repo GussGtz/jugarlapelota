@@ -227,6 +227,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
+import { uploadImagePublic } from '@/utils/upload'
 
 const route = useRoute()
 const slug  = route.params.slug
@@ -245,22 +246,10 @@ const form = reactive({
   notes: '', players: [], logo: ''
 })
 
-function onLogoChange(e) {
+async function onLogoChange(e) {
   const file = e.target.files[0]; if (!file) return
-  const reader = new FileReader()
-  reader.onload = ev => {
-    const img = new Image()
-    img.onload = () => {
-      const scale = Math.min(1, 400 / img.width)
-      const w = Math.round(img.width * scale), h = Math.round(img.height * scale)
-      const canvas = document.createElement('canvas')
-      canvas.width = w; canvas.height = h
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      form.logo = canvas.toDataURL('image/jpeg', 0.8)
-    }
-    img.src = ev.target.result
-  }
-  reader.readAsDataURL(file)
+  try { form.logo = await uploadImagePublic(file) }
+  catch { alert('Error al subir logo') }
 }
 
 // Agrupar categorías igual que CategorySelector
