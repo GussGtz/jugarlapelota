@@ -2079,18 +2079,17 @@ router.post('/referees', authMiddleware, adminOnly, async (req, res) => {
   const existing = (await queryOne("SELECT id FROM users WHERE email=$1", [email.trim().toLowerCase()]))
   if (existing) return res.status(400).json({ error: 'El correo ya está registrado' })
 
-  // Usar contraseña del cliente o generar una
-  const plainPassword = (clientPassword?.trim() && clientPassword.trim().length >= 8)
-    ? clientPassword.trim()
-    : generateSecurePassword()
-  const username      = generateUsername(name)
-  const hash          = await bcrypt.hash(plainPassword, 12)
+  // Siempre usar la contraseña que puso el admin (mínimo 6 chars)
+  const plainPassword = clientPassword?.trim()
+  if (!plainPassword || plainPassword.length < 6)
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' })
+  const hash = await bcrypt.hash(plainPassword, 12)
 
   let r
   try {
     r = await query(`
-      INSERT INTO users (name, email, username, password, role, is_active, tournament_id)
-      VALUES ($1, $2, $3, $4, 'referee', 1, $5) RETURNING id`, [name.trim(), email.trim().toLowerCase(), username, hash, tournamentId || null])
+      INSERT INTO users (name, email, password, role, is_active, tournament_id)
+      VALUES ($1, $2, $3, 'referee', 1, $4) RETURNING id`, [name.trim(), email.trim().toLowerCase(), hash, tournamentId || null])
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'El correo ya está registrado' })
     throw e
