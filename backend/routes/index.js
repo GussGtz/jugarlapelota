@@ -1458,8 +1458,8 @@ router.get('/admin/pending-awards', authMiddleware, adminOnly, (req,res) => {
     LEFT JOIN categories c ON ph.category_id = c.id
     LEFT JOIN matches m ON m.phase_id = ph.id
     WHERE NOT EXISTS (SELECT 1 FROM awards a WHERE a.phase_id = ph.id AND a.auto_generated=1)
-    GROUP BY ph.id
-    HAVING total_matches > 0 AND total_matches = finished_matches
+    GROUP BY ph.id, ph.name, ph.type, t.id, t.name, t.slug, c.id, c.name
+    HAVING COUNT(m.id) > 0 AND COUNT(m.id) = SUM(CASE WHEN m.status='finished' THEN 1 ELSE 0 END)
     ORDER BY t.name, c.name, ph.order_index
   `).all()
   res.json(rows)
@@ -2313,7 +2313,7 @@ router.get('/admin/stats', authMiddleware, adminOnly, (req,res) => {
     JOIN teams at ON m.away_team=at.id
     JOIN tournaments t ON m.tournament_id=t.id
     LEFT JOIN categories c ON m.category_id=c.id
-    WHERE m.status='scheduled' AND substr(m.date,1,10)=?
+    WHERE m.status='scheduled' AND LEFT(m.date, 10)=?
     ORDER BY m.date ASC
   `).all(today)
 
@@ -2327,7 +2327,7 @@ router.get('/admin/stats', authMiddleware, adminOnly, (req,res) => {
     JOIN teams at ON m.away_team=at.id
     JOIN tournaments t ON m.tournament_id=t.id
     LEFT JOIN categories c ON m.category_id=c.id
-    WHERE m.status='scheduled' AND (m.date IS NULL OR m.date > datetime('now'))
+    WHERE m.status='scheduled' AND (m.date IS NULL OR m.date > NOW()::text)
     ORDER BY m.date ASC LIMIT 5
   `).all()
 

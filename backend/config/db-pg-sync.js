@@ -9,11 +9,24 @@ const bcrypt   = require('bcryptjs')
 
 let _pool = null
 
+// ── Convertir SQL de SQLite a PostgreSQL ──────────────────────────────────────
+function toPostgres(sql) {
+  let n = 0
+  return sql
+    // Placeholders ? → $N
+    .replace(/\?/g, () => `$${++n}`)
+    // Funciones de fecha SQLite → PostgreSQL
+    .replace(/datetime\('now'\)/gi, "NOW()::text")
+    .replace(/date\('now'\)/gi, "CURRENT_DATE::text")
+    // substr(col, start, len) → SUBSTRING(col, start, len)  [ambos funcionan en PG]
+    // No necesita cambio — substr es alias en PG
+    // INSERT OR REPLACE → no llega aquí (ya manejado en prepare.run)
+    // INSERT OR IGNORE → no llega aquí
+}
+
 // ── Ejecutar query de forma síncrona ─────────────────────────────────────────
 function syncQuery(sql, params = []) {
-  // Convertir ? a $1, $2... (por si alguna query quedó con ?)
-  let n = 0
-  const pgSql = sql.replace(/\?/g, () => `$${++n}`)
+  const pgSql = toPostgres(sql)
 
   let done = false, result = null, err = null
   _pool.query(pgSql, params)
