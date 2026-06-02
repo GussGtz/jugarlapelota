@@ -59,11 +59,23 @@ async function init() {
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false },
       max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
     })
-    // Crear schema + migraciones idempotentes
+
+    // Solo ejecutar schema/migraciones si la tabla users no existe (primera vez)
     const { PG_SCHEMA, PG_MIGRATIONS } = require('./db-schema')
-    for (const stmt of PG_SCHEMA)      await _pool.query(stmt)
-    for (const stmt of PG_MIGRATIONS)  await _pool.query(stmt)
+    const { rows } = await _pool.query("SELECT to_regclass('public.users') AS t")
+    const needsInit = !rows[0]?.t
+    if (needsInit) {
+      console.log('🔧  Inicializando schema...')
+      for (const stmt of PG_SCHEMA)     await _pool.query(stmt)
+      for (const stmt of PG_MIGRATIONS) await _pool.query(stmt)
+      console.log('✅  Schema listo')
+    } else {
+      // Solo migraciones rápidas (ADD COLUMN IF NOT EXISTS es muy rápido)
+      for (const stmt of PG_MIGRATIONS) await _pool.query(stmt).catch(() => {})
+    }
 
     // Seed admin
     const { rows } = await _pool.query("SELECT id FROM users WHERE email='admin@jugarlapelota.com'")

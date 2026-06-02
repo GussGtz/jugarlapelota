@@ -40,12 +40,27 @@ api.interceptors.response.use(
   }
 )
 
-// ── Keep-alive: ping cada 10 min para evitar que el backend duerma ──────────
+// ── Keep-alive: ping cada 5 min para evitar que el backend duerma ───────────
 const HEALTH = BASE.replace('/api', '') + '/health'
 function keepAlive() {
   fetch(HEALTH, { method: 'GET', mode: 'no-cors' }).catch(() => {})
 }
 keepAlive() // ping inmediato al cargar
-setInterval(keepAlive, 10 * 60 * 1000) // cada 10 minutos
+setInterval(keepAlive, 5 * 60 * 1000) // cada 5 minutos
+
+// ── Indicador global de "servidor despertando" ───────────────────────────────
+export const serverWaking = { value: false }
+let wakingTimer = null
+api.interceptors.request.use(config => {
+  // Si tarda más de 4s, mostrar indicador
+  wakingTimer = setTimeout(() => { serverWaking.value = true }, 4000)
+  config._wakingTimer = wakingTimer
+  return config
+})
+const origResponse = api.interceptors.response.handlers?.[0]
+api.interceptors.response.use(
+  res => { clearTimeout(res.config?._wakingTimer); serverWaking.value = false; return res },
+  err => { clearTimeout(err.config?._wakingTimer); return Promise.reject(err) }
+)
 
 export default api

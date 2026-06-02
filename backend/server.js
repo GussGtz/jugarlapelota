@@ -53,9 +53,19 @@ async function start() {
 
   // ── Keep-alive: evita que Neon y Render duerman ─────────────────────────
   if (IS_PG) {
+    // Ping a Neon cada 4 min para mantener la conexión activa
     setInterval(() => {
-      query('SELECT 1').catch(e => console.error('[keepalive]', e.message))
-    }, 4 * 60 * 1000) // cada 4 minutos
+      query('SELECT 1').catch(e => console.error('[keepalive-db]', e.message))
+    }, 4 * 60 * 1000)
+
+    // Auto-ping HTTP a sí mismo cada 5 min para que Render no duerma el proceso
+    const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3001}`
+    setInterval(() => {
+      const url = `${SELF_URL}/health`
+      require('https').get(url, r => r.resume()).on('error', () =>
+        require('http').get(url, r => r.resume()).on('error', () => {})
+      )
+    }, 5 * 60 * 1000)
   }
 
   const PORT = process.env.PORT || 3001
