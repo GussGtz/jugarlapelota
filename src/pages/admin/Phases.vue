@@ -943,21 +943,6 @@
             </div>
           </div>
 
-          <!-- Fecha y sede -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Fecha de inicio</label>
-              <input v-model="genForm.startDate" type="date"
-                class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
-            </div>
-            <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Sede</label>
-              <input v-model="genForm.location"
-                class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"
-                placeholder="Estadio..."/>
-            </div>
-          </div>
-
           <!-- Resultado -->
           <div v-if="genResult"
             class="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-emerald-700 font-semibold text-sm">
@@ -1451,18 +1436,17 @@ async function generate() {
         teamIds: genForm.teamIds, groupCount: genForm.groupCount,
         advanceCount: genForm.advanceCount, startDate: genForm.startDate, location: genForm.location
       })
-      genResult.value = 'ok'
       genResultText.value = `${data.groups?.length} grupos generados, ${data.totalMatches} partidos`
     } else {
       const { data } = await api.post('/matches/generate', {
         tournamentId: selTournament.value.id, categoryId: activePhase.value.category_id,
         phaseId: activePhase.value.id, teamIds: genForm.teamIds,
-        type: genForm.type, startDate: genForm.startDate, location: genForm.location
+        type: genForm.type
       })
-      genResult.value = 'ok'
       genResultText.value = `${data.generated} partidos generados`
     }
     await load()
+    showGenerateForm.value = false
   } catch (e) { alert(e.response?.data?.error || 'Error') }
   finally { saving.value = false }
 }
