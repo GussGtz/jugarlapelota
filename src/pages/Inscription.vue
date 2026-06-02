@@ -262,16 +262,12 @@ async function submit() {
   try {
     const tourData = await api.get(`/tournaments/${slug}`)
     const tid = tourData.data.id
-    // Una pre-inscripción por cada categoría seleccionada
-    await Promise.all(
-      form.categoryIds.map(catId =>
-        api.post('/inscriptions', {
-          ...form,
-          tournamentId: tid,
-          categoryId:   catId,
-        })
-      )
-    )
+    // Una sola inscripción con todas las categorías seleccionadas
+    await api.post('/inscriptions', {
+      ...form,
+      tournamentId: tid,
+      categoryIds:  form.categoryIds,
+    })
     sent.value = true
   } catch(e) {
     error.value = e.response?.data?.error || 'Error al enviar la solicitud. Intenta de nuevo.'

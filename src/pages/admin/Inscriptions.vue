@@ -77,7 +77,13 @@
                 {{ statusLabel(insc.status) }}
               </span>
             </div>
-            <p class="text-slate-500 text-sm">{{ insc.categoryName || 'Sin categoría' }}</p>
+            <div class="flex flex-wrap gap-1 mt-1">
+              <span v-if="!insc.categories?.length" class="text-slate-500 text-sm">Sin categoría</span>
+              <span v-for="cat in insc.categories" :key="cat.id"
+                class="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
+                {{ cat.name }}
+              </span>
+            </div>
             <div class="flex flex-wrap gap-3 mt-2 text-xs text-slate-400">
               <span class="flex items-center gap-1"><IconUser class="w-3 h-3" /> {{ insc.contact_name }}</span>
               <span class="flex items-center gap-1"><IconMail class="w-3 h-3" /> {{ insc.contact_email }}</span>

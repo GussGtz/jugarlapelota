@@ -1279,14 +1279,29 @@ router.delete('/gallery-images/:id', authMiddleware, adminOnly, async (req, res)
 router.get('/tournaments/:slug/inscriptions', authMiddleware, adminOnly, async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
   const rows = (await query(`SELECT i.*,c.name AS "categoryName" FROM inscriptions i LEFT JOIN categories c ON i.category_id=c.id WHERE i.tournament_id=$1 ORDER BY i.created_at DESC`, [t.id])).rows
-  const result = await Promise.all(rows.map(async r => ({...r, players: (await query('SELECT * FROM inscription_players WHERE inscription_id=$1', [r.id])).rows})))
+  const result = await Promise.all(rows.map(async r => {
+    let categories = []
+    if (r.categories_json) { try { categories = JSON.parse(r.categories_json) } catch{} }
+    else if (r.categoryName) { categories = [{ id: r.category_id, name: r.categoryName }] }
+    return { ...r, categories, players: (await query('SELECT * FROM inscription_players WHERE inscription_id=$1', [r.id])).rows }
+  }))
   res.json(result)
 })
 router.post('/inscriptions', async (req, res) => {  // Public — no auth
-  const {tournamentId,categoryId,team_name,contact_name,contact_email,contact_phone,players_count,notes,players} = req.body
+  const {tournamentId,categoryIds,team_name,contact_name,contact_email,contact_phone,players_count,notes,players} = req.body
   if(!team_name||!contact_name||!contact_email) return res.status(400).json({error:'Campos requeridos faltantes'})
-  const r = await query('INSERT INTO inscriptions (tournament_id,category_id,team_name,contact_name,contact_email,contact_phone,players_count,notes,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,\'pending\') RETURNING id', [tournamentId,categoryId||null,team_name,contact_name,contact_email,contact_phone||null,players_count||0,notes||null])
-  const id = r.lastInsertRowid
+  // Resolver nombres de categorías para guardar en JSON
+  let categories = []
+  if (categoryIds?.length) {
+    const catRows = (await query(`SELECT id,name FROM categories WHERE id=ANY($1::bigint[])`, [categoryIds])).rows
+    categories = catRows.map(c => ({ id: c.id, name: c.name }))
+  }
+  const firstCatId = categories[0]?.id || null
+  const r = await query(
+    'INSERT INTO inscriptions (tournament_id,category_id,categories_json,team_name,contact_name,contact_email,contact_phone,players_count,notes,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,\'pending\') RETURNING id',
+    [tournamentId, firstCatId, JSON.stringify(categories), team_name, contact_name, contact_email, contact_phone||null, players_count||0, notes||null]
+  )
+  const id = r.rows[0]?.id || r.lastInsertRowid
   if(players?.length) {
     const insP = (...__a) => query('INSERT INTO inscription_players (inscription_id,name,number,position,birth_date) VALUES ($1,$2,$3,$4,$5)', __a.flat())
     for(const p of players) await insP(id,p.name,p.number||null,p.position||null,p.birth_date||null)
