@@ -29,7 +29,8 @@ const upload = multer({
 
 router.post('/upload', authMiddleware, adminOnly, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Archivo no válido o muy grande (máx 5 MB)' })
-  const host = `${req.protocol}://${req.get('host')}`
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol
+  const host = `${protocol}://${req.get('host')}`
   res.json({ url: `${host}/uploads/${req.file.filename}` })
 })
 
