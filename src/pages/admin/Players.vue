@@ -23,20 +23,55 @@
       </select>
     </div>
 
-    <!-- Table -->
-    <div class="rounded-2xl border border-muted overflow-hidden">
+    <!-- Spinner / vacío -->
+    <div v-if="loading" class="flex justify-center py-8">
+      <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+    </div>
+    <p v-else-if="!displayed.length" class="text-center text-slate-500 py-8">Sin jugadores.</p>
+
+    <!-- Mobile: cards -->
+    <div v-else class="md:hidden space-y-2">
+      <div v-for="p in displayed" :key="p.id"
+        class="card !p-3 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
+          <img v-if="p.photo" :src="p.photo" class="w-full h-full object-cover"/>
+          <IconUser v-else class="w-5 h-5 text-slate-400"/>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-slate-900 text-sm truncate">{{ p.name }}</p>
+          <p class="text-xs text-slate-400 truncate">{{ p.teamName }} · {{ p.position }}</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0 text-xs font-bold text-accent">
+          <IconCircle class="w-3.5 h-3.5"/>
+          {{ p.goals }}
+        </div>
+        <div class="flex gap-1.5 shrink-0">
+          <button @click="openForm(p)"
+            class="text-xs text-slate-500 px-2.5 py-1.5 border border-muted rounded-lg hover:text-slate-900 transition-colors">
+            Editar
+          </button>
+          <button @click="deletePlayer(p.id)"
+            class="text-red-500 px-2 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+            <IconTrash2 class="w-4 h-4"/>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop: tabla -->
+    <div v-if="!loading && displayed.length" class="hidden md:block rounded-2xl border border-muted overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-slate-100 text-slate-500 uppercase text-xs tracking-wider">
           <tr>
             <th class="py-3 px-4 text-left">Jugador</th>
             <th class="py-3 px-4 text-left">Equipo</th>
-            <th class="hidden md:table-cell py-3 px-4 text-left">Categoría</th>
-            <th class="hidden md:table-cell py-3 px-4 text-center">#</th>
-            <th class="hidden md:table-cell py-3 px-4 text-left">Pos.</th>
-            <th class="py-3 px-4 text-center text-accent"><IconCircle class="w-4 h-4 inline" /></th>
-            <th class="hidden md:table-cell py-3 px-4 text-center text-primary">A</th>
-            <th class="hidden md:table-cell py-3 px-4 text-center text-yellow-400"><IconSquare class="w-4 h-4 inline fill-yellow-400 text-yellow-400" /></th>
-            <th class="hidden md:table-cell py-3 px-4 text-center text-red-400"><IconSquare class="w-4 h-4 inline fill-red-500 text-red-500" /></th>
+            <th class="py-3 px-4 text-left">Categoría</th>
+            <th class="py-3 px-4 text-center">#</th>
+            <th class="py-3 px-4 text-left">Pos.</th>
+            <th class="py-3 px-4 text-center text-accent"><IconCircle class="w-4 h-4 inline"/></th>
+            <th class="py-3 px-4 text-center text-primary">A</th>
+            <th class="py-3 px-4 text-center text-yellow-400"><IconSquare class="w-4 h-4 inline fill-yellow-400 text-yellow-400"/></th>
+            <th class="py-3 px-4 text-center text-red-400"><IconSquare class="w-4 h-4 inline fill-red-500 text-red-500"/></th>
             <th class="py-3 px-4 text-right">Acciones</th>
           </tr>
         </thead>
@@ -47,19 +82,19 @@
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                   <img v-if="p.photo" :src="p.photo" class="w-full h-full object-cover rounded-full"/>
-                  <IconUser v-else class="w-4 h-4" />
+                  <IconUser v-else class="w-4 h-4"/>
                 </div>
                 <span class="font-semibold text-slate-900">{{ p.name }}</span>
               </div>
             </td>
             <td class="py-3 px-4 text-slate-500">{{ p.teamName }}</td>
-            <td class="hidden md:table-cell py-3 px-4 text-slate-400 text-xs">{{ p.categoryName }}</td>
-            <td class="hidden md:table-cell py-3 px-4 text-center text-slate-500">{{ p.number }}</td>
-            <td class="hidden md:table-cell py-3 px-4 text-slate-500">{{ p.position }}</td>
+            <td class="py-3 px-4 text-slate-400 text-xs">{{ p.categoryName }}</td>
+            <td class="py-3 px-4 text-center text-slate-500">{{ p.number }}</td>
+            <td class="py-3 px-4 text-slate-500">{{ p.position }}</td>
             <td class="py-3 px-4 text-center font-bold text-accent">{{ p.goals }}</td>
-            <td class="hidden md:table-cell py-3 px-4 text-center text-primary">{{ p.assists }}</td>
-            <td class="hidden md:table-cell py-3 px-4 text-center text-yellow-400">{{ p.yellow_cards }}</td>
-            <td class="hidden md:table-cell py-3 px-4 text-center text-red-400">{{ p.red_cards }}</td>
+            <td class="py-3 px-4 text-center text-primary">{{ p.assists }}</td>
+            <td class="py-3 px-4 text-center text-yellow-400">{{ p.yellow_cards }}</td>
+            <td class="py-3 px-4 text-center text-red-400">{{ p.red_cards }}</td>
             <td class="py-3 px-4 text-right">
               <div class="flex gap-2 justify-end">
                 <button @click="openForm(p)"
@@ -68,17 +103,13 @@
                 </button>
                 <button @click="deletePlayer(p.id)"
                   class="text-xs text-red-500 px-2 py-1 border border-red-600/30 rounded-lg hover:bg-red-600/10">
-                  <IconTrash2 class="w-4 h-4" />
+                  <IconTrash2 class="w-4 h-4"/>
                 </button>
               </div>
             </td>
           </tr>
         </tbody>
       </table>
-      <div v-if="loading" class="flex justify-center py-8">
-        <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-      </div>
-      <p v-if="!loading && !displayed.length" class="text-center text-slate-500 py-8">Sin jugadores.</p>
     </div>
 
     <!-- ── Modal ─────────────────────────────────────────────── -->
