@@ -5,15 +5,17 @@
       <button @click="openForm()" class="btn-primary text-sm">+ Nueva noticia</button>
     </div>
     <div class="space-y-3">
-      <div v-for="n in news" :key="n.id" class="card flex items-start gap-4">
-        <img v-if="n.cover" :src="n.cover" class="w-20 h-20 object-cover rounded-xl flex-shrink-0"/>
-        <div class="flex-1 min-w-0">
-          <p class="text-slate-400 text-xs mb-1">{{ fmtDate(n.created_at) }}</p>
-          <h3 class="font-bold text-slate-900 truncate">{{ n.title }}</h3>
+      <div v-for="n in news" :key="n.id" class="card !p-3 md:!p-4">
+        <div class="flex items-start gap-3">
+          <img v-if="n.cover" :src="n.cover" class="w-14 h-14 md:w-20 md:h-20 object-cover rounded-xl flex-shrink-0"/>
+          <div class="flex-1 min-w-0">
+            <p class="text-slate-400 text-xs mb-0.5">{{ fmtDate(n.created_at) }}</p>
+            <h3 class="font-bold text-slate-900 text-sm leading-snug line-clamp-2">{{ n.title }}</h3>
+          </div>
         </div>
-        <div class="flex gap-2 flex-shrink-0">
+        <div class="flex gap-2 mt-2 justify-end">
           <button @click="openForm(n)" class="text-xs text-slate-500 hover:text-slate-900 px-3 py-1.5 border border-muted rounded-lg">Editar</button>
-          <button @click="deleteNews(n.id)" class="text-xs text-red-500 px-2 py-1.5 border border-red-600/30 rounded-lg"><IconTrash2 class="w-4 h-4" /></button>
+          <button @click="deleteNews(n.id)" class="text-xs text-red-500 px-2 py-1.5 border border-red-600/30 rounded-lg hover:bg-red-50"><IconTrash2 class="w-4 h-4" /></button>
         </div>
       </div>
       <p v-if="!news.length" class="text-center text-slate-500 py-16">Sin noticias.</p>

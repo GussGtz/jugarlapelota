@@ -136,7 +136,7 @@ const drawerQuickLinks = [
   { to: '/admin/equipos',       label: 'Equipos',       icon: 'IconShield' },
   { to: '/admin/jugadores',     label: 'Jugadores',     icon: 'IconUser' },
   { to: '/admin/inscripciones', label: 'Inscripciones', icon: 'IconClipboardList' },
-  { to: '/admin/tabla',         label: 'Tabla',         icon: 'IconBarChart2' },
+  { to: '/admin/tabla',         label: 'Resultados',    icon: 'IconBarChart2' },
   { to: '/admin/premios',       label: 'Premios',       icon: 'IconMedal' },
   { to: '/admin/noticias',      label: 'Noticias',      icon: 'IconNewspaper' },
   { to: '/admin/analytics',     label: 'Analytics',     icon: 'IconTrendingUp' },

@@ -45,7 +45,7 @@ const titles = {
   '/admin/equipos':           'Equipos',
   '/admin/jugadores':         'Jugadores',
   '/admin/partidos':          'Partidos',
-  '/admin/tabla':             'Tabla de Posiciones',
+  '/admin/tabla':             'Resultados',
   '/admin/inscripciones':     'Inscripciones',
   '/admin/premios':           'Premios y Reconocimientos',
   '/admin/transmisiones':     'Transmisiones',

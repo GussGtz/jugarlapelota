@@ -68,37 +68,41 @@
     </div>
 
     <div class="space-y-4">
-      <div v-for="insc in displayed" :key="insc.id" class="card space-y-4">
-        <div class="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div class="flex items-center gap-3 mb-1">
-              <img v-if="insc.logo" :src="insc.logo" class="w-9 h-9 rounded-lg object-cover border border-muted shrink-0"/>
-              <div v-else class="w-9 h-9 rounded-lg bg-slate-100 border border-muted shrink-0 flex items-center justify-center text-slate-300 text-xs font-bold">?</div>
-              <h3 class="font-bold text-slate-900 text-lg">{{ insc.team_name }}</h3>
-              <span class="text-xs px-2 py-0.5 rounded-full font-bold" :class="statusClass(insc.status)">
+      <div v-for="insc in displayed" :key="insc.id" class="card space-y-3">
+        <!-- Cabecera: logo + nombre + badge -->
+        <div class="flex items-center gap-3">
+          <img v-if="insc.logo" :src="insc.logo" class="w-9 h-9 rounded-lg object-cover border border-muted shrink-0"/>
+          <div v-else class="w-9 h-9 rounded-lg bg-slate-100 border border-muted shrink-0 flex items-center justify-center text-slate-300 text-xs font-bold">?</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="font-bold text-slate-900 text-base truncate">{{ insc.team_name }}</h3>
+              <span class="text-xs px-2 py-0.5 rounded-full font-bold shrink-0" :class="statusClass(insc.status)">
                 {{ statusLabel(insc.status) }}
               </span>
             </div>
-            <div class="flex flex-wrap gap-1 mt-1">
-              <span v-if="!insc.categories?.length" class="text-slate-500 text-sm">Sin categoría</span>
-              <span v-for="cat in insc.categories" :key="cat.id"
-                class="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
-                {{ cat.name }}
-              </span>
-            </div>
-            <div class="flex flex-wrap gap-3 mt-2 text-xs text-slate-400">
-              <span class="flex items-center gap-1"><IconUser class="w-3 h-3" /> {{ insc.contact_name }}</span>
-              <span class="flex items-center gap-1"><IconMail class="w-3 h-3" /> {{ insc.contact_email }}</span>
-              <span v-if="insc.contact_phone" class="flex items-center gap-1"><IconSmartphone class="w-3 h-3" /> {{ insc.contact_phone }}</span>
-              <span class="flex items-center gap-1"><IconCircle class="w-3 h-3" /> {{ insc.players_count }} jugadores</span>
-            </div>
           </div>
-          <div class="flex gap-2 flex-wrap">
-            <button @click="showDetail(insc)" class="text-xs text-slate-500 hover:text-slate-900 px-3 py-1.5 border border-muted rounded-lg">Ver detalle</button>
-            <button v-if="insc.status==='pending'" @click="setStatus(insc,'approved')" class="text-xs text-accent px-3 py-1.5 border border-accent/30 rounded-lg hover:bg-accent/10 font-bold flex items-center gap-1"><IconCheckCircle class="w-4 h-4" /> Aprobar</button>
-            <button v-if="insc.status==='pending'" @click="setStatus(insc,'rejected')" class="text-xs text-red-500 px-3 py-1.5 border border-red-600/30 rounded-lg hover:bg-red-600/10 flex items-center gap-1"><IconXCircle class="w-4 h-4" /> Rechazar</button>
-            <button @click="deleteInsc(insc.id)" class="text-xs text-red-500 px-2 py-1.5 border border-red-600/30 rounded-lg"><IconTrash2 class="w-4 h-4" /></button>
-          </div>
+        </div>
+        <!-- Categorías -->
+        <div class="flex flex-wrap gap-1">
+          <span v-if="!insc.categories?.length" class="text-slate-500 text-sm">Sin categoría</span>
+          <span v-for="cat in insc.categories" :key="cat.id"
+            class="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
+            {{ cat.name }}
+          </span>
+        </div>
+        <!-- Contacto -->
+        <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
+          <span class="flex items-center gap-1"><IconUser class="w-3 h-3 shrink-0" /> {{ insc.contact_name }}</span>
+          <span class="flex items-center gap-1 min-w-0"><IconMail class="w-3 h-3 shrink-0" /><span class="truncate">{{ insc.contact_email }}</span></span>
+          <span v-if="insc.contact_phone" class="flex items-center gap-1"><IconSmartphone class="w-3 h-3 shrink-0" /> {{ insc.contact_phone }}</span>
+          <span class="flex items-center gap-1"><IconCircle class="w-3 h-3 shrink-0" /> {{ insc.players_count }} jugadores</span>
+        </div>
+        <!-- Botones siempre en su propia fila -->
+        <div class="flex gap-2 flex-wrap pt-1 border-t border-muted">
+          <button @click="showDetail(insc)" class="text-xs text-slate-500 hover:text-slate-900 px-3 py-1.5 border border-muted rounded-lg">Ver detalle</button>
+          <button v-if="insc.status==='pending'" @click="setStatus(insc,'approved')" class="text-xs text-accent px-3 py-1.5 border border-accent/30 rounded-lg hover:bg-accent/10 font-bold flex items-center gap-1"><IconCheckCircle class="w-4 h-4" /> Aprobar</button>
+          <button v-if="insc.status==='pending'" @click="setStatus(insc,'rejected')" class="text-xs text-red-500 px-3 py-1.5 border border-red-600/30 rounded-lg hover:bg-red-600/10 flex items-center gap-1"><IconXCircle class="w-4 h-4" /> Rechazar</button>
+          <button @click="deleteInsc(insc.id)" class="text-xs text-red-500 px-2 py-1.5 border border-red-600/30 rounded-lg hover:bg-red-50"><IconTrash2 class="w-4 h-4" /></button>
         </div>
         <p v-if="insc.notes" class="text-slate-600 text-sm bg-slate-100 rounded-lg p-3">{{ insc.notes }}</p>
       </div>
