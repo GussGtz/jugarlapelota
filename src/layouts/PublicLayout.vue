@@ -1,13 +1,11 @@
 <template>
   <div class="min-h-screen flex flex-col bg-slate-50">
-    <AppNavbar />
-    <!-- En torneo: respeta home bar de iPhone (env safe-area) -->
-    <!-- Fuera de torneo: espacio para el BottomNav (80px) + home bar -->
+    <AppNavbar v-if="!hideNav" />
     <main class="flex-1 pb-20 md:pb-0">
       <slot />
     </main>
     <AppFooter class="hidden md:block" />
-    <BottomNav v-if="auth.isLoggedIn || slug" :slug="slug" />
+    <BottomNav v-if="(auth.isLoggedIn || slug) && !hideNav" :slug="slug" />
   </div>
 </template>
 
@@ -24,6 +22,11 @@ const route     = useRoute()
 const auth      = useAuthStore()
 const following = useFollowingStore()
 const slug      = computed(() => route.params.slug || null)
+
+// Ocultar nav cuando admin/referee está en la página de inscripción
+const hideNav = computed(() =>
+  route.name === 'Inscription' && (auth.isAdmin || auth.user?.role === 'referee')
+)
 
 onMounted(() => following.purgeStale())
 </script>
