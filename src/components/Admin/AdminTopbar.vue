@@ -5,12 +5,6 @@
 
     <div class="flex items-center justify-between px-4 md:px-4 h-14">
       <div class="flex items-center gap-3">
-        <!-- Mobile: hamburger -->
-        <button @click="$emit('toggle-sidebar')"
-          class="md:hidden w-10 h-10 flex items-center justify-center rounded-xl text-slate-500 hover:text-primary hover:bg-slate-100 transition-colors">
-          <IconMenu class="w-6 h-6" />
-        </button>
-
         <!-- Desktop: colapsar sidebar -->
         <button @click="$emit('toggle-collapse')"
           class="hidden md:flex w-8 h-8 items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors"
