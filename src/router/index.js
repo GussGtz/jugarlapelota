@@ -74,8 +74,9 @@ const PUBLIC_PATHS = ['/', '/contratar', '/login']
 router.beforeEach((to) => {
   const auth = useAuthStore()
 
-  // Admin/referee logueado intentando ir a una ruta pública → redirigir a su panel
-  const blockedForAdmin = PUBLIC_PATHS.includes(to.path) || to.name === 'Login' || to.name === 'Inscription'
+  // Rutas de navegación pública del torneo bloqueadas para admin/referee logueado
+  const publicTournamentRoutes = ['Tournament', 'Matches', 'MatchDetail', 'Standings', 'Players', 'PlayerDetail', 'TeamDetail', 'Media']
+  const blockedForAdmin = PUBLIC_PATHS.includes(to.path) || to.name === 'Login' || publicTournamentRoutes.includes(to.name)
   if (auth.isAdmin && blockedForAdmin) return { name: 'AdminDashboard' }
   if (auth.user?.role === 'referee' && blockedForAdmin) return { name: 'RefereePortal' }
 
