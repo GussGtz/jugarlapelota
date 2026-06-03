@@ -1,28 +1,32 @@
 <template>
-  <div class="h-12 md:h-14 bg-white border-b border-muted flex items-center justify-between px-3 md:px-4 shadow-sm shrink-0">
-    <div class="flex items-center gap-2">
-      <!-- Mobile: hamburger para abrir drawer -->
-      <button @click="$emit('toggle-sidebar')"
-        class="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-primary hover:bg-slate-100 transition-colors">
-        <IconMenu class="w-5 h-5" />
-      </button>
+  <div class="topbar bg-white border-b border-muted shadow-sm shrink-0">
+    <!-- Safe-area spacer (solo mobile PWA) -->
+    <div class="safe-area-top md:hidden" />
 
-      <!-- Desktop: botón para colapsar/expandir sidebar -->
-      <button @click="$emit('toggle-collapse')"
-        class="hidden md:flex w-8 h-8 items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors"
-        :title="collapsed ? 'Expandir menú' : 'Colapsar menú'"
-      >
-        <IconPanelLeftClose v-if="!collapsed" class="w-4 h-4" />
-        <IconPanelLeftOpen  v-else            class="w-4 h-4" />
-      </button>
+    <div class="flex items-center justify-between px-4 md:px-4 h-14">
+      <div class="flex items-center gap-3">
+        <!-- Mobile: hamburger -->
+        <button @click="$emit('toggle-sidebar')"
+          class="md:hidden w-10 h-10 flex items-center justify-center rounded-xl text-slate-500 hover:text-primary hover:bg-slate-100 transition-colors">
+          <IconMenu class="w-6 h-6" />
+        </button>
 
-      <h1 class="text-slate-900 font-semibold text-sm md:text-base">{{ pageTitle }}</h1>
-    </div>
+        <!-- Desktop: colapsar sidebar -->
+        <button @click="$emit('toggle-collapse')"
+          class="hidden md:flex w-8 h-8 items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors"
+          :title="collapsed ? 'Expandir menú' : 'Colapsar menú'">
+          <IconPanelLeftClose v-if="!collapsed" class="w-4 h-4" />
+          <IconPanelLeftOpen  v-else            class="w-4 h-4" />
+        </button>
 
-    <div class="flex items-center gap-2 text-sm text-slate-500">
-      <span class="hidden md:block text-slate-600">{{ auth.user?.name || 'Admin' }}</span>
-      <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs border border-primary/20">
-        {{ initials }}
+        <h1 class="text-slate-900 font-bold text-lg md:text-base">{{ pageTitle }}</h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="hidden md:block text-sm text-slate-600">{{ auth.user?.name || 'Admin' }}</span>
+        <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm border border-primary/20">
+          {{ initials }}
+        </div>
       </div>
     </div>
   </div>
@@ -64,3 +68,9 @@ const initials  = computed(() => {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 })
 </script>
+
+<style scoped>
+.safe-area-top {
+  height: env(safe-area-inset-top);
+}
+</style>
