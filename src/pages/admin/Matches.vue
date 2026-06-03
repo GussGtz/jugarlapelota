@@ -5,30 +5,32 @@
       <button @click="openCreateForm()" class="btn-primary text-sm">+ Nuevo partido</button>
     </div>
 
-    <!-- Filters -->
-    <div class="flex gap-3 flex-wrap">
-      <select v-model="filterTournament" @change="onTournamentChange" class="bg-white border border-muted rounded-xl px-4 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary">
+    <!-- Filters — grid en mobile para que cada select sea full-width -->
+    <div class="grid grid-cols-2 gap-2 md:flex md:gap-3 md:flex-wrap">
+      <select v-model="filterTournament" @change="onTournamentChange"
+        class="w-full bg-white border border-muted rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-primary">
         <option v-for="t in tournaments" :key="t.slug" :value="t">{{ t.name }}</option>
       </select>
-      <select v-model="filterCategory" @change="loadMatches" class="bg-white border border-muted rounded-xl px-4 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary">
+      <select v-model="filterCategory" @change="loadMatches"
+        class="w-full bg-white border border-muted rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-primary">
         <option :value="null">Todas las categorías</option>
         <option v-for="c in categories" :key="c.id" :value="c">{{ c.name }}</option>
       </select>
-      <select v-model="filterStatus" class="bg-white border border-muted rounded-xl px-4 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary">
-        <option value="">Todos</option>
+      <select v-model="filterStatus"
+        class="w-full bg-white border border-muted rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-primary">
+        <option value="">Todos los estados</option>
         <option value="scheduled">Programados</option>
         <option value="live">En vivo</option>
         <option value="finished">Finalizados</option>
       </select>
-      <!-- Filtro rápido: sin horario/cancha -->
       <button @click="filterPending = !filterPending"
-        class="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all"
+        class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all"
         :class="filterPending
           ? 'bg-amber-500 border-amber-500 text-white'
-          : 'bg-white border-muted text-slate-600 hover:border-amber-400 hover:text-amber-600'">
-        <IconAlertTriangle class="w-3.5 h-3.5"/>
-        Sin horario/cancha
-        <span v-if="pendingCount > 0" class="bg-white/30 text-white rounded-full px-1.5 py-0 text-[10px] font-black">
+          : 'bg-white border-muted text-slate-600'">
+        <IconAlertTriangle class="w-3.5 h-3.5 shrink-0"/>
+        Sin horario
+        <span v-if="pendingCount > 0" class="ml-auto bg-amber-600 text-white rounded-full px-1.5 text-[10px] font-black">
           {{ pendingCount }}
         </span>
       </button>
@@ -122,87 +124,88 @@
 
     <!-- Score modal -->
     <div v-if="showScore" class="modal-overlay">
-      <div class="modal-sheet overflow-y-auto p-5">
-        <div class="flex items-center justify-between">
-          <h3 class="font-bold text-slate-900">Actualizar marcador</h3>
-          <span v-if="scoreMatch?.phaseType === 'knockout'"
-            class="text-[10px] bg-primary/10 text-primary font-bold px-2 py-1 rounded-full flex items-center gap-1">
-            <IconTrophy class="w-3 h-3" /> Eliminatoria
-          </span>
-        </div>
-        <p class="text-slate-500 text-sm text-center font-medium">
-          {{ scoreMatch?.homeTeam }} <span class="text-slate-300 mx-1">vs</span> {{ scoreMatch?.awayTeam }}
-        </p>
-
-        <!-- Score inputs -->
-        <div class="grid grid-cols-3 gap-3 items-center">
-          <div class="text-center">
-            <label class="text-xs text-slate-500 mb-2 block truncate">{{ scoreMatch?.homeTeam }}</label>
-            <input v-model.number="scoreForm.home" type="number" min="0"
-              class="w-full bg-slate-50 border-2 border-muted rounded-2xl px-2 py-3 text-slate-900 text-3xl font-black text-center focus:outline-none focus:border-primary"/>
+      <div class="modal-sheet">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">
+              {{ scoreMatch?.status === 'finished' ? 'Corregir resultado' : 'Actualizar marcador' }}
+            </h3>
+            <p class="text-xs text-slate-400 truncate mt-0.5">{{ scoreMatch?.homeTeam }} vs {{ scoreMatch?.awayTeam }}</p>
           </div>
-          <div class="text-center">
-            <span class="text-2xl font-black text-slate-300">-</span>
-          </div>
-          <div class="text-center">
-            <label class="text-xs text-slate-500 mb-2 block truncate">{{ scoreMatch?.awayTeam }}</label>
-            <input v-model.number="scoreForm.away" type="number" min="0"
-              class="w-full bg-slate-50 border-2 border-muted rounded-2xl px-2 py-3 text-slate-900 text-3xl font-black text-center focus:outline-none focus:border-primary"/>
+          <div class="flex items-center gap-2">
+            <span v-if="scoreMatch?.phaseType === 'knockout'"
+              class="text-[10px] bg-primary/10 text-primary font-bold px-2 py-1 rounded-full hidden sm:flex items-center gap-1">
+              <IconTrophy class="w-3 h-3"/> Eliminatoria
+            </span>
+            <button @click="showScore=false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
           </div>
         </div>
 
-        <!-- Winner indicator -->
-        <div v-if="scoreForm.home !== scoreForm.away" class="text-center">
-          <span class="text-xs font-bold text-accent bg-accent/10 px-3 py-1 rounded-full">
-            <IconTrophy class="w-3 h-3 inline mr-1" />
-            Gana: {{ scoreForm.home > scoreForm.away ? scoreMatch?.homeTeam : scoreMatch?.awayTeam }}
-          </span>
-        </div>
-        <div v-else class="text-center">
-          <span class="text-xs text-slate-400 bg-slate-100 px-3 py-1 rounded-full">Empate</span>
+        <div class="modal-body space-y-4">
+          <!-- Score inputs -->
+          <div class="grid grid-cols-3 gap-3 items-center">
+            <div class="text-center">
+              <label class="text-xs text-slate-500 mb-2 block font-medium truncate">{{ scoreMatch?.homeTeam }}</label>
+              <input v-model.number="scoreForm.home" type="number" min="0"
+                class="w-full bg-slate-50 border-2 border-muted rounded-2xl px-2 py-4 text-slate-900 text-4xl font-black text-center focus:outline-none focus:border-primary"/>
+            </div>
+            <div class="text-center">
+              <span class="text-3xl font-black text-slate-300">–</span>
+            </div>
+            <div class="text-center">
+              <label class="text-xs text-slate-500 mb-2 block font-medium truncate">{{ scoreMatch?.awayTeam }}</label>
+              <input v-model.number="scoreForm.away" type="number" min="0"
+                class="w-full bg-slate-50 border-2 border-muted rounded-2xl px-2 py-4 text-slate-900 text-4xl font-black text-center focus:outline-none focus:border-primary"/>
+            </div>
+          </div>
+
+          <!-- Resultado -->
+          <div class="text-center">
+            <span v-if="scoreForm.home !== scoreForm.away"
+              class="inline-flex items-center gap-1.5 text-sm font-bold text-accent bg-accent/10 px-4 py-2 rounded-full">
+              <IconTrophy class="w-4 h-4"/>
+              Gana: {{ scoreForm.home > scoreForm.away ? scoreMatch?.homeTeam : scoreMatch?.awayTeam }}
+            </span>
+            <span v-else class="inline-block text-sm text-slate-400 bg-slate-100 px-4 py-2 rounded-full">Empate</span>
+          </div>
+
+          <!-- Aviso corrección -->
+          <div v-if="scoreMatch?.status === 'finished'"
+            class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-700">
+            <IconAlertTriangle class="w-4 h-4 shrink-0 mt-0.5"/>
+            Corregir el resultado recalculará la tabla de posiciones y el bracket automáticamente.
+          </div>
+
+          <p v-if="scoreMatch?.phaseType === 'knockout'" class="text-[10px] text-slate-400 text-center">
+            Al finalizar, el ganador avanzará al siguiente round automáticamente.
+          </p>
         </div>
 
-        <!-- Aviso para partidos ya finalizados -->
-        <div v-if="scoreMatch?.status === 'finished'"
-          class="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-700">
-          <IconAlertTriangle class="w-4 h-4 shrink-0"/>
-          Corregir el resultado actualizará la tabla de posiciones y el bracket automáticamente.
-        </div>
-
-        <!-- Actions -->
-        <div class="space-y-2">
-          <!-- Partido ya finalizado: solo corrección -->
+        <div class="modal-footer flex-col gap-2">
           <template v-if="scoreMatch?.status === 'finished'">
             <button @click="confirmCorrectResult" :disabled="saving"
-              class="w-full bg-primary text-white font-bold py-3 rounded-xl text-sm hover:bg-sky-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
-              <IconCheckCircle class="w-4 h-4" />
+              class="w-full bg-primary text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+              <IconCheckCircle class="w-4 h-4"/>
               {{ saving ? 'Actualizando...' : 'Guardar corrección y recalcular' }}
             </button>
           </template>
-
-          <!-- Partido en curso o programado -->
           <template v-else>
             <button @click="confirmSaveAndFinish" :disabled="saving"
-              class="w-full bg-primary text-white font-bold py-3 rounded-xl text-sm hover:bg-sky-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
-              <IconCheckCircle class="w-4 h-4" />
+              class="w-full bg-primary text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+              <IconCheckCircle class="w-4 h-4"/>
               {{ saving ? 'Procesando...' : 'Guardar y Finalizar partido' }}
             </button>
             <button @click="confirmUpdateScore" :disabled="saving"
-              class="w-full border border-muted text-slate-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-slate-50 transition disabled:opacity-50 flex items-center justify-center gap-2">
-              <IconRefreshCw class="w-4 h-4" />
-              Solo actualizar marcador (en vivo)
+              class="w-full border border-muted text-slate-600 font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+              <IconRefreshCw class="w-4 h-4"/>
+              Solo actualizar (partido en curso)
             </button>
           </template>
-
-          <button @click="showScore=false" class="w-full text-slate-400 text-sm py-1.5 hover:text-slate-600 transition">
+          <button @click="showScore=false" class="w-full text-slate-400 text-sm py-1 hover:text-slate-600 transition">
             Cancelar
           </button>
         </div>
-
-        <!-- Info knockout -->
-        <p v-if="scoreMatch?.phaseType === 'knockout'" class="text-[10px] text-slate-400 text-center">
-          Al finalizar, el ganador avanzará automáticamente al siguiente round
-        </p>
       </div>
     </div>
 
