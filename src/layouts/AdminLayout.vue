@@ -146,9 +146,10 @@ const drawerQuickLinks = [
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-/* El nav ocupa exactamente su contenido + safe-area inferior, sin espacio extra */
+/* El nav cubre la zona inferior incluyendo safe-area con su propio fondo */
 .admin-bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: white;
 }
 
 /* El main deja espacio = altura del nav (56px aprox) + safe-area inferior */

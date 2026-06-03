@@ -1,8 +1,5 @@
 <template>
-  <nav
-    class="block md:hidden fixed bottom-0 left-0 right-0 z-50"
-    style="padding-bottom: env(safe-area-inset-bottom, 0px)"
-  >
+  <nav class="block md:hidden fixed bottom-0 left-0 right-0 z-50 nav-root">
     <!-- Frosted glass bar -->
     <div class="nav-bar">
 
@@ -334,16 +331,28 @@ function goToTeam(team) {
 </script>
 
 <style scoped>
-.nav-bar {
-  display: flex;
-  justify-content: space-around;
-  align-items: flex-end;
-  padding: 6px 4px 8px;
+/* El nav raíz cubre toda la zona inferior incluyendo safe-area */
+.nav-root {
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-top: 1px solid rgba(0, 0, 0, 0.07);
   box-shadow: 0 -1px 0 rgba(0,0,0,0.04), 0 -8px 32px rgba(0,0,0,0.06);
+  /* Extiende el fondo hasta el borde físico */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.nav-bar {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  padding: 6px 4px 8px;
+  /* Sin fondo propio — lo hereda de nav-root */
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top: none;
+  box-shadow: none;
 }
 
 .nav-item {
