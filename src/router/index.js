@@ -75,12 +75,9 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
 
   // Admin/referee logueado intentando ir a una ruta pública → redirigir a su panel
-  if (auth.isAdmin && (PUBLIC_PATHS.includes(to.path) || to.name === 'Login')) {
-    return { name: 'AdminDashboard' }
-  }
-  if (auth.user?.role === 'referee' && (PUBLIC_PATHS.includes(to.path) || to.name === 'Login')) {
-    return { name: 'RefereePortal' }
-  }
+  const blockedForAdmin = PUBLIC_PATHS.includes(to.path) || to.name === 'Login' || to.name === 'Inscription'
+  if (auth.isAdmin && blockedForAdmin) return { name: 'AdminDashboard' }
+  if (auth.user?.role === 'referee' && blockedForAdmin) return { name: 'RefereePortal' }
 
   // Ruta protegida sin sesión → login
   if (to.meta.requiresAuth && !auth.token) return { name: 'Login' }
