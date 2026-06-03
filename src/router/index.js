@@ -68,9 +68,23 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 })
 })
 
+// Rutas públicas que un admin NO debe ver mientras tenga sesión activa
+const PUBLIC_PATHS = ['/', '/contratar', '/login']
+
 router.beforeEach((to) => {
   const auth = useAuthStore()
+
+  // Admin/referee logueado intentando ir a una ruta pública → redirigir a su panel
+  if (auth.isAdmin && (PUBLIC_PATHS.includes(to.path) || to.name === 'Login')) {
+    return { name: 'AdminDashboard' }
+  }
+  if (auth.user?.role === 'referee' && (PUBLIC_PATHS.includes(to.path) || to.name === 'Login')) {
+    return { name: 'RefereePortal' }
+  }
+
+  // Ruta protegida sin sesión → login
   if (to.meta.requiresAuth && !auth.token) return { name: 'Login' }
+
   // Superadmin solo puede acceder a su propia sección
   if (auth.user?.role === 'superadmin' && to.path.startsWith('/admin') && to.path !== '/admin/superadmin') {
     return { name: 'SuperAdmins' }
