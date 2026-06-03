@@ -31,7 +31,7 @@
         @toggle-sidebar="mobileOpen = !mobileOpen"
         @toggle-collapse="toggleCollapse"
       />
-      <main class="flex-1 p-3 md:p-6 overflow-x-hidden overflow-y-auto bg-slate-50 pb-20 md:pb-6">
+      <main class="flex-1 px-2 py-3 md:p-6 overflow-x-hidden overflow-y-auto bg-slate-50 pb-20 md:pb-6">
         <slot />
       </main>
     </div>

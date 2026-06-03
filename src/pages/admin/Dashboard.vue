@@ -2,30 +2,30 @@
   <div class="space-y-8">
 
     <!-- ── STAT CARDS ──────────────────────────────────────────── -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
       <!-- En vivo destacado -->
-      <div class="card col-span-2 lg:col-span-1 flex items-center gap-4"
+      <div class="card col-span-2 lg:col-span-1 flex items-center gap-2 md:gap-4 !p-3 md:!p-4"
         :class="st.live > 0 ? 'border-red-300 bg-red-50' : ''">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+        <div class="w-9 h-9 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0"
           :class="st.live > 0 ? 'bg-red-500' : 'bg-slate-100'">
-          <IconRadio class="w-6 h-6" :class="st.live > 0 ? 'text-white animate-pulse' : 'text-slate-400'"/>
+          <IconRadio class="w-4 h-4 md:w-6 md:h-6" :class="st.live > 0 ? 'text-white animate-pulse' : 'text-slate-400'"/>
         </div>
         <div>
-          <p class="text-2xl font-black" :class="st.live > 0 ? 'text-red-600' : 'text-slate-900'">
+          <p class="text-xl md:text-2xl font-black" :class="st.live > 0 ? 'text-red-600' : 'text-slate-900'">
             {{ st.live }}
           </p>
-          <p class="text-xs font-bold text-slate-500">EN VIVO ahora</p>
+          <p class="text-[11px] md:text-xs font-bold text-slate-500">EN VIVO ahora</p>
         </div>
       </div>
 
-      <div v-for="s in statCards" :key="s.label" class="card flex items-center gap-4">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+      <div v-for="s in statCards" :key="s.label" class="card flex items-center gap-2 md:gap-4 !p-3 md:!p-4">
+        <div class="w-9 h-9 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0"
           :style="{ background: s.bg }">
-          <component :is="s.icon" class="w-5 h-5 text-white"/>
+          <component :is="s.icon" class="w-4 h-4 md:w-5 md:h-5 text-white"/>
         </div>
-        <div>
-          <p class="text-2xl font-black text-slate-900">{{ s.value }}</p>
-          <p class="text-xs font-bold text-slate-500">{{ s.label }}</p>
+        <div class="min-w-0">
+          <p class="text-xl md:text-2xl font-black text-slate-900">{{ s.value }}</p>
+          <p class="text-[11px] md:text-xs font-bold text-slate-500 truncate">{{ s.label }}</p>
           <p v-if="s.alert" class="text-[10px] font-bold text-amber-600 flex items-center gap-1 mt-0.5">
             <IconAlertTriangle class="w-3 h-3"/> {{ s.alert }}
           </p>
