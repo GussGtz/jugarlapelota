@@ -1,7 +1,7 @@
 <template>
   <div v-if="tournament">
     <!-- Tournament sub-page banner -->
-    <div v-if="!isHomePage" class="relative overflow-hidden h-28 md:h-56"
+    <div v-if="!isHomePage && !hideNav" class="relative overflow-hidden h-28 md:h-56"
       :style="{ background: `linear-gradient(135deg, ${tournament.primaryColor || '#0ea5e9'}22, #f1f5f9)` }">
       <img v-if="tournament.banner" :src="tournament.banner" class="absolute inset-0 w-full h-full object-cover opacity-20" />
       <div class="relative max-w-7xl mx-auto px-4 h-full flex items-center md:items-end md:pb-6">
@@ -25,8 +25,8 @@
       </div>
     </div>
 
-    <!-- Tabs nav — solo desktop; en móvil usa el BottomNav -->
-    <div class="hidden md:block sticky md:top-16 z-40 bg-white border-b border-muted shadow-sm">
+    <!-- Tabs nav — oculto en inscripción cuando admin/referee logueado -->
+    <div v-if="!hideNav" class="hidden md:block sticky md:top-16 z-40 bg-white border-b border-muted shadow-sm">
       <div class="max-w-7xl mx-auto px-0 md:px-4 flex overflow-x-auto scrollbar-hide">
         <router-link
           v-for="tab in visibleTabs" :key="tab.path"
@@ -55,11 +55,17 @@ import { computed, onMounted } from 'vue'
 import { useTournament } from '@/composables/useTournament'
 import { useCategoriesStore } from '@/stores/categories'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { Home, CircleDot, ClipboardList, User, Radio } from 'lucide-vue-next'
 
 const { slug, tournament, loading, load, hasStandings } = useTournament()
 const cats  = useCategoriesStore()
 const route = useRoute()
+const auth  = useAuthStore()
+
+const hideNav = computed(() =>
+  route.name === 'Inscription' && (auth.isAdmin || auth.user?.role === 'referee')
+)
 
 const isHomePage = computed(() => {
   const base = `/${slug.value}`
