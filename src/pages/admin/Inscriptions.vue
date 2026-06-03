@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4 md:space-y-6">
+  <div class="space-y-4 md:space-y-6 w-full overflow-x-hidden">
     <div class="flex items-center justify-between flex-wrap gap-3">
       <h2 class="text-lg md:text-2xl font-extrabold text-slate-900">
         Inscripciones
@@ -21,7 +21,7 @@
     </div>
 
     <!-- ── Link de pre-inscripción ───────────────────────────── -->
-    <div v-if="selTournament" class="bg-gradient-to-r from-primary/5 to-sky-50 border border-primary/20 rounded-2xl p-4 space-y-3">
+    <div v-if="selTournament" class="w-full bg-gradient-to-r from-primary/5 to-sky-50 border border-primary/20 rounded-2xl p-4 space-y-3">
       <!-- Encabezado -->
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
