@@ -122,6 +122,25 @@
   .modal-overlay { align-items: center; padding: 1.5rem; }
 }
 
+/* Confirmaciones y alertas — siempre encima de cualquier modal (z-300) */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(15,23,42,0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.confirm-card {
+  background: white;
+  border-radius: 1.25rem;
+  width: 100%;
+  max-width: 22rem;
+  padding: 1.25rem;
+  box-shadow: 0 8px 48px rgba(0,0,0,0.28);
+}
+
 /* Sheet base — ocupa altura definida para que el scroll funcione */
 .modal-sheet,
 .modal-sheet-lg,

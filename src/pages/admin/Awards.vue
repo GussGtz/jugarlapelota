@@ -162,8 +162,8 @@
     </div>
 
     <!-- Confirm dialog -->
-    <div v-if="confirmDialog.show" class="modal-overlay">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+    <div v-if="confirmDialog.show" class="confirm-overlay">
+      <div class="confirm-card space-y-4">
         <div class="flex items-start gap-3">
           <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
             <IconAlertCircle class="w-5 h-5 text-amber-600"/>
@@ -173,7 +173,7 @@
             <p class="text-slate-500 text-sm mt-1">{{ confirmDialog.body }}</p>
           </div>
         </div>
-        <div class="flex gap-3 pt-1">
+        <div class="flex gap-3">
           <button @click="confirmDialog.show=false"
             class="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
             Cancelar
