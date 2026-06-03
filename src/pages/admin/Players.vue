@@ -113,18 +113,14 @@
     </div>
 
     <!-- ── Modal ─────────────────────────────────────────────── -->
-    <div v-if="showForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
-
-        <!-- Header -->
-        <div class="px-6 py-4 border-b border-muted flex items-center justify-between">
-          <h3 class="font-bold text-slate-900 text-lg">{{ editing ? 'Editar jugador' : 'Nuevo jugador' }}</h3>
-          <button @click="showForm = false" class="text-slate-400 hover:text-slate-700">
-            <IconX class="w-5 h-5" />
-          </button>
+    <div v-if="showForm" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <h3 class="font-bold text-slate-900 text-base">{{ editing ? 'Editar jugador' : 'Nuevo jugador' }}</h3>
+          <button @click="showForm = false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
         </div>
-
-        <div class="p-6 space-y-4">
+        <div class="modal-body space-y-4">
 
           <!-- Alerta de duplicado -->
           <div v-if="dupWarning" class="flex items-start gap-3 rounded-xl px-4 py-3 text-sm"
@@ -285,13 +281,12 @@
             </div>
           </div>
 
-        <!-- Footer -->
-        <div class="px-6 py-4 border-t border-muted flex gap-3">
+        <div class="modal-footer">
           <button @click="save" :disabled="saving || dupWarning?.hard"
             class="btn-primary text-sm flex-1 disabled:opacity-40 disabled:cursor-not-allowed">
             {{ saving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Registrar jugador' }}
           </button>
-          <button @click="showForm = false" class="btn-ghost text-sm px-5">Cancelar</button>
+          <button @click="showForm = false" class="btn-ghost text-sm px-4">Cancelar</button>
         </div>
       </div>
     </div>

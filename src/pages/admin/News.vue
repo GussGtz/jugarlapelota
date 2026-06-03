@@ -22,9 +22,14 @@
     </div>
 
     <!-- Modal con RichEditor -->
-    <div v-if="showForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-card rounded-2xl border border-muted w-full max-w-3xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <h3 class="font-bold text-slate-900 text-lg">{{ editing ? 'Editar noticia' : 'Nueva noticia' }}</h3>
+    <div v-if="showForm" class="modal-overlay">
+      <div class="modal-sheet-xl">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <h3 class="font-bold text-slate-900 text-base">{{ editing ? 'Editar noticia' : 'Nueva noticia' }}</h3>
+          <button @click="showForm=false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
+        </div>
+        <div class="modal-body space-y-4">
         <div>
           <label class="text-xs text-slate-700 mb-1 block">Torneo</label>
           <select v-model="form.tournamentId" class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary">
@@ -58,9 +63,10 @@
           <label class="text-xs text-slate-500 mb-2 block">Contenido *</label>
           <RichEditor v-model="form.content" />
         </div>
-        <div class="flex gap-3 pt-2">
+        </div>
+        <div class="modal-footer">
           <button @click="save" :disabled="saving" class="btn-primary text-sm flex-1 disabled:opacity-50">{{ saving?'Publicando...':'Publicar' }}</button>
-          <button @click="showForm=false" class="btn-ghost text-sm">Cancelar</button>
+          <button @click="showForm=false" class="btn-ghost text-sm px-4">Cancelar</button>
         </div>
       </div>
     </div>

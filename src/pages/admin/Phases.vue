@@ -339,25 +339,23 @@
     <!-- ══════════════════════════════════════════
          WIZARD: AUTO-GENERAR (inteligente)
     ═══════════════════════════════════════════ -->
-    <div v-if="showWizard" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-xl shadow-xl max-h-[92vh] flex flex-col">
-
-        <!-- Header -->
-        <div class="px-6 py-4 border-b border-muted flex items-center justify-between shrink-0">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white"
+    <div v-if="showWizard" class="modal-overlay">
+      <div class="modal-sheet-lg">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0"
               style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">
-              <IconZap class="w-5 h-5"/>
+              <IconZap class="w-4 h-4"/>
             </div>
             <div>
-              <h3 class="font-black text-slate-900">Generador automático</h3>
-              <p class="text-[11px] text-slate-400">Fases y rondas basadas en la modalidad del torneo</p>
+              <h3 class="font-black text-slate-900 text-sm leading-tight">Generador de Partidos</h3>
+              <p class="text-[10px] text-slate-400 leading-tight">Basado en la modalidad del torneo</p>
             </div>
           </div>
           <button @click="showWizard = false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
         </div>
-
-        <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <div class="modal-body space-y-4">
 
           <!-- Modalidad -->
           <div class="rounded-xl p-4 flex items-center gap-4" :class="modalityStyle(selTournament?.modality).bg">
@@ -573,39 +571,36 @@
         </div>
 
         <!-- Footer -->
-        <div class="px-6 py-4 border-t border-muted shrink-0 flex gap-3">
+        <div class="modal-footer">
           <button @click="runAutoSetup"
             :disabled="wizSaving || !!rec.errors?.length || !previewStructure.length"
             class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">
             <IconZap class="w-4 h-4"/>
-            {{ wizSaving ? 'Generando...' : rec.errors?.length ? 'Corrige los errores primero' : `Generar ${previewStructure.length} fase${previewStructure.length!==1?'s':''} · ${totalRounds} rondas` }}
+            {{ wizSaving ? 'Generando...' : rec.errors?.length ? 'Corrige errores' : `Generar (${previewStructure.length} fases)` }}
           </button>
-          <button @click="showWizard = false" class="btn-ghost text-sm px-5">Cancelar</button>
+          <button @click="showWizard = false" class="btn-ghost text-sm px-4">Cancelar</button>
         </div>
       </div>
     </div>
 
     <!-- ── Modal: Preview de Eliminatoria ───────────────────── -->
-    <div v-if="showKnockoutPreview" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-2xl shadow-xl max-h-[92vh] flex flex-col">
-
-        <div class="px-6 py-4 border-b border-muted flex items-center justify-between shrink-0">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
-              <IconTrophy class="w-5 h-5 text-amber-600"/>
+    <div v-if="showKnockoutPreview" class="modal-overlay">
+      <div class="modal-sheet-lg">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <IconTrophy class="w-4 h-4 text-amber-600"/>
             </div>
             <div>
-              <h3 class="font-black text-slate-900">Generar Eliminatoria</h3>
-              <p class="text-xs text-slate-400">Basada en los resultados de la fase de grupos</p>
+              <h3 class="font-black text-slate-900 text-sm">Generar Eliminatoria</h3>
+              <p class="text-[10px] text-slate-400">Basada en resultados de grupos</p>
             </div>
           </div>
-          <button @click="showKnockoutPreview = false" class="text-slate-400 hover:text-slate-700">
-            <IconX class="w-5 h-5"/>
-          </button>
+          <button @click="showKnockoutPreview = false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
         </div>
-
-        <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <div class="modal-body space-y-4">
 
           <!-- Cargando -->
           <div v-if="kpLoading" class="flex justify-center py-8">
@@ -729,15 +724,20 @@
             <IconTrophy class="w-4 h-4"/>
             {{ kpSaving ? 'Generando...' : 'Generar Eliminatoria' }}
           </button>
-          <button @click="showKnockoutPreview = false" class="btn-ghost text-sm px-5">Cancelar</button>
+          <button @click="showKnockoutPreview = false" class="btn-ghost text-sm px-4">Cancelar</button>
         </div>
       </div>
     </div>
 
     <!-- ── Phase modal ──────────────────────────────────────── -->
-    <div v-if="showPhaseForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-card rounded-2xl border border-muted w-full max-w-md p-6 space-y-4">
-        <h3 class="font-bold text-slate-900 text-lg">{{ editingPhase ? 'Editar fase' : 'Nueva fase' }}</h3>
+    <div v-if="showPhaseForm" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <h3 class="font-bold text-slate-900 text-base">{{ editingPhase ? 'Editar fase' : 'Nueva fase' }}</h3>
+          <button @click="showPhaseForm=false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
+        </div>
+        <div class="modal-body space-y-4">
 
         <!-- Contexto: torneo y categoría (solo lectura) -->
         <div class="rounded-xl bg-slate-50 border border-muted px-4 py-3 flex items-center gap-3">
@@ -771,19 +771,25 @@
               class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
           </div>
         </div>
-        <div class="flex gap-3">
+        </div><!-- end modal-body -->
+        <div class="modal-footer">
           <button @click="savePhase" :disabled="saving" class="btn-primary text-sm flex-1 disabled:opacity-50">
             {{ saving ? 'Guardando...' : 'Guardar' }}
           </button>
-          <button @click="showPhaseForm = false" class="btn-ghost text-sm">Cancelar</button>
+          <button @click="showPhaseForm = false" class="btn-ghost text-sm px-4">Cancelar</button>
         </div>
       </div>
     </div>
 
     <!-- ── Round modal ──────────────────────────────────────── -->
-    <div v-if="showRoundForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-card rounded-2xl border border-muted w-full max-w-sm p-6 space-y-4">
-        <h3 class="font-bold text-slate-900 text-lg">{{ editingRound ? 'Editar ronda' : 'Nueva ronda' }}</h3>
+    <div v-if="showRoundForm" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <h3 class="font-bold text-slate-900 text-base">{{ editingRound ? 'Editar ronda' : 'Nueva ronda' }}</h3>
+          <button @click="showRoundForm=false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
+        </div>
+        <div class="modal-body space-y-4">
         <p class="text-slate-500 text-sm">Fase: <strong class="text-slate-900">{{ activePhase?.name }}</strong></p>
         <div>
           <label class="text-xs text-slate-700 mb-1 block">Nombre de la ronda</label>
@@ -791,36 +797,34 @@
             class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"
             placeholder="Jornada 1"/>
         </div>
-        <div class="flex gap-3">
+        </div><!-- end modal-body -->
+        <div class="modal-footer">
           <button @click="saveRound" :disabled="saving" class="btn-primary text-sm flex-1 disabled:opacity-50">
             {{ saving ? 'Guardando...' : 'Guardar' }}
           </button>
-          <button @click="showRoundForm = false" class="btn-ghost text-sm">Cancelar</button>
+          <button @click="showRoundForm = false" class="btn-ghost text-sm px-4">Cancelar</button>
         </div>
       </div>
     </div>
 
     <!-- ── Generate matches modal ──────────────────────────── -->
-    <div v-if="showGenerateForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
-
-        <!-- Header -->
-        <div class="px-6 py-4 border-b border-muted flex items-center justify-between shrink-0">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
-              <IconZap class="w-5 h-5 text-accent"/>
+    <div v-if="showGenerateForm" class="modal-overlay">
+      <div class="modal-sheet-lg">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+              <IconZap class="w-4 h-4 text-accent"/>
             </div>
             <div>
-              <h3 class="font-black text-slate-900">Generador de Partidos</h3>
-              <p class="text-xs text-slate-400">{{ activePhase?.name }}</p>
+              <h3 class="font-black text-slate-900 text-sm">Generador de Partidos</h3>
+              <p class="text-[10px] text-slate-400">{{ activePhase?.name }}</p>
             </div>
           </div>
-          <button @click="showGenerateForm = false" class="text-slate-400 hover:text-slate-700">
-            <IconX class="w-5 h-5"/>
-          </button>
+          <button @click="showGenerateForm = false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
         </div>
 
-        <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <div class="modal-body space-y-4">
 
         <!-- Sin equipos -->
         <div v-if="!categoryTeams.length"
@@ -952,15 +956,14 @@
 
         </div>
 
-        <!-- Footer -->
-        <div class="px-6 py-4 border-t border-muted shrink-0 flex gap-3">
+        <div class="modal-footer">
           <button @click="generate"
             :disabled="saving || genForm.teamIds.length < 2 || !categoryTeams.length"
             class="btn-accent text-sm flex-1 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             <IconZap class="w-4 h-4"/>
             {{ saving ? 'Generando...' : `Generar · ${genForm.teamIds.length} equipos` }}
           </button>
-          <button @click="showGenerateForm = false" class="btn-ghost text-sm px-5">Cerrar</button>
+          <button @click="showGenerateForm = false" class="btn-ghost text-sm px-4">Cerrar</button>
         </div>
       </div>
     </div>

@@ -259,17 +259,14 @@
     <!-- ══════════════════════════════════
          MODAL: Crear / Editar equipo completo
     ═══════════════════════════════════ -->
-    <div v-if="showForm" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-lg shadow-xl max-h-[92vh] flex flex-col">
-
-        <div class="px-6 py-4 border-b border-muted flex items-center justify-between shrink-0">
-          <h3 class="font-bold text-slate-900 text-lg">{{ editing ? 'Editar equipo' : 'Nuevo equipo' }}</h3>
-          <button @click="showForm = false" class="text-slate-400 hover:text-slate-700">
-            <IconX class="w-5 h-5" />
-          </button>
+    <div v-if="showForm" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <h3 class="font-bold text-slate-900 text-base">{{ editing ? 'Editar equipo' : 'Nuevo equipo' }}</h3>
+          <button @click="showForm = false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
         </div>
-
-        <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <div class="modal-body space-y-4">
 
           <!-- Torneo -->
           <div>
@@ -360,15 +357,14 @@
           </div>
         </div>
 
-        <div class="px-6 py-4 border-t border-muted shrink-0 flex gap-3">
-          <button @click="save" :disabled="saving"
-            class="btn-primary text-sm flex-1 disabled:opacity-50">
+        <div class="modal-footer">
+          <button @click="save" :disabled="saving" class="btn-primary text-sm flex-1 disabled:opacity-50">
             <span v-if="saving">Guardando...</span>
             <span v-else-if="editing">Guardar cambios</span>
             <span v-else-if="form.categoryIds.size > 1">Crear en {{ form.categoryIds.size }} categorías</span>
             <span v-else>Crear equipo</span>
           </button>
-          <button @click="showForm = false" class="btn-ghost text-sm px-5">Cancelar</button>
+          <button @click="showForm = false" class="btn-ghost text-sm px-4">Cancelar</button>
         </div>
       </div>
     </div>
