@@ -124,10 +124,10 @@ async function handleLogout() {
 }
 
 const adminBottomTabs = [
-  { to: '/admin',           label: 'Inicio',   icon: 'IconLayoutDashboard' },
-  { to: '/admin/partidos',  label: 'Partidos', icon: 'IconCircleDot' },
-  { to: '/admin/fases',     label: 'Fases',    icon: 'IconTrophy' },
-  { to: '/admin/config',    label: 'Config',   icon: 'IconSettings' },
+  { to: '/admin',            label: 'Inicio',    icon: 'IconLayoutDashboard' },
+  { to: '/admin/partidos',   label: 'Partidos',  icon: 'IconCircleDot' },
+  { to: '/admin/fases',      label: 'Fases',     icon: 'IconTrophy' },
+  { to: '/admin/arbitraje',  label: 'Arbitraje', icon: 'IconShield' },
 ]
 
 const drawerQuickLinks = [
@@ -138,6 +138,7 @@ const drawerQuickLinks = [
   { to: '/admin/tabla',         label: 'Resultados',    icon: 'IconBarChart2' },
   { to: '/admin/premios',       label: 'Premios',       icon: 'IconMedal' },
   { to: '/admin/noticias',      label: 'Noticias',      icon: 'IconNewspaper' },
+  { to: '/admin/config',        label: 'Config',        icon: 'IconSettings' },
   { to: '/admin/analytics',     label: 'Analytics',     icon: 'IconTrendingUp' },
 ]
 </script>

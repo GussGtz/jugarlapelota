@@ -53,7 +53,8 @@ const titles = {
   '/admin/noticias':          'Noticias',
   '/admin/analytics':         'Analytics',
   '/admin/config':            'Configuración',
-  '/admin/superadmin':        'Administradores'
+  '/admin/superadmin':        'Administradores',
+  '/admin/arbitraje':         'Arbitraje'
 }
 
 const pageTitle = computed(() => titles[route.path] || 'Panel Admin')

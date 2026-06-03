@@ -37,72 +37,79 @@
     <!-- List -->
     <div class="space-y-3">
       <div v-for="m in displayed" :key="m.id"
-        class="card flex items-center justify-between gap-4 flex-wrap"
-        :class="missingSchedule(m) ? 'border-amber-300 bg-amber-50/50' : ''">
-        <div class="flex items-center gap-4 flex-1 min-w-0">
-          <span class="text-xs font-bold uppercase flex-shrink-0 w-20"
-            :class="m.status==='live'?'text-red-400':m.status==='scheduled'?'text-primary':'text-slate-400'">
-            <template v-if="m.status==='live'">
-              <IconCircle class="w-2 h-2 fill-red-500 text-red-500 animate-pulse inline-block mr-1" /> VIVO
-            </template>
-            <template v-else>{{ m.status==='scheduled'? 'PROG.' : 'FIN.' }}</template>
-          </span>
-          <div class="flex-1 min-w-0">
-            <p class="font-semibold text-slate-900 text-sm truncate">{{ m.homeTeam }} vs {{ m.awayTeam }}</p>
-            <!-- Horario, cancha y árbitro -->
-            <div class="flex items-center gap-3 mt-0.5 flex-wrap">
-              <span class="flex items-center gap-1 text-xs"
-                :class="m.date ? 'text-slate-500' : 'text-amber-600 font-bold'">
-                <IconClock class="w-3 h-3"/>
-                {{ m.date ? fmtDate(m.date) : 'Sin horario' }}
-              </span>
-              <span class="flex items-center gap-1 text-xs"
-                :class="m.location ? 'text-slate-500' : 'text-amber-600 font-bold'">
-                <IconMapPin class="w-3 h-3"/>
-                {{ m.location || 'Sin cancha' }}
-              </span>
-              <span v-if="m.categoryName" class="text-[10px] text-slate-400">· {{ m.categoryName }}</span>
-            </div>
-            <!-- Árbitro — visible solo en partidos en vivo o finalizados -->
-            <div v-if="m.status !== 'scheduled' && m.refereeName"
-              class="flex items-center gap-1 mt-1">
-              <IconShield class="w-3 h-3 shrink-0"
-                :class="m.status==='live' ? 'text-red-500' : 'text-emerald-500'"/>
-              <span class="text-[11px] font-semibold"
-                :class="m.status==='live' ? 'text-red-600' : 'text-emerald-700'">
-                Árbitro: {{ m.refereeName }}
-              </span>
-            </div>
-            <!-- Partido finalizado SIN árbitro registrado -->
-            <div v-else-if="m.status === 'finished' && !m.refereeName"
-              class="flex items-center gap-1 mt-1">
-              <IconAlertTriangle class="w-3 h-3 text-slate-300 shrink-0"/>
-              <span class="text-[11px] text-slate-400">Sin árbitro registrado</span>
-            </div>
+        class="card !p-0 overflow-hidden"
+        :class="missingSchedule(m) ? 'border-amber-300' : m.status==='live' ? 'border-red-300' : ''">
+
+        <!-- Cabecera: estado + categoría + marcador -->
+        <div class="flex items-center justify-between px-3 py-2 border-b border-muted"
+          :class="m.status==='live' ? 'bg-red-50' : m.status==='finished' ? 'bg-slate-50' : 'bg-white'">
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-black uppercase"
+              :class="m.status==='live'?'text-red-500':m.status==='scheduled'?'text-primary':'text-slate-400'">
+              <template v-if="m.status==='live'">
+                <span class="inline-flex items-center gap-1">
+                  <IconCircle class="w-2 h-2 fill-red-500 text-red-500 animate-pulse"/> EN VIVO
+                </span>
+              </template>
+              <template v-else-if="m.status==='finished'">Finalizado</template>
+              <template v-else>Programado</template>
+            </span>
+            <span v-if="m.categoryName" class="text-[10px] text-slate-400">· {{ m.categoryName }}</span>
           </div>
-          <span v-if="m.status !== 'scheduled'" class="font-black text-primary text-lg flex-shrink-0">
-            {{ m.home_score }} - {{ m.away_score }}
+          <span v-if="m.status !== 'scheduled'" class="font-black text-primary text-base">
+            {{ m.home_score }} – {{ m.away_score }}
           </span>
         </div>
-        <div class="flex gap-2 flex-shrink-0 flex-wrap justify-end w-full md:w-auto">
-          <!-- Botón destacado si falta horario/cancha -->
-          <button v-if="missingSchedule(m)" @click="openEditForm(m)"
-            class="text-xs font-black text-amber-700 px-3 py-2 border border-amber-400 rounded-lg bg-amber-100 hover:bg-amber-200 flex items-center gap-1">
-            <IconClock class="w-3.5 h-3.5"/><span class="hidden sm:inline">Asignar horario</span>
+
+        <!-- Cuerpo: equipos + info -->
+        <div class="px-3 py-2.5">
+          <p class="font-bold text-slate-900 text-sm">{{ m.homeTeam }} <span class="text-slate-400 font-normal">vs</span> {{ m.awayTeam }}</p>
+          <div class="flex items-center gap-3 mt-1 flex-wrap">
+            <span class="flex items-center gap-1 text-[11px]"
+              :class="m.date ? 'text-slate-500' : 'text-amber-600 font-bold'">
+              <IconClock class="w-3 h-3 shrink-0"/>{{ m.date ? fmtDate(m.date) : 'Sin horario' }}
+            </span>
+            <span class="flex items-center gap-1 text-[11px]"
+              :class="m.location ? 'text-slate-500' : 'text-amber-600 font-bold'">
+              <IconMapPin class="w-3 h-3 shrink-0"/>{{ m.location || 'Sin cancha' }}
+            </span>
+          </div>
+          <div v-if="m.status !== 'scheduled' && m.refereeName" class="flex items-center gap-1 mt-1">
+            <IconShield class="w-3 h-3 shrink-0" :class="m.status==='live' ? 'text-red-500' : 'text-emerald-500'"/>
+            <span class="text-[11px] font-semibold" :class="m.status==='live' ? 'text-red-600' : 'text-emerald-700'">
+              {{ m.refereeName }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Acciones: fila completa de botones accesibles en mobile -->
+        <div class="flex items-center gap-1.5 px-3 pb-3 flex-wrap">
+          <!-- Marcador — siempre disponible y destacado -->
+          <button @click="openScoreModal(m)"
+            class="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border transition-colors"
+            :class="m.status !== 'scheduled'
+              ? 'bg-primary/10 text-primary border-primary/30 hover:bg-primary/20'
+              : 'bg-slate-100 text-slate-600 border-muted hover:bg-slate-200'">
+            <IconCircleDot class="w-3.5 h-3.5 shrink-0"/>
+            {{ m.status !== 'scheduled' ? m.home_score+' – '+m.away_score : 'Marcador' }}
           </button>
-          <button @click="openScoreModal(m)" class="text-xs text-accent px-3 py-2 border border-accent/30 rounded-lg hover:bg-accent/10 flex items-center gap-1" title="Actualizar marcador">
-            <IconCircle class="w-3.5 h-3.5"/><span class="hidden sm:inline ml-1">Marcador</span>
+          <!-- Editar -->
+          <button @click="openEditForm(m)"
+            class="flex items-center justify-center gap-1 py-2 px-3 rounded-xl text-xs font-bold border border-muted text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+            <IconPenLine class="w-3.5 h-3.5 shrink-0"/><span class="hidden sm:inline">Editar</span>
           </button>
-          <button @click="openEditForm(m)" class="text-xs text-slate-500 hover:text-slate-900 px-3 py-2 border border-muted rounded-lg flex items-center gap-1" title="Editar partido">
-            <IconPenLine class="w-3.5 h-3.5"/><span class="hidden sm:inline">Editar</span>
+          <!-- En Vivo / Finalizar -->
+          <button v-if="m.status !== 'live'" @click="confirmSetLive(m)"
+            class="flex items-center justify-center gap-1 py-2 px-3 rounded-xl text-xs font-bold border border-red-300 text-red-500 hover:bg-red-50 transition-colors">
+            <IconPlay class="w-3.5 h-3.5 shrink-0"/><span class="hidden sm:inline">Vivo</span>
           </button>
-          <button v-if="m.status !== 'live'" @click="confirmSetLive(m)" class="text-xs text-red-500 px-3 py-2 border border-red-600/30 rounded-lg flex items-center gap-1" title="Iniciar en vivo">
-            <IconPlay class="w-3.5 h-3.5"/><span class="hidden sm:inline">En Vivo</span>
+          <button v-else @click="confirmFinishMatch(m)"
+            class="flex items-center justify-center gap-1 py-2 px-3 rounded-xl text-xs font-bold border border-muted text-slate-500 hover:bg-slate-100 transition-colors">
+            <IconSquare class="w-3.5 h-3.5 shrink-0"/><span class="hidden sm:inline">Fin.</span>
           </button>
-          <button v-if="m.status === 'live'" @click="confirmFinishMatch(m)" class="text-xs text-slate-500 px-3 py-2 border border-muted rounded-lg flex items-center gap-1">
-            <IconSquare class="w-3.5 h-3.5"/><span class="hidden sm:inline">Finalizar</span>
-          </button>
-          <button @click="confirmDeleteMatch(m)" class="text-xs text-red-500 px-2.5 py-2 border border-red-600/30 rounded-lg hover:bg-red-600/10" title="Eliminar">
+          <!-- Eliminar -->
+          <button @click="confirmDeleteMatch(m)"
+            class="flex items-center justify-center py-2 px-2.5 rounded-xl border border-red-200 text-red-400 hover:bg-red-50 transition-colors">
             <IconTrash2 class="w-3.5 h-3.5"/>
           </button>
         </div>
