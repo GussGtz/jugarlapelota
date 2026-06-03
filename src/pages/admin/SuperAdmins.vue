@@ -218,8 +218,8 @@
     <!-- ══ END TAB: Solicitudes ═══════════════════════════════ -->
 
     <!-- ── Modal detalle solicitud ────────────────────────── -->
-    <div v-if="reqDetail" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-md shadow-xl">
+    <div v-if="reqDetail" class="modal-overlay">
+      <div class="modal-sheet">
         <div class="px-6 py-4 border-b border-muted flex items-center justify-between">
           <h3 class="font-black text-slate-900">Solicitud de contratación</h3>
           <button @click="reqDetail=null" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5" /></button>
@@ -257,8 +257,8 @@
     </div>
 
     <!-- ── Modal crear / editar ──────────────────────────── -->
-    <div v-if="showForm" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-md shadow-xl">
+    <div v-if="showForm" class="modal-overlay">
+      <div class="modal-sheet">
         <div class="px-6 py-4 border-b border-muted flex items-center justify-between">
           <h3 class="font-black text-slate-900">{{ editing ? 'Editar administrador' : 'Nuevo administrador' }}</h3>
           <button @click="showForm=false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5" /></button>
@@ -305,8 +305,8 @@
     </div>
 
     <!-- ── Modal cambiar contraseña ──────────────────────── -->
-    <div v-if="showPwdModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-sm shadow-xl">
+    <div v-if="showPwdModal" class="modal-overlay">
+      <div class="modal-sheet">
         <div class="px-6 py-4 border-b border-muted flex items-center justify-between">
           <div>
             <h3 class="font-black text-slate-900">Cambiar contraseña</h3>
@@ -341,7 +341,7 @@
     </div>
 
     <!-- ── Confirmar eliminación ──────────────────────────── -->
-    <div v-if="deleteTarget" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div v-if="deleteTarget" class="modal-overlay">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
         <div class="flex items-start gap-3">
           <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">

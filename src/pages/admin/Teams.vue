@@ -124,8 +124,8 @@
     </div>
 
     <!-- ── Modal: Gestionar categorías de un equipo ── -->
-    <div v-if="showCatManager" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-md shadow-xl">
+    <div v-if="showCatManager" class="modal-overlay">
+      <div class="modal-sheet">
         <div class="px-6 py-4 border-b border-muted flex items-center justify-between">
           <div>
             <h3 class="font-black text-slate-900">Categorías del equipo</h3>
@@ -188,8 +188,8 @@
     <!-- ══════════════════════════════════
          MODAL: Asignación rápida de categoría
     ═══════════════════════════════════ -->
-    <div v-if="showQuickAssign" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-md shadow-xl">
+    <div v-if="showQuickAssign" class="modal-overlay">
+      <div class="modal-sheet">
 
         <div class="px-6 py-4 border-b border-muted flex items-center justify-between">
           <div>

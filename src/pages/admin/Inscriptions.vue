@@ -86,8 +86,8 @@
     </div>
 
     <!-- Detail modal -->
-    <div v-if="selected" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-card rounded-2xl border border-muted w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+    <div v-if="selected" class="modal-overlay">
+      <div class="modal-sheet overflow-y-auto p-5">
         <div class="flex items-center justify-between">
           <h3 class="font-bold text-slate-900 text-lg">{{ selected.team_name }}</h3>
           <button @click="selected=null" class="text-slate-400 hover:text-slate-900">×</button>

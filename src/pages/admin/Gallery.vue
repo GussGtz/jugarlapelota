@@ -38,8 +38,8 @@
     </div>
 
     <!-- New gallery modal -->
-    <div v-if="showGalleryForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-card rounded-2xl border border-muted w-full max-w-md p-6 space-y-4">
+    <div v-if="showGalleryForm" class="modal-overlay">
+      <div class="modal-sheet overflow-y-auto p-5">
         <h3 class="font-bold text-slate-900 text-lg">Nueva galería</h3>
         <div>
           <label class="text-xs text-slate-700 mb-1 block">Título</label>
@@ -60,8 +60,8 @@
     </div>
 
     <!-- Add image modal -->
-    <div v-if="showImageForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-card rounded-2xl border border-muted w-full max-w-md p-6 space-y-4">
+    <div v-if="showImageForm" class="modal-overlay">
+      <div class="modal-sheet overflow-y-auto p-5">
         <h3 class="font-bold text-slate-900 text-lg">Agregar imagen a "{{ activeGallery?.title }}"</h3>
 
         <!-- Upload area -->

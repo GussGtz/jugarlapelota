@@ -24,8 +24,8 @@
       <p v-if="!streams.length" class="col-span-full text-center text-slate-500 py-16">Sin transmisiones.</p>
     </div>
     <!-- Modal -->
-    <div v-if="showForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-card rounded-2xl border border-muted w-full max-w-lg p-6 space-y-4">
+    <div v-if="showForm" class="modal-overlay">
+      <div class="modal-sheet overflow-y-auto p-5">
         <h3 class="font-bold text-slate-900 text-lg">Nueva transmisión</h3>
         <div>
           <label class="text-xs text-slate-700 mb-1 block">Torneo</label>

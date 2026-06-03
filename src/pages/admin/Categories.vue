@@ -58,8 +58,8 @@
     <!-- ══════════════════════════════════════════
          MODAL: GESTIONAR CATEGORÍAS (agregar/quitar)
     ═══════════════════════════════════════════ -->
-    <div v-if="showManager" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-xl shadow-xl max-h-[92vh] flex flex-col">
+    <div v-if="showManager" class="modal-overlay">
+      <div class="modal-sheet-lg">
 
         <!-- Header -->
         <div class="px-6 py-4 border-b border-muted flex items-center justify-between shrink-0">
@@ -198,8 +198,8 @@
     <!-- ══════════════════════════════════════════
          MODAL: EDITAR CATEGORÍA EXISTENTE
     ═══════════════════════════════════════════ -->
-    <div v-if="showEditForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-muted w-full max-w-sm p-6 space-y-4">
+    <div v-if="showEditForm" class="modal-overlay">
+      <div class="modal-sheet overflow-y-auto p-5">
         <h3 class="font-bold text-slate-900 text-lg">Editar categoría</h3>
         <div class="grid gap-3">
           <div>
