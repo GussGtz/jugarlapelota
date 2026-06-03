@@ -148,7 +148,31 @@
         <div class="w-1 h-6 bg-slate-300 rounded-full"></div>
         <h2 class="text-lg font-black text-slate-900">Próximos</h2>
       </div>
-      <div class="overflow-x-auto rounded-2xl border border-muted">
+
+      <!-- Mobile: cards apiladas -->
+      <div class="md:hidden space-y-2">
+        <div v-for="m in st.nextMatches" :key="m.id"
+          @click="goMatch(m)"
+          class="card cursor-pointer hover:border-primary/40 transition-all !p-3">
+          <div class="flex items-center gap-2 mb-1.5">
+            <TeamBadge :logo="m.homeLogo" :name="m.homeTeam" size="xs"/>
+            <span class="font-bold text-slate-900 text-sm truncate flex-1">{{ m.homeTeam }}</span>
+            <span class="text-slate-400 text-xs shrink-0">vs</span>
+            <span class="font-bold text-slate-900 text-sm truncate flex-1 text-right">{{ m.awayTeam }}</span>
+            <TeamBadge :logo="m.awayLogo" :name="m.awayTeam" size="xs"/>
+          </div>
+          <div class="flex items-center gap-2 text-[11px] text-slate-400">
+            <span>{{ m.categoryName || '—' }}</span>
+            <span>·</span>
+            <span>{{ m.tournamentName }}</span>
+            <span v-if="m.date" class="ml-auto font-medium text-slate-500">{{ fmtDate(m.date) }}</span>
+            <span v-else class="ml-auto text-primary font-bold">Ver →</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop: tabla -->
+      <div class="hidden md:block overflow-x-auto rounded-2xl border border-muted">
         <table class="w-full text-sm min-w-[480px]">
           <thead class="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-wider">
             <tr>
@@ -247,7 +271,7 @@
         <div class="w-1 h-6 bg-accent rounded-full"></div>
         <h2 class="text-lg font-black text-slate-900">Acciones rápidas</h2>
       </div>
-      <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">
         <router-link v-for="action in actions" :key="action.to" :to="action.to"
           class="card flex flex-col items-center gap-2 py-5 hover:border-primary hover:shadow-md text-center group transition-all">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center"
