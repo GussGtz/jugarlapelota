@@ -1,5 +1,5 @@
 <template>
-  <header class="sticky top-0 z-50 transition-all duration-300 relative"
+  <header class="sticky top-0 z-50 transition-all duration-300 relative safe-top"
     :class="isTransparent
       ? 'bg-transparent border-transparent shadow-none'
       : 'bg-white border-b border-muted shadow-sm'">
@@ -238,6 +238,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
 .fade-down-enter-active { transition: opacity 0.15s ease, transform 0.15s ease; }
 .fade-down-leave-active { transition: opacity 0.1s ease, transform 0.1s ease; }
 .fade-down-enter-from, .fade-down-leave-to { opacity: 0; transform: translateY(-6px); }

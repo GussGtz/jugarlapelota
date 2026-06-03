@@ -20,7 +20,7 @@ async function login(req, res) {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET || 'jlp_secret_dev',
-      { expiresIn: '7d' }
+      { expiresIn: '365d' }
     )
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, username: user.username, role: user.role, avatar: user.avatar } })
   } catch (err) {
@@ -63,7 +63,7 @@ function googleLogin(req, res) {
         const token = jwt.sign(
           { id: user.id, email: user.email, role: user.role },
           process.env.JWT_SECRET || 'jlp_secret_dev',
-          { expiresIn: '30d' }
+          { expiresIn: '365d' }
         )
         res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, avatar: user.avatar } })
       } catch (e) {
