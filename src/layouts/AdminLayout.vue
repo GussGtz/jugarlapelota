@@ -31,14 +31,13 @@
         @toggle-sidebar="mobileOpen = !mobileOpen"
         @toggle-collapse="toggleCollapse"
       />
-      <main class="flex-1 px-2 py-3 md:p-6 overflow-x-hidden overflow-y-auto bg-slate-50 pb-20 md:pb-6">
+      <main class="flex-1 px-2 py-3 md:p-6 overflow-x-hidden overflow-y-auto bg-slate-50 main-scroll md:pb-6">
         <slot />
       </main>
     </div>
 
     <!-- Admin Bottom Nav — mobile only (oculto para superadmin) -->
-    <nav v-if="!auth.isSuperAdmin" class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg md:hidden"
-      style="padding-bottom: env(safe-area-inset-bottom, 0px)">
+    <nav v-if="!auth.isSuperAdmin" class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg md:hidden admin-bottom-nav">
       <div class="flex justify-around items-center py-1">
         <router-link v-for="item in adminBottomTabs" :key="item.to" :to="item.to"
           class="flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all"
@@ -146,4 +145,16 @@ const drawerQuickLinks = [
 <style scoped>
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* El nav ocupa exactamente su contenido + safe-area inferior, sin espacio extra */
+.admin-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* El main deja espacio = altura del nav (56px aprox) + safe-area inferior */
+@media (max-width: 767px) {
+  .main-scroll {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+}
 </style>
