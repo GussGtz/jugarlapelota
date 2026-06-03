@@ -24,7 +24,7 @@
     </div>
 
     <!-- Main content — margen dinámico -->
-    <div class="flex-1 flex flex-col transition-all duration-300 ease-in-out"
+    <div class="flex-1 min-w-0 flex flex-col transition-all duration-300 ease-in-out"
       :class="collapsed ? 'md:ml-16' : 'md:ml-64'">
       <AdminTopbar
         :collapsed="collapsed"
