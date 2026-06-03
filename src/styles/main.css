@@ -105,78 +105,81 @@
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* ── Modal bottom-sheet (mobile) / centered (desktop) ─────── */
+/* ══════════════════════════════════════════════════════════
+   MODAL SYSTEM — bottom-sheet mobile / centered desktop
+   ══════════════════════════════════════════════════════════ */
+
+/* Overlay — cubre todo, z-index sobre bottom nav (z-50) */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(15,23,42,0.55);
+  background: rgba(15,23,42,0.6);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: flex-end;   /* bottom sheet en mobile */
   justify-content: center;
 }
 @media (min-width: 768px) {
-  .modal-overlay { align-items: center; padding: 1rem; }
+  .modal-overlay { align-items: center; padding: 1.5rem; }
 }
-.modal-sheet {
+
+/* Sheet base — ocupa altura definida para que el scroll funcione */
+.modal-sheet,
+.modal-sheet-lg,
+.modal-sheet-xl {
   background: white;
-  border-radius: 1.25rem 1.25rem 0 0;
+  border-radius: 1.5rem 1.5rem 0 0;
   width: 100%;
+  /* Altura fija en mobile: llena suficiente pantalla para ver el contenido */
+  height: 88vh;
   max-height: 92vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 -4px 40px rgba(0,0,0,0.18);
-  overflow-y: auto; /* fallback para modales sin modal-body explícito */
+  box-shadow: 0 -8px 48px rgba(0,0,0,0.22);
+  overflow: hidden; /* el scroll lo maneja modal-body */
 }
 @media (min-width: 768px) {
-  .modal-sheet { border-radius: 1.25rem; max-width: 32rem; }
+  .modal-sheet    { border-radius: 1.25rem; max-width: 32rem; height: auto; max-height: 90vh; }
+  .modal-sheet-lg { border-radius: 1.25rem; max-width: 44rem; height: auto; max-height: 90vh; }
+  .modal-sheet-xl { border-radius: 1.25rem; max-width: 58rem; height: auto; max-height: 90vh; }
 }
-.modal-sheet-lg {
-  background: white; border-radius: 1.25rem 1.25rem 0 0;
-  width: 100%; max-height: 92vh;
-  display: flex; flex-direction: column;
-  box-shadow: 0 -4px 40px rgba(0,0,0,0.18);
-}
-@media (min-width: 768px) {
-  .modal-sheet-lg { border-radius: 1.25rem; max-width: 42rem; }
-}
-.modal-sheet-xl {
-  background: white; border-radius: 1.25rem 1.25rem 0 0;
-  width: 100%; max-height: 92vh;
-  display: flex; flex-direction: column;
-  box-shadow: 0 -4px 40px rgba(0,0,0,0.18);
-}
-@media (min-width: 768px) {
-  .modal-sheet-xl { border-radius: 1.25rem; max-width: 56rem; }
-}
-/* Handle visual en mobile */
+
+/* Handle decorativo en mobile */
 .modal-handle {
-  width: 2.5rem; height: 4px;
-  background: #e2e8f0; border-radius: 9999px;
-  margin: 10px auto 0;
+  width: 2.75rem; height: 4px;
+  background: #cbd5e1; border-radius: 9999px;
+  margin: 10px auto 4px;
   flex-shrink: 0;
 }
 @media (min-width: 768px) { .modal-handle { display: none; } }
+
+/* Header — siempre visible arriba */
 .modal-header {
-  padding: 12px 16px 12px;
+  padding: 10px 16px 12px;
   border-bottom: 1px solid #e5e7eb;
   display: flex; align-items: center; justify-content: space-between;
   flex-shrink: 0;
+  background: white;
 }
 @media (min-width: 768px) { .modal-header { padding: 16px 24px; } }
+
+/* Body — área scrolleable entre header y footer */
 .modal-body {
+  flex: 1;
+  min-height: 0;        /* sin esto flex no permite scroll interno */
   overflow-y: auto;
-  flex: 1 1 0;     /* crece pero puede encogerse */
-  min-height: 0;   /* necesario para que overflow-y funcione en flex */
+  -webkit-overflow-scrolling: touch;
   padding: 16px;
 }
 @media (min-width: 768px) { .modal-body { padding: 20px 24px; } }
+
+/* Footer — siempre visible abajo */
 .modal-footer {
-  padding: 12px 16px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+  flex-shrink: 0;
+  background: white;
   border-top: 1px solid #e5e7eb;
   display: flex; gap: 10px;
-  flex-shrink: 0;  /* NUNCA se encoge — siempre visible */
-  background: white;
+  padding: 12px 16px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
 }
 @media (min-width: 768px) { .modal-footer { padding: 16px 24px; } }
 
