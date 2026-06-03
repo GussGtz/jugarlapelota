@@ -162,20 +162,38 @@
           <span class="text-xs text-slate-400 bg-slate-100 px-3 py-1 rounded-full">Empate</span>
         </div>
 
+        <!-- Aviso para partidos ya finalizados -->
+        <div v-if="scoreMatch?.status === 'finished'"
+          class="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-700">
+          <IconAlertTriangle class="w-4 h-4 shrink-0"/>
+          Corregir el resultado actualizará la tabla de posiciones y el bracket automáticamente.
+        </div>
+
         <!-- Actions -->
         <div class="space-y-2">
-          <!-- Guardar + Finalizar (auto-advance) -->
-          <button @click="confirmSaveAndFinish" :disabled="saving"
-            class="w-full bg-primary text-white font-bold py-3 rounded-xl text-sm hover:bg-sky-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
-            <IconCheckCircle class="w-4 h-4" />
-            {{ saving ? 'Procesando...' : 'Guardar y Finalizar partido' }}
-          </button>
-          <!-- Solo guardar (actualizar en vivo) -->
-          <button @click="confirmUpdateScore" :disabled="saving"
-            class="w-full border border-muted text-slate-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-slate-50 transition disabled:opacity-50 flex items-center justify-center gap-2">
-            <IconRefreshCw class="w-4 h-4" />
-            Solo actualizar marcador
-          </button>
+          <!-- Partido ya finalizado: solo corrección -->
+          <template v-if="scoreMatch?.status === 'finished'">
+            <button @click="confirmCorrectResult" :disabled="saving"
+              class="w-full bg-primary text-white font-bold py-3 rounded-xl text-sm hover:bg-sky-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
+              <IconCheckCircle class="w-4 h-4" />
+              {{ saving ? 'Actualizando...' : 'Guardar corrección y recalcular' }}
+            </button>
+          </template>
+
+          <!-- Partido en curso o programado -->
+          <template v-else>
+            <button @click="confirmSaveAndFinish" :disabled="saving"
+              class="w-full bg-primary text-white font-bold py-3 rounded-xl text-sm hover:bg-sky-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
+              <IconCheckCircle class="w-4 h-4" />
+              {{ saving ? 'Procesando...' : 'Guardar y Finalizar partido' }}
+            </button>
+            <button @click="confirmUpdateScore" :disabled="saving"
+              class="w-full border border-muted text-slate-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-slate-50 transition disabled:opacity-50 flex items-center justify-center gap-2">
+              <IconRefreshCw class="w-4 h-4" />
+              Solo actualizar marcador (en vivo)
+            </button>
+          </template>
+
           <button @click="showScore=false" class="w-full text-slate-400 text-sm py-1.5 hover:text-slate-600 transition">
             Cancelar
           </button>
@@ -445,6 +463,16 @@ function confirmSaveAndFinish() {
     title: '¿Guardar y finalizar partido?',
     body: `El marcador ${scoreForm.home}-${scoreForm.away} quedará registrado y el partido se cerrará. Las estadísticas y la tabla se actualizarán automáticamente.`,
     confirmLabel: 'Sí, finalizar',
+    confirmClass: 'bg-primary hover:bg-sky-600',
+    onConfirm: () => saveScore(true)
+  })
+}
+
+function confirmCorrectResult() {
+  askConfirm({
+    title: '¿Corregir resultado final?',
+    body: `El nuevo marcador ${scoreForm.home}-${scoreForm.away} (${scoreMatch.value?.homeTeam} vs ${scoreMatch.value?.awayTeam}) recalculará la tabla de posiciones y el bracket automáticamente.`,
+    confirmLabel: 'Guardar corrección',
     confirmClass: 'bg-primary hover:bg-sky-600',
     onConfirm: () => saveScore(true)
   })

@@ -646,14 +646,21 @@ router.put('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
 })
 router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, res) => {
   const { homeScore, awayScore, finish } = req.body
-  const newStatus = finish ? 'finished' : undefined
-  if (newStatus) {
-    const now = new Date().toISOString()
-    await query('UPDATE matches SET home_score=$1,away_score=$2,status=$3,finished_at=$4 WHERE id=$5', [homeScore, awayScore, newStatus, now, req.params.id])
+  const existing = await queryOne('SELECT status FROM matches WHERE id=$1', [req.params.id])
+  const alreadyFinished = existing?.status === 'finished'
+
+  if (finish && !alreadyFinished) {
+    // Primer cierre: marcar como finalizado con timestamp
+    await query('UPDATE matches SET home_score=$1,away_score=$2,status=$3,finished_at=$4 WHERE id=$5',
+      [homeScore, awayScore, 'finished', new Date().toISOString(), req.params.id])
   } else {
+    // Actualizar solo el score (partido en vivo o corrección de resultado finalizado)
     await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [homeScore, awayScore, req.params.id])
   }
-  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
+
+  const m = await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id])
+
+  // Recalcular tabla y bracket si el partido está o queda finalizado
   if (m.status === 'finished') {
     if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
     await advanceBracketWinner(m.id, req.io)
