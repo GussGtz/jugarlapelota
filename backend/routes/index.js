@@ -2302,12 +2302,11 @@ router.delete('/referees/:id', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ── Árbitro: partidos asignables ─────────────────────────────────────────
-// GET /referee/matches — partidos del torneo asignado al árbitro (solo 'scheduled')
+// GET /referee/matches — partidos del torneo: scheduled + live propios del árbitro
 router.get('/referee/matches', authMiddleware, async (req, res) => {
   if (req.user?.role !== 'referee' && req.user?.role !== 'admin') {
     return res.status(403).json({ error: 'Acceso denegado' })
   }
-  // Obtener el torneo asignado al árbitro
   const referee = (await queryOne('SELECT tournament_id FROM users WHERE id=$1', [req.user.id]))
   const tournamentId = referee?.tournament_id
 
@@ -2322,18 +2321,22 @@ router.get('/referee/matches', authMiddleware, async (req, res) => {
     JOIN tournaments t ON m.tournament_id=t.id
     LEFT JOIN categories c ON m.category_id=c.id
     LEFT JOIN users u ON m.referee_id=u.id
-    WHERE m.status = 'scheduled'
+    WHERE (
+      m.status = 'scheduled'
+      OR (m.status = 'live' AND m.referee_id = $1)
+    )
     AND COALESCE(m.home_is_tbd, 0) = 0
     AND COALESCE(m.away_is_tbd, 0) = 0
   `
-  const params = []
+  // $1 = req.user.id (para filtrar partidos live del árbitro)
+  const params = [req.user.id]
   if (tournamentId) {
     params.push(tournamentId)
     sql += ` AND m.tournament_id=$${params.length}`
   }
   sql += ' ORDER BY m.date ASC LIMIT 100'
 
-  const rows = (await query(sql, [...params])).rows
+  const rows = (await query(sql, params)).rows
 
   // También devolver las categorías del torneo para el filtro
   const categories = tournamentId

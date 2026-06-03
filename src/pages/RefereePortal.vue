@@ -78,13 +78,22 @@
           <!-- Lista de partidos -->
           <div v-else class="space-y-3">
             <div v-for="m in filteredMatches" :key="m.id"
-              class="rounded-2xl border border-white/10 bg-slate-800 overflow-hidden cursor-pointer hover:border-primary/40 hover:bg-slate-750 transition-all"
+              class="rounded-2xl border overflow-hidden cursor-pointer transition-all"
+              :class="m.status === 'live'
+                ? 'border-red-500/50 bg-red-950/40 hover:border-red-400/60'
+                : 'border-white/10 bg-slate-800 hover:border-primary/40'"
               @click="selectMatch(m)">
 
-              <!-- Categoría + fecha -->
-              <div class="px-4 py-2 border-b border-white/5 flex items-center justify-between bg-slate-800/80">
+              <!-- Categoría + estado -->
+              <div class="px-4 py-2 border-b flex items-center justify-between"
+                :class="m.status === 'live' ? 'border-red-500/20 bg-red-900/20' : 'border-white/5 bg-slate-800/80'">
                 <div class="flex items-center gap-2">
-                  <span class="text-[10px] font-black uppercase tracking-wider text-primary">{{ m.categoryName }}</span>
+                  <span v-if="m.status === 'live'"
+                    class="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-red-400">
+                    <span class="w-1.5 h-1.5 bg-red-400 rounded-full animate-ping inline-block"></span>
+                    EN VIVO
+                  </span>
+                  <span v-else class="text-[10px] font-black uppercase tracking-wider text-primary">{{ m.categoryName }}</span>
                 </div>
                 <span class="text-[10px] text-slate-500 flex items-center gap-1">
                   <IconCalendar class="w-3 h-3"/> {{ fmtDate(m.date) }}
@@ -93,7 +102,6 @@
 
               <!-- Equipos -->
               <div class="p-4 flex items-center gap-3">
-                <!-- Local -->
                 <div class="flex-1 flex items-center gap-2.5 min-w-0 justify-end">
                   <p class="font-black text-white text-sm truncate text-right leading-tight">{{ m.homeTeam }}</p>
                   <div class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center shrink-0 overflow-hidden border border-white/10">
@@ -101,11 +109,12 @@
                     <IconShirt v-else class="w-5 h-5 text-slate-500"/>
                   </div>
                 </div>
-                <!-- VS -->
                 <div class="shrink-0 w-10 text-center">
-                  <span class="text-sm font-black text-slate-600">vs</span>
+                  <span v-if="m.status === 'live'" class="text-base font-black text-white">
+                    {{ m.home_score }} - {{ m.away_score }}
+                  </span>
+                  <span v-else class="text-sm font-black text-slate-600">vs</span>
                 </div>
-                <!-- Visitante -->
                 <div class="flex-1 flex items-center gap-2.5 min-w-0">
                   <div class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center shrink-0 overflow-hidden border border-white/10">
                     <img v-if="m.awayLogo" :src="m.awayLogo" class="w-full h-full object-contain p-0.5"/>
@@ -131,7 +140,12 @@
 
               <!-- CTA -->
               <div class="px-4 pb-3 pt-2">
-                <div class="w-full py-2 rounded-xl bg-primary/10 border border-primary/20 text-center text-xs font-black text-primary flex items-center justify-center gap-1.5">
+                <div v-if="m.status === 'live'"
+                  class="w-full py-2 rounded-xl bg-red-500/20 border border-red-500/40 text-center text-xs font-black text-red-400 flex items-center justify-center gap-1.5">
+                  <IconRadio class="w-3.5 h-3.5 animate-pulse"/> Retomar partido en curso
+                </div>
+                <div v-else
+                  class="w-full py-2 rounded-xl bg-primary/10 border border-primary/20 text-center text-xs font-black text-primary flex items-center justify-center gap-1.5">
                   <IconPlay class="w-3.5 h-3.5"/> Arbitrar este partido
                 </div>
               </div>
