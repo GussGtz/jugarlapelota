@@ -281,6 +281,7 @@
             </div>
           </div>
 
+        </div><!-- /modal-body -->
         <div class="modal-footer">
           <button @click="save" :disabled="saving || dupWarning?.hard"
             class="btn-primary text-sm flex-1 disabled:opacity-40 disabled:cursor-not-allowed">

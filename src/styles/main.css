@@ -163,7 +163,9 @@
 }
 @media (min-width: 768px) { .modal-header { padding: 16px 24px; } }
 .modal-body {
-  overflow-y: auto; flex: 1;
+  overflow-y: auto;
+  flex: 1 1 0;     /* crece pero puede encogerse */
+  min-height: 0;   /* necesario para que overflow-y funcione en flex */
   padding: 16px;
 }
 @media (min-width: 768px) { .modal-body { padding: 20px 24px; } }
@@ -172,7 +174,8 @@
   padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
   border-top: 1px solid #e5e7eb;
   display: flex; gap: 10px;
-  flex-shrink: 0;
+  flex-shrink: 0;  /* NUNCA se encoge — siempre visible */
+  background: white;
 }
 @media (min-width: 768px) { .modal-footer { padding: 16px 24px; } }
 
