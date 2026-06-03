@@ -253,7 +253,6 @@
                 class="hidden" @change="onPhotoSelected"/>
             </div>
           </div>
-        </div>
 
           <!-- Stats manuales — solo al editar un jugador ya registrado -->
           <div v-if="editing" class="border-t border-muted pt-4 space-y-3">
@@ -280,7 +279,6 @@
               </div>
             </div>
           </div>
-
         </div><!-- /modal-body -->
         <div class="modal-footer">
           <button @click="save" :disabled="saving || dupWarning?.hard"

@@ -355,8 +355,6 @@
               class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"
               placeholder="Opcional"/>
           </div>
-        </div>
-
         </div><!-- /modal-body -->
         <div class="modal-footer">
           <button @click="save" :disabled="saving" class="btn-primary text-sm flex-1 disabled:opacity-50">
