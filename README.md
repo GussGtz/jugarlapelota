@@ -1,6 +1,6 @@
 # ⚽ JugarLaPelota — Plataforma de Torneos Deportivos
 
-**jugarlapelota.com** — Ecosistema digital completo para gestión y difusión de torneos deportivos.
+Ecosistema digital completo para gestión y difusión de torneos deportivos. Demo en vivo: [jugarlapelota.onrender.com](https://jugarlapelota.onrender.com)
 
 ---
 
@@ -15,26 +15,33 @@
 | Backend | Node.js + Express |
 | Base de datos | MySQL |
 | Multimedia | Cloudinary |
-| Hosting | Hostinger VPS |
 
 ---
 
-## Instalación rápida
+## Instalación
 
-### 1. Instala Node.js
-Descárgalo desde: https://nodejs.org (versión LTS recomendada)
+### Requisitos
+- Node.js LTS ([nodejs.org](https://nodejs.org))
+- MySQL 8+
+- Cuenta en Cloudinary (para imágenes)
 
-### 2. Frontend (Vue PWA)
+### 1. Clona el repositorio
 
 ```bash
-cd /Users/samuelgutierrez/Desktop/JugarLaPelota
+git clone https://github.com/GussGtz/jugarlapelota.git
+cd jugarlapelota
+```
+
+### 2. Frontend
+
+```bash
 cp .env.example .env
 npm install
 npm run dev
 # → http://localhost:5173
 ```
 
-### 3. Backend (API + Socket.io)
+### 3. Backend
 
 ```bash
 cd backend
@@ -45,10 +52,9 @@ npm run dev
 # → http://localhost:3000
 ```
 
-### 4. Base de datos MySQL
+### 4. Base de datos
 
 ```bash
-# En MySQL:
 mysql -u root -p < backend/database.sql
 ```
 
@@ -58,70 +64,59 @@ Credenciales del admin inicial:
 
 ---
 
+## Variables de entorno
+
+Copia `.env.example` a `.env` y configura:
+
+```env
+# Frontend (.env)
+VITE_API_URL=http://localhost:3000
+
+# Backend (backend/.env)
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=jugarlapelota
+DB_USER=root
+DB_PASSWORD=tu_password
+
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+
+JWT_SECRET=tu_jwt_secret
+```
+
+---
+
 ## Estructura del proyecto
 
 ```
-JugarLaPelota/
+jugarlapelota/
 ├── src/                    # Vue Frontend
-│   ├── api/                # Cliente Axios
-│   ├── components/         # Componentes reutilizables
-│   │   ├── Navbar/
-│   │   ├── Hero/
-│   │   ├── MatchCard/
-│   │   ├── StandingsTable/
-│   │   ├── LiveBadge/
-│   │   ├── StreamCard/
-│   │   ├── SponsorSlider/
-│   │   ├── Footer/
-│   │   └── Admin/
-│   ├── composables/        # Lógica reutilizable
-│   ├── layouts/            # PublicLayout / AdminLayout
-│   ├── pages/              # Páginas públicas
-│   │   └── admin/          # Panel administrador
-│   ├── router/             # Vue Router
-│   ├── services/           # Socket.io client
-│   ├── stores/             # Pinia stores
-│   └── styles/             # TailwindCSS global
+│   ├── api/
+│   ├── components/
+│   ├── composables/
+│   ├── layouts/
+│   ├── pages/
+│   │   └── admin/
+│   ├── router/
+│   ├── services/
+│   ├── stores/
+│   └── styles/
 ├── backend/
-│   ├── config/             # DB + Cloudinary
-│   ├── controllers/        # Lógica de negocio
-│   ├── middleware/         # Auth JWT
-│   ├── routes/             # API endpoints
-│   ├── database.sql        # Esquema MySQL completo
-│   └── server.js           # Entry point + Socket.io
-├── public/                 # Assets estáticos
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── routes/
+│   ├── database.sql
+│   └── server.js
+├── public/
 └── .env.example
 ```
 
 ---
 
-## URLs públicas
-
-```
-jugarlapelota.com/                    → Home
-jugarlapelota.com/torneos             → Lista de torneos
-jugarlapelota.com/:slug               → Torneo individual
-jugarlapelota.com/:slug/partidos      → Partidos
-jugarlapelota.com/:slug/tabla         → Tabla de posiciones
-jugarlapelota.com/:slug/equipos       → Equipos
-jugarlapelota.com/:slug/transmisiones → Streams en vivo
-jugarlapelota.com/:slug/galeria       → Galería
-jugarlapelota.com/:slug/noticias      → Noticias
-```
-
-## Panel Admin
-
-```
-jugarlapelota.com/admin               → Dashboard
-jugarlapelota.com/admin/torneos       → Gestión de torneos
-jugarlapelota.com/admin/partidos      → Partidos + marcadores en vivo
-jugarlapelota.com/admin/tabla         → Tabla automática
-jugarlapelota.com/admin/transmisiones → Streams
-```
-
----
-
-## Funciones clave implementadas
+## Funciones clave
 
 - **Multitorneos** — cada torneo tiene su propia URL, colores y branding
 - **Tabla automática** — se recalcula al guardar marcadores
@@ -144,12 +139,6 @@ jugarlapelota.com/admin/transmisiones → Streams
 
 ---
 
-## Colores
+## Licencia
 
-| Variable | Hex | Uso |
-|---------|-----|-----|
-| `dark` | `#0B1220` | Fondo principal |
-| `primary` | `#00C2FF` | Acento azul |
-| `accent` | `#00FF95` | Acento verde |
-| `card` | `#111827` | Tarjetas |
-| `muted` | `#1F2937` | Bordes / secundario |
+MIT © [Gustavo Gutierrez](https://github.com/GussGtz)
