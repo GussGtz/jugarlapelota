@@ -244,26 +244,41 @@
               <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
               Restricción de edad (anti-cachirul)
             </p>
-            <p class="text-xs text-slate-400 mb-3">El sistema validará la CURP de cada jugador contra este rango. Año de nacimiento mínimo = el más viejo que acepta (ej. 2018 para sub-7).</p>
+            <p class="text-xs text-slate-400 mb-3">
+              Define el rango de años de nacimiento aceptados. La CURP de cada jugador se validará automáticamente.
+              <br>Ejemplo sub-7 en 2026: <strong class="text-slate-600">más viejo = 2019, más joven = 2021</strong>.
+            </p>
             <div class="grid grid-cols-3 gap-3">
               <div>
-                <label class="text-[10px] text-slate-500 font-semibold mb-1 block uppercase tracking-wide">Año mín. (varonil)</label>
-                <input v-model.number="editForm.min_birth_year" type="number" min="1990" max="2030" placeholder="ej. 2018"
+                <label class="text-[10px] text-slate-500 font-semibold mb-1 block uppercase tracking-wide">Más viejo permitido</label>
+                <input v-model.number="editForm.min_birth_year" type="number" min="1990" max="2030" placeholder="ej. 2019"
                   class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
-                <p class="text-[9px] text-slate-400 mt-0.5">Nacidos este año o después</p>
+                <p class="text-[9px] text-slate-400 mt-0.5">Nacido este año o después ← anti-cachirul</p>
               </div>
               <div>
-                <label class="text-[10px] text-slate-500 font-semibold mb-1 block uppercase tracking-wide">Año máx. (opcional)</label>
-                <input v-model.number="editForm.max_birth_year" type="number" min="1990" max="2030" placeholder="ej. 2021"
+                <label class="text-[10px] text-slate-500 font-semibold mb-1 block uppercase tracking-wide">Más joven permitido</label>
+                <input v-model.number="editForm.max_birth_year" type="number" min="1990" max="2030" placeholder="ej. 2022"
                   class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
-                <p class="text-[9px] text-slate-400 mt-0.5">Nacidos hasta este año</p>
+                <p class="text-[9px] text-slate-400 mt-0.5">Nacido este año o antes (opcional)</p>
               </div>
               <div>
-                <label class="text-[10px] text-pink-500 font-semibold mb-1 block uppercase tracking-wide">Año mín. niñas</label>
+                <label class="text-[10px] text-pink-500 font-semibold mb-1 block uppercase tracking-wide">Excepción niñas</label>
                 <input v-model.number="editForm.min_birth_year_girls" type="number" min="1990" max="2030" placeholder="ej. 2017"
                   class="w-full bg-white border border-pink-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-pink-400"/>
-                <p class="text-[9px] text-slate-400 mt-0.5">Excepción femenil</p>
+                <p class="text-[9px] text-slate-400 mt-0.5">Niñas nacidas este año o después (máx. 2)</p>
               </div>
+            </div>
+            <!-- Visual range preview -->
+            <div v-if="editForm.min_birth_year" class="mt-3 bg-slate-50 rounded-xl px-4 py-3 text-xs text-slate-600 space-y-1">
+              <p class="font-semibold text-slate-700">Vista previa del rango (en {{ new Date().getFullYear() }}):</p>
+              <p>Niños: nacidos
+                <strong>{{ editForm.min_birth_year }}</strong>–<strong>{{ editForm.max_birth_year || '…' }}</strong>
+                → <strong>{{ new Date().getFullYear() - editForm.min_birth_year }}</strong>{{ editForm.max_birth_year ? `–${new Date().getFullYear() - editForm.max_birth_year}` : '+' }} años
+              </p>
+              <p v-if="editForm.min_birth_year_girls" class="text-pink-600">
+                Niñas excepción: nacidas <strong>{{ editForm.min_birth_year_girls }}</strong> o después
+                → hasta <strong>{{ new Date().getFullYear() - editForm.min_birth_year_girls }}</strong> años (máx. 2 por cat.)
+              </p>
             </div>
           </div>
         </div>
