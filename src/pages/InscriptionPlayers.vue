@@ -81,11 +81,16 @@
             <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Registrados</p>
             <div v-for="p in playersForCat(cat.id)" :key="p.id"
               class="flex items-center gap-3 px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-sm">
-              <IconCheckCircle class="w-4 h-4 text-emerald-500 shrink-0"/>
-              <span class="font-semibold text-slate-900">{{ p.name }}</span>
-              <span v-if="p.number" class="text-slate-400">#{{ p.number }}</span>
-              <span v-if="p.position" class="text-slate-400">· {{ p.position }}</span>
-              <span v-if="p.curp" class="ml-auto font-mono text-xs text-slate-400">{{ p.curp }}</span>
+              <img v-if="p.photo" :src="p.photo" class="w-9 h-9 rounded-lg object-cover shrink-0 border border-emerald-200"/>
+              <div v-else class="w-9 h-9 rounded-lg bg-emerald-100 border border-emerald-200 shrink-0 flex items-center justify-center text-emerald-400 text-xs">✓</div>
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-slate-900 truncate">{{ p.name }}</p>
+                <p class="text-[10px] text-slate-400">
+                  <span v-if="p.number">#{{ p.number }}</span>
+                  <span v-if="p.position"> · {{ p.position }}</span>
+                  <span v-if="p.curp" class="font-mono ml-1">{{ p.curp }}</span>
+                </p>
+              </div>
             </div>
           </div>
 
@@ -93,9 +98,35 @@
           <div class="space-y-3">
             <p v-if="newPlayers[cat.id]?.length" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Agregar</p>
             <div v-for="(p, idx) in newPlayers[cat.id]" :key="idx" class="grid gap-2">
-              <!-- Row 1: name + # + position -->
-              <div class="grid grid-cols-12 gap-2">
-                <div class="col-span-5">
+              <!-- Row 1: photo + name + # + position -->
+              <div class="grid grid-cols-12 gap-2 items-start">
+                <!-- Photo -->
+                <div class="col-span-2 flex flex-col items-center gap-1">
+                  <label class="text-[10px] text-slate-400 mb-0.5 block w-full">Foto</label>
+                  <div class="relative w-14 h-14 rounded-xl border-2 border-dashed border-muted bg-slate-50 overflow-hidden flex items-center justify-center cursor-pointer group"
+                    @click="triggerPhoto(cat.id, idx)">
+                    <img v-if="p.photo" :src="p.photo" class="w-full h-full object-cover"/>
+                    <span v-else class="text-slate-300 text-2xl group-hover:text-primary transition-colors">📷</span>
+                    <div v-if="p.photoLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
+                      <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  </div>
+                  <!-- Hidden inputs: one for file, one for camera -->
+                  <input :ref="el => setPhotoRef(el, cat.id, idx, 'file')" type="file" accept="image/*" class="hidden"
+                    @change="e => onPhotoChange(e, cat.id, idx)"/>
+                  <input :ref="el => setPhotoRef(el, cat.id, idx, 'cam')" type="file" accept="image/*" capture="user" class="hidden"
+                    @change="e => onPhotoChange(e, cat.id, idx)"/>
+                  <!-- Mini action buttons -->
+                  <div class="flex gap-1">
+                    <button type="button" @click.stop="triggerFileInput(cat.id, idx)"
+                      class="text-[9px] text-slate-400 hover:text-primary transition-colors" title="Subir foto">📁</button>
+                    <button type="button" @click.stop="triggerCameraInput(cat.id, idx)"
+                      class="text-[9px] text-slate-400 hover:text-primary transition-colors" title="Tomar foto">📸</button>
+                    <button v-if="p.photo" type="button" @click.stop="p.photo = ''"
+                      class="text-[9px] text-red-400 hover:text-red-600 transition-colors" title="Quitar">✕</button>
+                  </div>
+                </div>
+                <div class="col-span-4">
                   <label class="text-[10px] text-slate-400 mb-0.5 block">Nombre *</label>
                   <input v-model="p.name" type="text" placeholder="Juan Pérez"
                     class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary transition-all"/>
@@ -105,7 +136,7 @@
                   <input v-model.number="p.number" type="number" min="1" max="99"
                     class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary transition-all"/>
                 </div>
-                <div class="col-span-4">
+                <div class="col-span-3">
                   <label class="text-[10px] text-slate-400 mb-0.5 block">Posición</label>
                   <select v-model="p.position"
                     class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary transition-all">
@@ -187,9 +218,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
+import { uploadImagePublic } from '@/utils/upload'
 
 const route = useRoute()
 const { slug, inscriptionId } = route.params
@@ -210,9 +242,28 @@ function playersForCat(catId) {
   return registeredPlayers.value.filter(p => String(p.category_id) === String(catId))
 }
 
+// Photo refs: keyed by `${catId}-${idx}-file` and `${catId}-${idx}-cam`
+const photoRefs = {}
+function setPhotoRef(el, catId, idx, type) {
+  if (el) photoRefs[`${catId}-${idx}-${type}`] = el
+}
+function triggerPhoto(catId, idx) { photoRefs[`${catId}-${idx}-file`]?.click() }
+function triggerFileInput(catId, idx) { photoRefs[`${catId}-${idx}-file`]?.click() }
+function triggerCameraInput(catId, idx) { photoRefs[`${catId}-${idx}-cam`]?.click() }
+
+async function onPhotoChange(e, catId, idx) {
+  const file = e.target.files?.[0]; if (!file) return
+  const player = newPlayers[catId]?.[idx]; if (!player) return
+  player.photoLoading = true
+  try {
+    player.photo = await uploadImagePublic(file)
+  } catch { alert('Error al subir la foto') }
+  finally { player.photoLoading = false; e.target.value = '' }
+}
+
 function addPlayerRow(catId) {
   if (!newPlayers[catId]) newPlayers[catId] = []
-  newPlayers[catId].push({ name: '', number: null, position: '', curp: '' })
+  newPlayers[catId].push({ name: '', number: null, position: '', curp: '', photo: '', photoLoading: false })
 }
 
 function removePlayerRow(catId, idx) {

@@ -1635,7 +1635,7 @@ router.post('/inscriptions/:id/players', async (req, res) => {
       }
     }
 
-    toInsert.push({ name, number: p.number||null, position: p.position||null, curp })
+    toInsert.push({ name, number: p.number||null, position: p.position||null, curp, photo: p.photo||null })
   }
 
   if (errors.length && !toInsert.length) {
@@ -1645,8 +1645,8 @@ router.post('/inscriptions/:id/players', async (req, res) => {
   const inserted = []
   for (const p of toInsert) {
     const r = await query(
-      'INSERT INTO inscription_players (inscription_id,category_id,name,number,position,curp) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
-      [insc.id, categoryId, p.name, p.number, p.position, p.curp]
+      'INSERT INTO inscription_players (inscription_id,category_id,name,number,position,curp,photo) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+      [insc.id, categoryId, p.name, p.number, p.position, p.curp, p.photo||null]
     )
     const newId = r.rows[0]?.id || r.lastInsertRowid
     inserted.push({ id: newId, ...p })
@@ -1655,8 +1655,8 @@ router.post('/inscriptions/:id/players', async (req, res) => {
     const team = await queryOne('SELECT id FROM teams WHERE inscription_id=$1', [insc.id])
     if (team) {
       await query(
-        'INSERT INTO players (team_id,name,number,position,curp) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',
-        [team.id, p.name, p.number, p.position, p.curp]
+        'INSERT INTO players (team_id,name,number,position,curp,photo) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',
+        [team.id, p.name, p.number, p.position, p.curp, p.photo||null]
       )
     }
   }
