@@ -1149,7 +1149,7 @@ onMounted(async () => {
   if (!slug.value) return
   loading.value = true
   try {
-    const [m, n, t, p, g, sp, aw] = await Promise.all([
+    const [m, n, t, p, g, aw] = await Promise.all([
       api.get(`/tournaments/${slug.value}/matches`),
       api.get(`/tournaments/${slug.value}/news`),
       api.get(`/tournaments/${slug.value}/teams`),
