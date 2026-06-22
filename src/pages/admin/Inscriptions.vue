@@ -87,7 +87,7 @@
           <span class="flex items-center gap-1"><IconUser class="w-3 h-3 shrink-0" /> {{ insc.contact_name }}</span>
           <span class="flex items-center gap-1 min-w-0"><IconMail class="w-3 h-3 shrink-0" /><span class="truncate">{{ insc.contact_email }}</span></span>
           <span v-if="insc.contact_phone" class="flex items-center gap-1"><IconSmartphone class="w-3 h-3 shrink-0" /> {{ insc.contact_phone }}</span>
-          <span class="flex items-center gap-1"><IconCircle class="w-3 h-3 shrink-0" /> {{ insc.players_count }} jugadores</span>
+          <span class="flex items-center gap-1"><IconCircle class="w-3 h-3 shrink-0" /> {{ insc.actual_players_count || insc.players_count || 0 }} jugadores</span>
         </div>
         <!-- Botones siempre en su propia fila -->
         <div class="flex gap-2 flex-wrap pt-1 border-t border-muted">
@@ -112,7 +112,7 @@
           <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Contacto</p><p class="text-slate-900">{{ selected.contact_name }}</p></div>
           <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Email</p><p class="text-slate-900 text-xs">{{ selected.contact_email }}</p></div>
           <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Teléfono</p><p class="text-slate-900">{{ selected.contact_phone || '—' }}</p></div>
-          <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Jugadores</p><p class="text-slate-900">{{ selected.players_count }}</p></div>
+          <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Jugadores</p><p class="text-slate-900">{{ selected.actual_players_count || selected.players_count || 0 }}</p></div>
         </div>
         <div v-if="selected.players?.length">
           <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Lista de jugadores</p>

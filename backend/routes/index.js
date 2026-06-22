@@ -1442,7 +1442,7 @@ router.delete('/gallery-images/:id', authMiddleware, adminOnly, async (req, res)
 // ── Inscriptions ──────────────────────────────────────────────────────────
 router.get('/tournaments/:slug/inscriptions', authMiddleware, adminOnly, async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
-  const rows = (await query(`SELECT i.*,c.name AS "categoryName" FROM inscriptions i LEFT JOIN categories c ON i.category_id=c.id WHERE i.tournament_id=$1 ORDER BY i.created_at DESC`, [t.id])).rows
+  const rows = (await query(`SELECT i.*,c.name AS "categoryName", (SELECT COUNT(*) FROM inscription_players ip WHERE ip.inscription_id=i.id) AS "actual_players_count" FROM inscriptions i LEFT JOIN categories c ON i.category_id=c.id WHERE i.tournament_id=$1 ORDER BY i.created_at DESC`, [t.id])).rows
   const result = await Promise.all(rows.map(async r => {
     let categories = []
     if (r.categories_json) { try { categories = JSON.parse(r.categories_json) } catch{} }
