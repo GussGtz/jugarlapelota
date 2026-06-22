@@ -1474,30 +1474,17 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
     const insP = (...__a) => query('INSERT INTO inscription_players (inscription_id,name,number,position,birth_date) VALUES ($1,$2,$3,$4,$5)', __a.flat())
     for(const p of players) await insP(id,p.name,p.number||null,p.position||null,p.birth_date||null)
   }
-  // If auto-approved, create the team immediately
+  // If auto-approved, create one team per selected category
   if (autoApprove) {
-    const existing = await queryOne('SELECT id FROM teams WHERE name=$1 AND tournament_id=$2', [team_name, tournamentId])
-    if (!existing) {
-      await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [tournamentId, null, team_name, logo||null, id])
-    }
+    await createTeamsFromInscription({ id, tournament_id: tournamentId, team_name, logo: logo||null, categories_json: JSON.stringify(categories) })
   }
   res.status(201).json({id, token, auto_approved: autoApprove, message: autoApprove ? 'Inscripción aprobada automáticamente' : 'Solicitud enviada correctamente'})
 })
 router.patch('/inscriptions/:id/status', authMiddleware, adminOnly, async (req, res) => {
   const {status} = req.body
-  await query('UPDATE inscriptions SET status=$1 WHERE id=$2', [status,req.params.id])
-  const insc = (await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id]))
-  // Auto-create team when approved — sin categoría para que el admin la asigne
-  if (status === 'approved' && insc) {
-    const existing = (await queryOne('SELECT id FROM teams WHERE name=$1 AND tournament_id=$2', [insc.team_name, insc.tournament_id]))
-    if (!existing) {
-      // category_id = null: el admin asignará la categoría desde el panel de Equipos
-      const teamR = await query('INSERT INTO teams (tournament_id,category_id,name,inscription_id) VALUES ($1,$2,$3,$4) RETURNING id', [insc.tournament_id, null, insc.team_name, insc.id])
-      const players = (await query('SELECT * FROM inscription_players WHERE inscription_id=$1', [insc.id])).rows
-      const insPlayer = (...__a) => query('INSERT INTO players (team_id,name,number,position) VALUES ($1,$2,$3,$4)', __a.flat())
-      for (const p of players) await insPlayer(teamR.lastInsertRowid, p.name, p.number, p.position)
-    }
-  }
+  await query('UPDATE inscriptions SET status=$1 WHERE id=$2', [status, req.params.id])
+  const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
+  if (status === 'approved' && insc) await createTeamsFromInscription(insc)
   res.json(insc)
 })
 // Alias sin /status — el panel admin hace PATCH /inscriptions/:id directamente
@@ -1505,22 +1492,33 @@ router.patch('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) =>
   const {status, notes} = req.body
   if (status) await query('UPDATE inscriptions SET status=$1 WHERE id=$2', [status, req.params.id])
   if (notes !== undefined) await query('UPDATE inscriptions SET notes=$1 WHERE id=$2', [notes, req.params.id])
-  const insc = (await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id]))
+  const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
   if (!insc) return res.status(404).json({error:'Inscripción no encontrada'})
-  if (status === 'approved') {
-    const existing = (await queryOne('SELECT id FROM teams WHERE name=$1 AND tournament_id=$2', [insc.team_name, insc.tournament_id]))
-    if (!existing) {
-      const teamR = await query('INSERT INTO teams (tournament_id,category_id,name,inscription_id) VALUES ($1,$2,$3,$4) RETURNING id', [insc.tournament_id, null, insc.team_name, insc.id])
-      const players = (await query('SELECT * FROM inscription_players WHERE inscription_id=$1', [insc.id])).rows
-      const insPlayer = (...__a) => query('INSERT INTO players (team_id,name,number,position) VALUES ($1,$2,$3,$4)', __a.flat())
-      for (const p of players) await insPlayer(teamR.lastInsertRowid, p.name, p.number, p.position)
-    }
-  }
+  if (status === 'approved') await createTeamsFromInscription(insc)
   res.json(insc)
 })
 router.delete('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) => {
   await query('DELETE FROM inscriptions WHERE id=$1', [req.params.id]); res.status(204).end()
 })
+
+// ── Helper: create one team per category when inscription is approved ─────────
+async function createTeamsFromInscription(insc) {
+  let cats = []
+  if (insc.categories_json) { try { cats = JSON.parse(insc.categories_json) } catch{} }
+  if (!cats.length && insc.category_id) cats = [{ id: insc.category_id }]
+  if (!cats.length) {
+    // fallback: create uncategorized team
+    const ex = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id IS NULL', [insc.id])
+    if (!ex) await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, null, insc.team_name, insc.logo||null, insc.id])
+    return
+  }
+  for (const cat of cats) {
+    const ex = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2', [insc.id, cat.id])
+    if (!ex) {
+      await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, cat.id, insc.team_name, insc.logo||null, insc.id])
+    }
+  }
+}
 
 // ── Public: Player registration for auto-approved inscriptions ────────────────
 router.get('/inscriptions/:id/register', async (req, res) => {
@@ -1651,13 +1649,16 @@ router.post('/inscriptions/:id/players', async (req, res) => {
     const newId = r.rows[0]?.id || r.lastInsertRowid
     inserted.push({ id: newId, ...p })
 
-    // Also add to players table (linked to the team for this tournament)
-    const team = await queryOne('SELECT id FROM teams WHERE inscription_id=$1', [insc.id])
+    // Add to the team matching this specific category
+    const team = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])
     if (team) {
-      await query(
-        'INSERT INTO players (team_id,name,number,position,curp,photo) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',
-        [team.id, p.name, p.number, p.position, p.curp, p.photo||null]
-      )
+      const dupPlayer = await queryOne('SELECT id FROM players WHERE team_id=$1 AND UPPER(curp)=$2', [team.id, p.curp])
+      if (!dupPlayer) {
+        await query(
+          'INSERT INTO players (team_id,name,number,position,curp,photo) VALUES ($1,$2,$3,$4,$5,$6)',
+          [team.id, p.name, p.number, p.position, p.curp, p.photo||null]
+        )
+      }
     }
   }
 
