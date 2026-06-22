@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "npx serve dist -l $PORT"
+    "start": "npx serve dist -l $PORT --config serve.json"
   },
   "dependencies": {
     "@vueuse/core": "^10.9.0",
