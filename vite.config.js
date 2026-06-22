@@ -71,5 +71,10 @@ export default defineConfig({
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
       'Cross-Origin-Embedder-Policy': 'unsafe-none'
     }
+  },
+  preview: {
+    allowedHosts: ['.railway.app'],
+    host: true,
+    port: process.env.PORT ? parseInt(process.env.PORT) : 4173
   }
 })
