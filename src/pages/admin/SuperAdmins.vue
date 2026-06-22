@@ -97,7 +97,10 @@
                 </div>
               </div>
             </td>
-            <td class="py-3 px-4 text-slate-500 hidden md:table-cell">{{ a.email }}</td>
+            <td class="py-3 px-4 text-slate-500 hidden md:table-cell">
+              <span v-if="a.username" class="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded mr-1">@{{ a.username }}</span>
+              <span v-if="a.email && !a.email.endsWith('@jugarlapelota.local')">{{ a.email }}</span>
+            </td>
             <td class="py-3 px-4 text-center">
               <span class="text-[10px] font-black uppercase px-2.5 py-1 rounded-full"
                 :class="a.role==='superadmin'
@@ -269,8 +272,12 @@
             <input v-model="form.name" class="input-base w-full" placeholder="Ej. Juan García" />
           </div>
           <div>
-            <label class="text-xs font-bold text-slate-600 mb-1 block">Email *</label>
-            <input v-model="form.email" type="email" class="input-base w-full" placeholder="admin@ejemplo.com" />
+            <label class="text-xs font-bold text-slate-600 mb-1 block">Email</label>
+            <input v-model="form.email" type="email" class="input-base w-full" placeholder="admin@ejemplo.com (opcional si usa nombre de usuario)" />
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-600 mb-1 block">Nombre de usuario <span class="text-slate-400 font-normal">(para iniciar sesión sin correo)</span></label>
+            <input v-model="form.username" type="text" class="input-base w-full" placeholder="ej. copacaribe" />
           </div>
           <div v-if="!editing">
             <label class="text-xs font-bold text-slate-600 mb-1 block">Contraseña *</label>
@@ -446,7 +453,7 @@ const newPassword = ref('')
 
 const currentUserId = computed(() => auth.user?.id)
 
-const form = reactive({ name: '', email: '', password: '', role: 'admin' })
+const form = reactive({ name: '', email: '', username: '', password: '', role: 'admin' })
 
 const initials = name => (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
@@ -461,14 +468,14 @@ async function load() {
 function openCreate() {
   editing.value = null
   formError.value = ''
-  Object.assign(form, { name: '', email: '', password: '', role: 'admin' })
+  Object.assign(form, { name: '', email: '', username: '', password: '', role: 'admin' })
   showForm.value = true
 }
 
 function openEdit(a) {
   editing.value = a
   formError.value = ''
-  Object.assign(form, { name: a.name, email: a.email, role: a.role, password: '' })
+  Object.assign(form, { name: a.name, email: a.email, username: a.username || '', role: a.role, password: '' })
   showForm.value = true
 }
 
@@ -483,7 +490,8 @@ function confirmDelete(a) { deleteTarget.value = a }
 
 async function saveForm() {
   formError.value = ''
-  if (!form.name.trim() || !form.email.trim()) { formError.value = 'Nombre y email son requeridos'; return }
+  if (!form.name.trim()) { formError.value = 'El nombre es requerido'; return }
+  if (!form.email.trim() && !form.username.trim()) { formError.value = 'Debes ingresar un email o nombre de usuario'; return }
   if (!editing.value && !form.password.trim()) { formError.value = 'La contraseña es requerida'; return }
   saving.value = true
   try {

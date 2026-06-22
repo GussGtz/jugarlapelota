@@ -2603,7 +2603,7 @@ const bcryptSA = require('bcryptjs')
 // Listar todos los admins
 router.get('/superadmin/admins', authMiddleware, superAdminOnly, async (req, res) => {
   const admins = (await query(`
-    SELECT id, name, email, role, is_active, created_at,
+    SELECT id, name, email, username, role, is_active, created_at,
            (SELECT COUNT(*) FROM tournaments WHERE 1=1) as _pad
     FROM users
     WHERE role IN ('admin','superadmin')
@@ -2614,16 +2614,27 @@ router.get('/superadmin/admins', authMiddleware, superAdminOnly, async (req, res
 
 // Crear admin
 router.post('/superadmin/admins', authMiddleware, superAdminOnly, async (req, res) => {
-  const { name, email, password, role = 'admin' } = req.body
-  if (!name?.trim() || !email?.trim() || !password?.trim())
-    return res.status(400).json({ error: 'Nombre, email y contraseña son requeridos' })
-  if (!['admin','superadmin'].includes(role))
-    return res.status(400).json({ error: 'Rol inválido' })
-  const exists = (await queryOne('SELECT id FROM users WHERE email=$1', [email.trim().toLowerCase()]))
-  if (exists) return res.status(409).json({ error: 'Ya existe un usuario con ese email' })
+  const { name, email, username, password, role = 'admin' } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' })
+  if (!email?.trim() && !username?.trim()) return res.status(400).json({ error: 'Debes ingresar un email o nombre de usuario' })
+  if (!password?.trim()) return res.status(400).json({ error: 'La contraseña es requerida' })
+  if (!['admin','superadmin'].includes(role)) return res.status(400).json({ error: 'Rol inválido' })
+  if (email?.trim()) {
+    const exists = await queryOne('SELECT id FROM users WHERE email=$1', [email.trim().toLowerCase()])
+    if (exists) return res.status(409).json({ error: 'Ya existe un usuario con ese email' })
+  }
+  if (username?.trim()) {
+    const exists = await queryOne('SELECT id FROM users WHERE username=$1', [username.trim().toLowerCase()])
+    if (exists) return res.status(409).json({ error: 'Ya existe un usuario con ese nombre de usuario' })
+  }
   const hash = bcryptSA.hashSync(password, 10)
-  const r = await query('INSERT INTO users (name,email,password,role,is_active) VALUES ($1,$2,$3,$4,1) RETURNING id', [name.trim(), email.trim().toLowerCase(), hash, role])
-  const created = (await queryOne('SELECT id,name,email,role,is_active,created_at FROM users WHERE id=$1', [r.lastInsertRowid]))
+  const emailVal = email?.trim() ? email.trim().toLowerCase() : (username.trim().toLowerCase() + '@jugarlapelota.local')
+  const usernameVal = username?.trim() ? username.trim().toLowerCase() : null
+  const r = await query(
+    'INSERT INTO users (name,email,username,password,role,is_active) VALUES ($1,$2,$3,$4,$5,1) RETURNING id',
+    [name.trim(), emailVal, usernameVal, hash, role]
+  )
+  const created = await queryOne('SELECT id,name,email,username,role,is_active,created_at FROM users WHERE id=$1', [r.rows?.[0]?.id || r.lastInsertRowid])
   res.status(201).json(created)
 })
 
@@ -2631,15 +2642,22 @@ router.post('/superadmin/admins', authMiddleware, superAdminOnly, async (req, re
 router.put('/superadmin/admins/:id', authMiddleware, superAdminOnly, async (req, res) => {
   const id = Number(req.params.id)
   if (id === req.user.id) return res.status(400).json({ error: 'No puedes modificar tu propia cuenta desde aquí' })
-  const { name, email, role } = req.body
+  const { name, email, username, role } = req.body
   const user = (await queryOne('SELECT * FROM users WHERE id=$1', [id]))
   if (!user) return res.status(404).json({ error: 'Admin no encontrado' })
   if (email) {
-    const dup = (await queryOne('SELECT id FROM users WHERE email=$1 AND id!=$2', [email.trim().toLowerCase(), id]))
+    const dup = await queryOne('SELECT id FROM users WHERE email=$1 AND id!=$2', [email.trim().toLowerCase(), id])
     if (dup) return res.status(409).json({ error: 'Email ya en uso' })
   }
-  await query('UPDATE users SET name=COALESCE($1,name), email=COALESCE($2,email), role=COALESCE($3,role) WHERE id=$4', [name?.trim() || null, email?.trim().toLowerCase() || null, role || null, id])
-  res.json((await queryOne('SELECT id,name,email,role,is_active,created_at FROM users WHERE id=$1', [id])))
+  if (username) {
+    const dup = await queryOne('SELECT id FROM users WHERE username=$1 AND id!=$2', [username.trim().toLowerCase(), id])
+    if (dup) return res.status(409).json({ error: 'Nombre de usuario ya en uso' })
+  }
+  await query(
+    'UPDATE users SET name=COALESCE($1,name), email=COALESCE($2,email), username=COALESCE($3,username), role=COALESCE($4,role) WHERE id=$5',
+    [name?.trim() || null, email?.trim().toLowerCase() || null, username?.trim().toLowerCase() || null, role || null, id]
+  )
+  res.json(await queryOne('SELECT id,name,email,username,role,is_active,created_at FROM users WHERE id=$1', [id]))
 })
 
 // Cambiar contraseña
