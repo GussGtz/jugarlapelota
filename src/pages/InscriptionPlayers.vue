@@ -122,7 +122,7 @@
               </div>
               <!-- Row 2: CURP -->
               <div>
-                <label class="text-[10px] text-slate-400 mb-0.5 block">CURP <span class="text-slate-300">(18 caracteres — evita cachirules)</span></label>
+                <label class="text-[10px] text-slate-400 mb-0.5 block">CURP <span class="text-red-400 font-semibold">*</span> <span class="text-slate-300">(18 caracteres — obligatoria)</span></label>
                 <div class="relative">
                   <input v-model="p.curp" type="text" maxlength="18" placeholder="XXXX000000HXXXXX00"
                     :class="['w-full bg-white border rounded-xl px-3 py-2 text-sm font-mono text-slate-900 focus:outline-none focus:border-primary transition-all uppercase',
@@ -159,7 +159,7 @@
           <!-- Save button for this category -->
           <button v-if="newPlayers[cat.id]?.some(p => p.name.trim())"
             @click="savePlayers(cat)"
-            :disabled="saving"
+            :disabled="saving || newPlayers[cat.id]?.some(p => p.name.trim() && curpStatus(p) !== 'valid')"
             class="btn-primary w-full disabled:opacity-50">
             <span class="flex items-center justify-center gap-2">
               <IconLoader2 v-if="saving" class="w-4 h-4 animate-spin"/>

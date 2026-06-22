@@ -1568,6 +1568,11 @@ router.post('/inscriptions/:id/players', async (req, res) => {
     if (!name) continue
     const curp = p.curp?.trim().toUpperCase() || null
 
+    if (!curp) {
+      errors.push(`${name}: la CURP es obligatoria`)
+      continue
+    }
+
     // CURP validation
     if (curp) {
       const curpData = parseCURP(curp)
