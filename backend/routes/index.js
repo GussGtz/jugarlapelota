@@ -2378,6 +2378,11 @@ router.get('/admin/all-matches', authMiddleware, adminOnly, async (req, res) => 
 
 router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
   const today = new Date().toISOString().slice(0, 10)
+  const isSuperAdmin = req.user.role === 'superadmin'
+  const adminFilter = isSuperAdmin ? '' : 'AND t.created_by=$1'
+  const adminParam  = isSuperAdmin ? [] : [req.user.id]
+  // For scalar counts that only reference tournaments table
+  const tourneyWhere = isSuperAdmin ? '' : 'WHERE created_by=$1'
 
   const liveMatches = (await query(`
     SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
@@ -2389,9 +2394,9 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
     JOIN teams at ON m.away_team=at.id
     JOIN tournaments t ON m.tournament_id=t.id
     LEFT JOIN categories c ON m.category_id=c.id
-    WHERE m.status='live'
+    WHERE m.status='live' ${adminFilter}
     ORDER BY m.started_at DESC
-  `, [])).rows
+  `, adminParam)).rows
 
   const todayMatches = (await query(`
     SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
@@ -2403,9 +2408,9 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
     JOIN teams at ON m.away_team=at.id
     JOIN tournaments t ON m.tournament_id=t.id
     LEFT JOIN categories c ON m.category_id=c.id
-    WHERE m.status='scheduled' AND substr(m.date, 1, 10)=$1
+    WHERE m.status='scheduled' AND substr(m.date, 1, 10)=${isSuperAdmin ? '$1' : '$2'} ${adminFilter}
     ORDER BY m.date ASC
-  `, [today])).rows
+  `, isSuperAdmin ? [today] : [req.user.id, today])).rows
 
   const nextMatches = (await query(`
     SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
@@ -2417,20 +2422,27 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
     JOIN teams at ON m.away_team=at.id
     JOIN tournaments t ON m.tournament_id=t.id
     LEFT JOIN categories c ON m.category_id=c.id
-    WHERE m.status='scheduled' AND (m.date IS NULL OR m.date > NOW()::text)
+    WHERE m.status='scheduled' AND (m.date IS NULL OR m.date > NOW()::text) ${adminFilter}
     ORDER BY m.date ASC LIMIT 5
-  `, [])).rows
+  `, adminParam)).rows
 
-  const teamsNoCat = (await queryOne("SELECT COUNT(*) AS c FROM teams WHERE category_id IS NULL", [])).c
+  const teamsNoCat = (await queryOne(
+    isSuperAdmin
+      ? "SELECT COUNT(*) AS c FROM teams WHERE category_id IS NULL"
+      : "SELECT COUNT(*) AS c FROM teams te JOIN categories cat ON te.category_id=cat.id JOIN tournaments t ON cat.tournament_id=t.id WHERE te.category_id IS NULL AND t.created_by=$1",
+    adminParam
+  )).c
 
   // Partidos sin horario o sin cancha — usar TRIM para ignorar strings vacíos también
   const matchesNoSchedule = (await queryOne(`
-    SELECT COUNT(*) AS c FROM matches
-    WHERE status IN ('scheduled','live')
-    AND (NULLIF(TRIM(COALESCE(date,'')),''     ) IS NULL
-      OR NULLIF(TRIM(COALESCE(location,'')),'' ) IS NULL)
-    AND home_is_tbd = 0 AND away_is_tbd = 0
-  `, [])).c
+    SELECT COUNT(*) AS c FROM matches m
+    JOIN tournaments t ON m.tournament_id=t.id
+    WHERE m.status IN ('scheduled','live')
+    AND (NULLIF(TRIM(COALESCE(m.date,'')),''     ) IS NULL
+      OR NULLIF(TRIM(COALESCE(m.location,'')),'' ) IS NULL)
+    AND m.home_is_tbd = 0 AND m.away_is_tbd = 0
+    ${adminFilter}
+  `, adminParam)).c
 
   const matchesNoScheduleList = (await query(`
     SELECT m.id, m.date, m.location,
@@ -2445,18 +2457,26 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
     AND (NULLIF(TRIM(COALESCE(m.date,'')),''     ) IS NULL
       OR NULLIF(TRIM(COALESCE(m.location,'')),'' ) IS NULL)
     AND m.home_is_tbd = 0 AND m.away_is_tbd = 0
+    ${adminFilter}
     ORDER BY m.id ASC
     LIMIT 5
-  `, [])).rows
+  `, adminParam)).rows
+
+  const tournamentCount = (await queryOne(`SELECT COUNT(*) AS c FROM tournaments ${tourneyWhere}`, adminParam)).c
+  const categoryCount   = (await queryOne(`SELECT COUNT(*) AS c FROM categories ${isSuperAdmin ? '' : 'WHERE tournament_id IN (SELECT id FROM tournaments WHERE created_by=$1)'}`, adminParam)).c
+  const teamCount       = (await queryOne(`SELECT COUNT(*) AS c FROM teams ${isSuperAdmin ? '' : 'WHERE category_id IN (SELECT id FROM categories WHERE tournament_id IN (SELECT id FROM tournaments WHERE created_by=$1))'}`, adminParam)).c
+  const playerCount     = (await queryOne(`SELECT COUNT(*) AS c FROM players ${isSuperAdmin ? '' : 'WHERE team_id IN (SELECT id FROM teams WHERE category_id IN (SELECT id FROM categories WHERE tournament_id IN (SELECT id FROM tournaments WHERE created_by=$1)))'}`, adminParam)).c
+  const matchCount      = (await queryOne(`SELECT COUNT(*) AS c FROM matches m ${isSuperAdmin ? '' : 'JOIN tournaments t ON m.tournament_id=t.id WHERE t.created_by=$1'}`, adminParam)).c
+  const inscriptionCount = (await queryOne(`SELECT COUNT(*) AS c FROM inscriptions i ${isSuperAdmin ? "WHERE status='pending'" : "JOIN tournaments t ON i.tournament_id=t.id WHERE i.status='pending' AND t.created_by=$1"}`, adminParam)).c
 
   res.json({
-    tournaments:  (await queryOne('SELECT COUNT(*) AS c FROM tournaments', [])).c,
-    categories:   (await queryOne('SELECT COUNT(*) AS c FROM categories', [])).c,
-    teams:        (await queryOne('SELECT COUNT(*) AS c FROM teams', [])).c,
-    players:      (await queryOne('SELECT COUNT(*) AS c FROM players', [])).c,
-    matches:      (await queryOne('SELECT COUNT(*) AS c FROM matches', [])).c,
+    tournaments:  tournamentCount,
+    categories:   categoryCount,
+    teams:        teamCount,
+    players:      playerCount,
+    matches:      matchCount,
     live:         liveMatches.length,
-    inscriptions: (await queryOne("SELECT COUNT(*) AS c FROM inscriptions WHERE status='pending'", [])).c,
+    inscriptions: inscriptionCount,
     teamsNoCat,
     matchesNoSchedule,
     matchesNoScheduleList,
