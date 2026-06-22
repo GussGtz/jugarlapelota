@@ -120,7 +120,7 @@
                 <label class="text-[10px] text-slate-400 mb-0.5 block">CURP <span class="text-slate-300">(18 caracteres — evita cachirules)</span></label>
                 <div class="relative">
                   <input v-model="p.curp" type="text" maxlength="18" placeholder="XXXX000000HXXXXX00"
-                    :class="['w-full bg-white border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary transition-all uppercase',
+                    :class="['w-full bg-white border rounded-xl px-3 py-2 text-sm font-mono text-slate-900 focus:outline-none focus:border-primary transition-all uppercase',
                       curpStatus(p) === 'valid' ? 'border-emerald-400' : curpStatus(p) === 'invalid' ? 'border-red-400' : 'border-muted']"
                     @input="p.curp = p.curp.toUpperCase()"/>
                   <span v-if="p.curp?.length === 18" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold"
