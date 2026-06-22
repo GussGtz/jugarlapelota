@@ -89,6 +89,22 @@
           <span v-if="insc.contact_phone" class="flex items-center gap-1"><IconSmartphone class="w-3 h-3 shrink-0" /> {{ insc.contact_phone }}</span>
           <span class="flex items-center gap-1"><IconCircle class="w-3 h-3 shrink-0" /> {{ insc.actual_players_count || insc.players_count || 0 }} jugadores</span>
         </div>
+        <!-- Link de registro de jugadores — solo inscripciones aprobadas -->
+        <div v-if="insc.status==='approved'" class="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
+          <IconUsers class="w-4 h-4 text-emerald-600 shrink-0" />
+          <span class="text-xs text-emerald-700 font-semibold flex-1 truncate">Link registro de jugadores</span>
+          <a :href="playerRegUrl(insc)" target="_blank"
+            class="text-xs font-bold text-emerald-700 border border-emerald-300 px-2 py-1 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1 shrink-0">
+            <IconExternalLink class="w-3 h-3" /> Abrir
+          </a>
+          <button @click="copyPlayerLink(insc)"
+            class="text-xs font-bold px-2 py-1 rounded-lg border transition-colors shrink-0 flex items-center gap-1"
+            :class="copiedId===insc.id ? 'border-emerald-500 text-emerald-600 bg-emerald-100' : 'border-emerald-300 text-emerald-700 hover:bg-emerald-100'">
+            <IconCheck v-if="copiedId===insc.id" class="w-3 h-3" />
+            <IconCopy v-else class="w-3 h-3" />
+            {{ copiedId===insc.id ? 'Copiado' : 'Copiar' }}
+          </button>
+        </div>
         <!-- Botones siempre en su propia fila -->
         <div class="flex gap-2 flex-wrap pt-1 border-t border-muted">
           <button @click="showDetail(insc)" class="text-xs text-slate-500 hover:text-slate-900 px-3 py-1.5 border border-muted rounded-lg">Ver detalle</button>
@@ -144,6 +160,7 @@ const selTournament = ref(null)
 const filterStatus  = ref('')
 const selected      = ref(null)
 const copied        = ref(false)
+const copiedId      = ref(null)
 const autoApprove   = ref(false)
 
 const displayed = computed(() => filterStatus.value ? inscriptions.value.filter(i=>i.status===filterStatus.value) : inscriptions.value)
@@ -185,6 +202,21 @@ const statusLabels  = {pending:'Pendiente', approved:'Aprobada', rejected:'Recha
 const statusClasses = {pending:'bg-yellow-500/20 text-yellow-400', approved:'bg-green-600/20 text-green-400', rejected:'bg-red-600/20 text-red-400'}
 const statusLabel = s => statusLabels[s]  || s
 const statusClass = s => statusClasses[s] || ''
+
+function playerRegUrl(insc) {
+  return `${window.location.origin}/${selTournament.value?.slug}/inscripcion/${insc.id}/jugadores`
+}
+
+async function copyPlayerLink(insc) {
+  const url = playerRegUrl(insc)
+  try { await navigator.clipboard.writeText(url) } catch {
+    const el = document.createElement('input')
+    el.value = url; document.body.appendChild(el); el.select()
+    document.execCommand('copy'); document.body.removeChild(el)
+  }
+  copiedId.value = insc.id
+  setTimeout(() => { copiedId.value = null }, 2500)
+}
 
 function showDetail(insc) { selected.value = insc }
 
