@@ -1485,6 +1485,7 @@ router.patch('/inscriptions/:id/status', authMiddleware, adminOnly, async (req, 
   await query('UPDATE inscriptions SET status=$1 WHERE id=$2', [status, req.params.id])
   const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
   if (status === 'approved' && insc) await createTeamsFromInscription(insc)
+  if (status === 'rejected' && insc) await query('DELETE FROM teams WHERE inscription_id=$1', [insc.id])
   res.json(insc)
 })
 // Alias sin /status — el panel admin hace PATCH /inscriptions/:id directamente
@@ -1495,10 +1496,14 @@ router.patch('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) =>
   const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
   if (!insc) return res.status(404).json({error:'Inscripción no encontrada'})
   if (status === 'approved') await createTeamsFromInscription(insc)
+  if (status === 'rejected') await query('DELETE FROM teams WHERE inscription_id=$1', [insc.id])
   res.json(insc)
 })
 router.delete('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) => {
-  await query('DELETE FROM inscriptions WHERE id=$1', [req.params.id]); res.status(204).end()
+  // Remove teams created from this inscription before deleting
+  await query('DELETE FROM teams WHERE inscription_id=$1', [req.params.id])
+  await query('DELETE FROM inscriptions WHERE id=$1', [req.params.id])
+  res.status(204).end()
 })
 
 // ── Helper: create one team per category when inscription is approved ─────────
@@ -2667,8 +2672,12 @@ router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
 
   const tournamentCount = (await queryOne(`SELECT COUNT(*) AS c FROM tournaments ${tourneyWhere}`, adminParam)).c
   const categoryCount   = (await queryOne(`SELECT COUNT(*) AS c FROM categories ${isSuperAdmin ? '' : 'WHERE tournament_id IN (SELECT id FROM tournaments WHERE created_by=$1)'}`, adminParam)).c
-  const teamCount       = (await queryOne(`SELECT COUNT(*) AS c FROM teams ${isSuperAdmin ? '' : 'WHERE category_id IN (SELECT id FROM categories WHERE tournament_id IN (SELECT id FROM tournaments WHERE created_by=$1))'}`, adminParam)).c
-  const playerCount     = (await queryOne(`SELECT COUNT(*) AS c FROM players ${isSuperAdmin ? '' : 'WHERE team_id IN (SELECT id FROM teams WHERE category_id IN (SELECT id FROM categories WHERE tournament_id IN (SELECT id FROM tournaments WHERE created_by=$1)))'}`, adminParam)).c
+  // Only count teams from approved inscriptions (or manually created teams without inscription)
+  const teamFilter = isSuperAdmin
+    ? `WHERE (inscription_id IS NULL OR EXISTS (SELECT 1 FROM inscriptions i WHERE i.id=teams.inscription_id AND i.status='approved'))`
+    : `WHERE category_id IN (SELECT id FROM categories WHERE tournament_id IN (SELECT id FROM tournaments WHERE created_by=$1)) AND (inscription_id IS NULL OR EXISTS (SELECT 1 FROM inscriptions i WHERE i.id=teams.inscription_id AND i.status='approved'))`
+  const teamCount = (await queryOne(`SELECT COUNT(*) AS c FROM teams ${teamFilter}`, adminParam)).c
+  const playerCount = (await queryOne(`SELECT COUNT(*) AS c FROM players ${isSuperAdmin ? '' : 'WHERE team_id IN (SELECT id FROM teams WHERE category_id IN (SELECT id FROM categories WHERE tournament_id IN (SELECT id FROM tournaments WHERE created_by=$1)) AND (inscription_id IS NULL OR EXISTS (SELECT 1 FROM inscriptions i WHERE i.id=teams.inscription_id AND i.status=\'approved\')))'}`, adminParam)).c
   const matchCount      = (await queryOne(`SELECT COUNT(*) AS c FROM matches m ${isSuperAdmin ? '' : 'JOIN tournaments t ON m.tournament_id=t.id WHERE t.created_by=$1'}`, adminParam)).c
   const inscriptionCount = (await queryOne(`SELECT COUNT(*) AS c FROM inscriptions i ${isSuperAdmin ? "WHERE status='pending'" : "JOIN tournaments t ON i.tournament_id=t.id WHERE i.status='pending' AND t.created_by=$1"}`, adminParam)).c
 
