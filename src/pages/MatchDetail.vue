@@ -643,7 +643,7 @@ onMounted(async () => {
 
     if (match.value?.stream_id) {
       const s = await api.get(`/tournaments/${route.params.slug}/streams`)
-      stream.value = s.data.find(s => s.id === match.value.stream_id) || null
+      stream.value = s.data.find(s => String(s.id) === String(match.value.stream_id)) || null
     }
   } catch {} finally { loading.value = false }
 

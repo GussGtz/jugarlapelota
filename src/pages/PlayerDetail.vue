@@ -43,8 +43,8 @@ const player = ref(null)
 const loading = ref(true)
 onMounted(async () => {
   try {
-    const { data } = await api.get(`/tournaments/${route.params.slug}/players`)
-    player.value = data.find(p => p.id == route.params.id)
+    const { data } = await api.get(`/players/${route.params.id}`)
+    player.value = data
   } catch {} finally { loading.value = false }
 })
 </script>

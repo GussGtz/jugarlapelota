@@ -506,6 +506,20 @@ router.delete('/teams/:id', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ── Players ───────────────────────────────────────────────────────────────
+router.get('/players/:id', async (req, res) => {
+  const row = await queryOne(
+    `SELECT p.*,te.name AS "teamName",te.id AS "teamId",c.name AS "categoryName",t.slug AS "tournamentSlug"
+     FROM players p
+     JOIN teams te ON p.team_id=te.id
+     JOIN tournaments t ON te.tournament_id=t.id
+     LEFT JOIN categories c ON te.category_id=c.id
+     WHERE p.id=$1`,
+    [req.params.id]
+  )
+  if (!row) return notFound(res)
+  res.json(row)
+})
+
 router.get('/tournaments/:slug/players', async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
   const catId = req.query.cat ? parseInt(req.query.cat) : null

@@ -349,9 +349,10 @@ async function loadPhaseData() {
 
     allMatches.value = allRes.data
 
-    if (!phases.current) return
+    const currentPhase = phases.current  // cache before any await gap
+    if (!currentPhase) return
 
-    const phaseId = phases.current.id
+    const phaseId = currentPhase.id
     const matchRes = await api.get(`/tournaments/${slug.value}/matches?phase=${phaseId}`)
     if (seq !== loadSeq) return
 
