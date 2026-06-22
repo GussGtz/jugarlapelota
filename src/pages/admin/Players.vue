@@ -2,7 +2,14 @@
   <div class="space-y-4 md:space-y-6">
     <div class="flex items-center justify-between flex-wrap gap-3">
       <h2 class="text-lg md:text-2xl font-extrabold text-slate-900">Jugadores</h2>
-      <button @click="openForm()" class="btn-primary text-sm">+ Nuevo jugador</button>
+      <div class="flex items-center gap-2">
+        <button v-if="displayed.length" @click="exportPDF"
+          class="flex items-center gap-1.5 text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+          <IconFileDown class="w-4 h-4" />
+          Exportar PDF
+        </button>
+        <button @click="openForm()" class="btn-primary text-sm">+ Nuevo jugador</button>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -511,6 +518,79 @@ async function save() {
   } finally {
     saving.value = false
   }
+}
+
+function exportPDF() {
+  const t = filterTournament.value?.name || 'Torneo'
+  const cat = filterCategory.value?.name || 'Todas las categorías'
+  const team = filterTeam.value
+    ? (allTeams.value.find(t => t.id === filterTeam.value)?.name || '')
+    : 'Todos los equipos'
+
+  const rows = displayed.value.map((p, i) => `
+    <tr class="${i % 2 === 0 ? 'even' : ''}">
+      <td>${p.number ?? '—'}</td>
+      <td class="name">${p.name}</td>
+      <td>${p.position || '—'}</td>
+      <td>${p.teamName || '—'}</td>
+      <td>${p.categoryName || '—'}</td>
+      <td class="stat">${p.goals ?? 0}</td>
+      <td class="stat">${p.assists ?? 0}</td>
+      <td class="stat">${p.yellow_cards ?? 0}</td>
+      <td class="stat">${p.red_cards ?? 0}</td>
+    </tr>`).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Jugadores — ${t}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; padding: 24px; }
+    h1 { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    .meta { font-size: 10px; color: #64748b; margin-bottom: 16px; display: flex; gap: 16px; }
+    .meta span { display: flex; align-items: center; gap: 4px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: #0f172a; color: white; }
+    th { padding: 8px 10px; text-align: left; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+    td.name { font-weight: 600; }
+    td.stat { text-align: center; font-weight: 700; }
+    th.stat { text-align: center; }
+    tr.even { background: #f8fafc; }
+    .footer { margin-top: 20px; font-size: 9px; color: #94a3b8; text-align: right; }
+    @media print {
+      body { padding: 12px; }
+      button { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Lista de Jugadores — ${t}</h1>
+  <div class="meta">
+    <span>Categoría: <strong>${cat}</strong></span>
+    <span>Equipo: <strong>${team}</strong></span>
+    <span>Total: <strong>${displayed.value.length} jugadores</strong></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Nombre</th><th>Posición</th><th>Equipo</th><th>Categoría</th>
+        <th class="stat">G</th><th class="stat">A</th><th class="stat">TA</th><th class="stat">TR</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Generado el ${new Date().toLocaleDateString('es-MX', { dateStyle: 'long' })} — JugarLaPelota</div>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=900,height=700')
+  win.document.write(html)
+  win.document.close()
+  win.focus()
+  setTimeout(() => win.print(), 400)
 }
 
 async function deletePlayer(id) {
