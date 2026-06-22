@@ -97,17 +97,12 @@ onMounted(async () => {
 // Sync local state whenever the store list changes (initial load or tournament change)
 watch(() => cats.list, (list) => {
   if (!list.length) return
-  // If store already has a selected category, sync to it
-  if (cats.selected) {
-    selectedId.value  = cats.selected.id
-    activeGroup.value = cats.selected.group_name
-  } else {
-    // Default to first category
-    selectedId.value  = list[0].id
-    activeGroup.value = list[0].group_name
-    cats.selected     = list[0]
-    emit('change', list[0])
-  }
+  const target = cats.selected || list[0]
+  selectedId.value  = target.id
+  activeGroup.value = target.group_name
+  if (!cats.selected) cats.selected = target
+  // Always emit so pages load their data on mount, regardless of prior selection state
+  emit('change', target)
 }, { immediate: true })
 
 // Sync when external modelValue changes

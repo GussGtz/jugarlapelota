@@ -321,9 +321,10 @@ const cats     = useCategoriesStore()
 
 const players    = ref([])
 const awards     = ref([])
-const standings  = ref([])   // standings de la categoría para mejor equipo/portero/podio
+const standings  = ref([])
 const loading    = ref(false)
 const catId      = ref(null)
+let   loadSeq    = 0
 const activeTab  = ref('goals')
 const filterPos  = ref('')
 
@@ -504,15 +505,19 @@ const awardLabel  = t => awardLabels[t] || t
 
 // ── Carga ─────────────────────────────────────────────────────
 async function load(id) {
-  loading.value   = true
-  standings.value = []
+  const seq = ++loadSeq
+  loading.value        = true
+  players.value        = []
+  awards.value         = []
+  standings.value      = []
+  bracketStandings.value = []
   try {
     const [pl, aw, phases] = await Promise.all([
-      // Stats de jugadores SOLO de fases groups/league (sin knockout)
       api.get(`/tournaments/${slug.value}/players/phase-stats${id ? `?cat=${id}` : ''}`),
       api.get(`/tournaments/${slug.value}/awards${id ? `?cat=${id}` : ''}`).catch(() => ({ data: [] })),
       api.get(`/tournaments/${slug.value}/phases${id ? `?cat=${id}` : ''}`).catch(() => ({ data: [] })),
     ])
+    if (seq !== loadSeq) return
     players.value = pl.data
     awards.value  = aw.data
 
@@ -634,12 +639,11 @@ async function load(id) {
   } catch (e) {
     console.error(e)
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
 function onCatChange(cat) { catId.value = cat.id; load(cat.id) }
-watch(() => cats.selected, cat => { if (cat) { catId.value = cat.id; load(cat.id) } }, { immediate: true })
 
 // ── Socket: recargar cuando termina un partido (standings, awards, bracket) ──
 let cleanupStandings = null

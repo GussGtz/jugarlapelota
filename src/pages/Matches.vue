@@ -250,6 +250,7 @@ const leagueStandings = ref([])
 const loading         = ref(false)
 const catId           = ref(null)
 const koView          = ref('bracket')  // 'bracket' | 'list'
+let   loadSeq         = 0  // race-condition guard
 
 // ── Tipo de la fase activa ─────────────────────────────────────
 const phaseType = computed(() => phases.current?.type || null)
@@ -336,39 +337,45 @@ function groupsGridClass(n) {
 // ── Cargar datos para la fase activa ──────────────────────────
 async function loadPhaseData() {
   if (!slug.value || !catId.value) return
+  const seq = ++loadSeq
   loading.value = true
+  allMatches.value      = []
+  phaseMatches.value    = []
   groups.value          = []
   leagueStandings.value = []
-  phaseMatches.value    = []
   try {
-    // Partidos en vivo de toda la categoría (para el banner)
     const allRes = await api.get(`/tournaments/${slug.value}/matches?cat=${catId.value}`)
+    if (seq !== loadSeq) return  // stale response, discard
+
     allMatches.value = allRes.data
 
     if (!phases.current) return
 
     const phaseId = phases.current.id
-    const matchRes = await api.get(
-      `/tournaments/${slug.value}/matches?phase=${phaseId}`
-    )
+    const matchRes = await api.get(`/tournaments/${slug.value}/matches?phase=${phaseId}`)
+    if (seq !== loadSeq) return
+
     phaseMatches.value = matchRes.data
 
     if (phaseType.value === 'groups') {
       const grpRes = await api.get(`/phases/${phaseId}/groups`)
+      if (seq !== loadSeq) return
       if (grpRes.data.length) {
         groups.value = grpRes.data
       } else {
         const stdRes = await api.get(`/phases/${phaseId}/standings`)
+        if (seq !== loadSeq) return
         leagueStandings.value = stdRes.data
       }
     } else if (phaseType.value === 'league') {
       const stdRes = await api.get(`/phases/${phaseId}/standings`)
+      if (seq !== loadSeq) return
       leagueStandings.value = stdRes.data
     }
   } catch (e) {
     console.error(e)
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
@@ -380,22 +387,10 @@ async function selectPhase(phase) {
 
 async function onCatChange(cat) {
   catId.value = cat.id
-  allMatches.value   = []
-  phaseMatches.value = []
-  groups.value       = []
   phases.reset()
   await phases.fetchByTournament(slug.value, cat.id)
   await loadPhaseData()
 }
-
-watch(() => cats.selected, async cat => {
-  if (cat && !catId.value) {
-    catId.value = cat.id
-    phases.reset()
-    await phases.fetchByTournament(slug.value, cat.id)
-    await loadPhaseData()
-  }
-}, { immediate: true })
 
 // ── Socket: actualizar partidos en tiempo real ───────────────────
 let cleanupSocket = null

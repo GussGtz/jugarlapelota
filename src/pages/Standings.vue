@@ -46,18 +46,20 @@ const cats     = useCategoriesStore()
 const standings = ref([])
 const loading   = ref(false)
 const catId     = ref(null)
+let   loadSeq   = 0
 
 async function load(id) {
   if (!id || !slug.value) return
-  loading.value = true
+  const seq = ++loadSeq
+  loading.value   = true
+  standings.value = []
   try {
-    // Fetch phases for this category and pull standings from the first league phase
     const phasesRes = await api.get(`/tournaments/${slug.value}/phases?cat=${id}`)
+    if (seq !== loadSeq) return
     const leaguePhase = phasesRes.data.find(p => p.type === 'league' || p.type === 'groups')
     if (leaguePhase) {
       const stdRes = await api.get(`/phases/${leaguePhase.id}/standings`)
-      // /phases/:id/standings for groups returns [{groupId, standings:[...]}]
-      // for league returns flat array
+      if (seq !== loadSeq) return
       const raw = stdRes.data
       if (Array.isArray(raw) && raw.length && raw[0]?.standings) {
         standings.value = raw.flatMap(g => g.standings || [])
@@ -65,16 +67,14 @@ async function load(id) {
         standings.value = raw
       }
     } else {
-      // Fallback for tournaments without explicit phases
       const { data } = await api.get(`/tournaments/${slug.value}/standings?cat=${id}`)
+      if (seq !== loadSeq) return
       standings.value = data
     }
-  } catch {} finally { loading.value = false }
+  } catch {} finally { if (seq === loadSeq) loading.value = false }
 }
 
 function onCatChange(cat) { catId.value = cat.id; load(cat.id) }
-
-watch(() => cats.selected, cat => { if (cat) { catId.value = cat.id; load(cat.id) } }, { immediate: true })
 
 // ── Socket: recargar standings automáticamente cuando cambian ────
 const { tournament } = useTournament()
