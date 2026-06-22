@@ -106,7 +106,7 @@
                   <div class="relative w-14 h-14 rounded-xl border-2 border-dashed border-muted bg-slate-50 overflow-hidden flex items-center justify-center cursor-pointer group"
                     @click="triggerPhoto(cat.id, idx)">
                     <img v-if="p.photo" :src="p.photo" class="w-full h-full object-cover"/>
-                    <span v-else class="text-slate-300 text-2xl group-hover:text-primary transition-colors">📷</span>
+                    <IconUser v-else class="w-6 h-6 text-slate-300 group-hover:text-primary transition-colors"/>
                     <div v-if="p.photoLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
                       <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                     </div>
@@ -119,11 +119,17 @@
                   <!-- Mini action buttons -->
                   <div class="flex gap-1">
                     <button type="button" @click.stop="triggerFileInput(cat.id, idx)"
-                      class="text-[9px] text-slate-400 hover:text-primary transition-colors" title="Subir foto">📁</button>
+                      class="text-slate-400 hover:text-primary transition-colors" title="Subir foto">
+                      <IconUpload class="w-3.5 h-3.5"/>
+                    </button>
                     <button type="button" @click.stop="triggerCameraInput(cat.id, idx)"
-                      class="text-[9px] text-slate-400 hover:text-primary transition-colors" title="Tomar foto">📸</button>
+                      class="text-slate-400 hover:text-primary transition-colors" title="Tomar foto">
+                      <IconCamera class="w-3.5 h-3.5"/>
+                    </button>
                     <button v-if="p.photo" type="button" @click.stop="p.photo = ''"
-                      class="text-[9px] text-red-400 hover:text-red-600 transition-colors" title="Quitar">✕</button>
+                      class="text-red-400 hover:text-red-600 transition-colors" title="Quitar">
+                      <IconX class="w-3.5 h-3.5"/>
+                    </button>
                   </div>
                 </div>
                 <div class="col-span-4">
