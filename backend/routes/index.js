@@ -1571,6 +1571,30 @@ router.post('/inscriptions/:id/players', async (req, res) => {
         continue
       }
 
+      // Limit girls exception: max 2 per category
+      // A girl uses the exception when her birth year < min_birth_year but >= min_birth_year_girls
+      const isFemale = curpData.sex === 'M'
+      const usesGirlsException = isFemale && category.min_birth_year && category.min_birth_year_girls &&
+        curpData.birthYear < category.min_birth_year && curpData.birthYear >= category.min_birth_year_girls
+      if (usesGirlsException) {
+        // Count how many already registered in this category use the exception (born < min_birth_year)
+        const existingExceptions = (await query(
+          `SELECT ip.curp FROM inscription_players ip
+           WHERE ip.inscription_id=$1 AND ip.category_id=$2 AND ip.curp IS NOT NULL`,
+          [insc.id, categoryId]
+        )).rows.filter(r => {
+          const d = parseCURP(r.curp); return d && d.sex === 'M' && d.birthYear < category.min_birth_year && d.birthYear >= category.min_birth_year_girls
+        })
+        // Also count the ones being inserted in this same batch
+        const batchExceptions = toInsert.filter(ti => {
+          const d = parseCURP(ti.curp); return d && d.sex === 'M' && d.birthYear < category.min_birth_year && d.birthYear >= category.min_birth_year_girls
+        })
+        if (existingExceptions.length + batchExceptions.length >= 2) {
+          errors.push(`${name}: ya hay 2 niñas con excepción de edad en ${category.name}. Solo se permiten 2 por categoría.`)
+          continue
+        }
+      }
+
       // Duplicate CURP in same inscription + same category
       const dupSameCat = await queryOne(
         'SELECT id FROM inscription_players WHERE inscription_id=$1 AND category_id=$2 AND UPPER(curp)=$3',
