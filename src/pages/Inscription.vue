@@ -137,11 +137,6 @@
                   </div>
                 </div>
               </div>
-              <div>
-                <label class="text-xs text-slate-500 font-semibold mb-1.5 block uppercase tracking-wide">Número estimado de jugadores</label>
-                <input v-model.number="form.players_count" type="number" min="1" max="30"
-                  class="w-full bg-white border border-muted rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"/>
-              </div>
             </div>
           </div>
 
@@ -171,38 +166,6 @@
                   placeholder="998-123-4567"/>
               </div>
             </div>
-          </div>
-
-          <!-- Jugadores (opcional) -->
-          <div class="card space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                <div class="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center">
-                  <IconCircle class="w-4 h-4 text-accent" />
-                </div>
-                Lista de Jugadores
-                <span class="text-slate-400 text-xs font-normal">(opcional)</span>
-              </h3>
-              <button type="button" @click="addPlayer"
-                class="text-xs text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors font-semibold">
-                + Agregar
-              </button>
-            </div>
-            <div v-for="(p,i) in form.players" :key="i" class="grid grid-cols-4 gap-2 items-end">
-              <div class="col-span-2">
-                <label class="text-xs text-slate-500 mb-1 block">Nombre</label>
-                <input v-model="p.name"
-                  class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-primary transition-all"/>
-              </div>
-              <div>
-                <label class="text-xs text-slate-500 mb-1 block">#</label>
-                <input v-model.number="p.number" type="number" min="1" max="99"
-                  class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-primary transition-all"/>
-              </div>
-              <button type="button" @click="form.players.splice(i,1)"
-                class="text-red-400 hover:text-red-600 pb-2 text-lg transition-colors">×</button>
-            </div>
-            <p v-if="!form.players.length" class="text-slate-400 text-sm">Puedes agregar la lista de jugadores ahora o después.</p>
           </div>
 
           <!-- Notas -->
