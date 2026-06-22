@@ -10,6 +10,43 @@ const crypto = require('crypto')
 const authCtrl        = require('../controllers/auth.controller')
 const tournamentsCtrl = require('../controllers/tournaments.controller')
 
+// ── CURP utility ─────────────────────────────────────────────────────────────
+function parseCURP(curp) {
+  if (!curp || typeof curp !== 'string') return null
+  const c = curp.trim().toUpperCase()
+  if (c.length !== 18) return null
+  const regex = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]$/
+  if (!regex.test(c)) return null
+  const yy = parseInt(c.slice(4, 6))
+  const mm = parseInt(c.slice(6, 8))
+  const dd = parseInt(c.slice(8, 10))
+  const sex = c[10] // H = hombre, M = mujer
+  // position 16: digit = born 1900s, letter = born 2000s
+  const centuryChar = c[16]
+  const is2000s = /[A-Z]/.test(centuryChar)
+  const fullYear = is2000s ? 2000 + yy : 1900 + yy
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null
+  return { birthYear: fullYear, birthMonth: mm, birthDay: dd, sex }
+}
+
+function validateCURPAge(curpData, category) {
+  if (!category.min_birth_year) return { valid: true }
+  const { birthYear, sex } = curpData
+  const isFemale = sex === 'M'
+  const minBY = category.min_birth_year
+  const maxBY = category.max_birth_year
+  const minBYGirls = category.min_birth_year_girls
+  // Effective minimum birth year for this player (girls may get exception)
+  const effectiveMin = (isFemale && minBYGirls && minBYGirls < minBY) ? minBYGirls : minBY
+  if (birthYear < effectiveMin) {
+    return { valid: false, reason: `Jugador muy mayor para esta categoría. Nació en ${birthYear}, se requiere nacido en ${effectiveMin} o después.` }
+  }
+  if (maxBY && birthYear > maxBY) {
+    return { valid: false, reason: `Jugador muy joven para esta categoría. Nació en ${birthYear}, el límite es ${maxBY}.` }
+  }
+  return { valid: true }
+}
+
 // ── Cloudinary config ─────────────────────────────────────────────────────────
 const cloudinary = require('cloudinary').v2
 cloudinary.config({
@@ -107,10 +144,22 @@ router.post('/categories', authMiddleware, adminOnly, async (req, res) => {
 router.put('/categories/:id', authMiddleware, adminOnly, async (req, res) => {
   const cat = (await queryOne('SELECT tournament_id FROM categories WHERE id=$1', [req.params.id]))
   if (cat && !checkOwnerByTournamentId(req, res, cat.tournament_id)) return
-  const {name,gender,group_name,order_index} = req.body
-  await query('UPDATE categories SET name=$1,gender=$2,group_name=$3,order_index=$4 WHERE id=$5', [name,gender,group_name,order_index||0,req.params.id])
+  const {name,gender,group_name,order_index,min_birth_year,max_birth_year,min_birth_year_girls} = req.body
+  await query(
+    'UPDATE categories SET name=$1,gender=$2,group_name=$3,order_index=$4,min_birth_year=$5,max_birth_year=$6,min_birth_year_girls=$7 WHERE id=$8',
+    [name,gender,group_name,order_index||0,min_birth_year||null,max_birth_year||null,min_birth_year_girls||null,req.params.id]
+  )
   res.json((await queryOne('SELECT * FROM categories WHERE id=$1', [req.params.id])))
 })
+// ── Tournament settings (auto-approve, etc.) ──────────────────────────────────
+router.patch('/tournaments/:slug/settings', authMiddleware, adminOnly, async (req, res) => {
+  const t = await getTournament(req.params.slug); if (!t) return notFound(res)
+  if (!await checkOwnerByTournamentId(req, res, t.id)) return
+  const { auto_approve_inscriptions } = req.body
+  await query('UPDATE tournaments SET auto_approve_inscriptions=$1 WHERE id=$2', [auto_approve_inscriptions ? 1 : 0, t.id])
+  res.json({ auto_approve_inscriptions: auto_approve_inscriptions ? 1 : 0 })
+})
+
 router.delete('/categories/:id', authMiddleware, adminOnly, async (req, res) => {
   const cat = (await queryOne('SELECT tournament_id FROM categories WHERE id=$1', [req.params.id]))
   if (cat && !checkOwnerByTournamentId(req, res, cat.tournament_id)) return
@@ -1412,16 +1461,27 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
     categories = catRows.map(c => ({ id: c.id, name: c.name }))
   }
   const firstCatId = categories[0]?.id || null
+  const token = crypto.randomBytes(20).toString('hex')
+  const tournament = await queryOne('SELECT id,auto_approve_inscriptions FROM tournaments WHERE id=$1', [tournamentId])
+  const autoApprove = tournament?.auto_approve_inscriptions === 1
+  const status = autoApprove ? 'approved' : 'pending'
   const r = await query(
-    'INSERT INTO inscriptions (tournament_id,category_id,categories_json,logo,team_name,contact_name,contact_email,contact_phone,players_count,notes,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,\'pending\') RETURNING id',
-    [tournamentId, firstCatId, JSON.stringify(categories), logo||null, team_name, contact_name, contact_email, contact_phone||null, players_count||0, notes||null]
+    'INSERT INTO inscriptions (tournament_id,category_id,categories_json,logo,team_name,contact_name,contact_email,contact_phone,players_count,notes,status,registration_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id',
+    [tournamentId, firstCatId, JSON.stringify(categories), logo||null, team_name, contact_name, contact_email, contact_phone||null, players_count||0, notes||null, status, token]
   )
   const id = r.rows[0]?.id || r.lastInsertRowid
   if(players?.length) {
     const insP = (...__a) => query('INSERT INTO inscription_players (inscription_id,name,number,position,birth_date) VALUES ($1,$2,$3,$4,$5)', __a.flat())
     for(const p of players) await insP(id,p.name,p.number||null,p.position||null,p.birth_date||null)
   }
-  res.status(201).json({id, message:'Solicitud enviada correctamente'})
+  // If auto-approved, create the team immediately
+  if (autoApprove) {
+    const existing = await queryOne('SELECT id FROM teams WHERE name=$1 AND tournament_id=$2', [team_name, tournamentId])
+    if (!existing) {
+      await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [tournamentId, null, team_name, logo||null, id])
+    }
+  }
+  res.status(201).json({id, token, auto_approved: autoApprove, message: autoApprove ? 'Inscripción aprobada automáticamente' : 'Solicitud enviada correctamente'})
 })
 router.patch('/inscriptions/:id/status', authMiddleware, adminOnly, async (req, res) => {
   const {status} = req.body
@@ -1460,6 +1520,107 @@ router.patch('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) =>
 })
 router.delete('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) => {
   await query('DELETE FROM inscriptions WHERE id=$1', [req.params.id]); res.status(204).end()
+})
+
+// ── Public: Player registration for auto-approved inscriptions ────────────────
+router.get('/inscriptions/:id/register', async (req, res) => {
+  const insc = await queryOne('SELECT i.*,t.name AS "tournamentName",t.slug AS "tournamentSlug" FROM inscriptions i JOIN tournaments t ON i.tournament_id=t.id WHERE i.id=$1', [req.params.id])
+  if (!insc) return res.status(404).json({error:'Inscripción no encontrada'})
+  if (insc.status !== 'approved') return res.status(403).json({error:'Esta inscripción no está aprobada'})
+  let categories = []
+  if (insc.categories_json) { try { categories = JSON.parse(insc.categories_json) } catch{} }
+  // Load full category data (with age config)
+  if (categories.length) {
+    const ids = categories.map(c => c.id)
+    const catRows = (await query('SELECT * FROM categories WHERE id=ANY($1::bigint[])', [ids])).rows
+    categories = catRows
+  }
+  const players = (await query('SELECT ip.*,c.name AS "categoryName" FROM inscription_players ip LEFT JOIN categories c ON ip.category_id=c.id WHERE ip.inscription_id=$1 ORDER BY ip.category_id,ip.id', [insc.id])).rows
+  res.json({ ...insc, categories, players })
+})
+
+router.post('/inscriptions/:id/players', async (req, res) => {
+  const { players, categoryId } = req.body  // players: [{name,number,position,curp}], categoryId
+  if (!players?.length || !categoryId) return res.status(400).json({error:'Datos incompletos'})
+  const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
+  if (!insc) return res.status(404).json({error:'Inscripción no encontrada'})
+  if (insc.status !== 'approved') return res.status(403).json({error:'La inscripción debe estar aprobada'})
+  const category = await queryOne('SELECT * FROM categories WHERE id=$1', [categoryId])
+  if (!category) return res.status(404).json({error:'Categoría no encontrada'})
+
+  const errors = []
+  const toInsert = []
+
+  for (const p of players) {
+    const name = p.name?.trim()
+    if (!name) continue
+    const curp = p.curp?.trim().toUpperCase() || null
+
+    // CURP validation
+    if (curp) {
+      const curpData = parseCURP(curp)
+      if (!curpData) {
+        errors.push(`${name}: CURP inválida (formato incorrecto)`)
+        continue
+      }
+
+      // Age validation against category
+      const ageCheck = validateCURPAge(curpData, category)
+      if (!ageCheck.valid) {
+        errors.push(`${name}: ${ageCheck.reason}`)
+        continue
+      }
+
+      // Duplicate CURP in same inscription + same category
+      const dupSameCat = await queryOne(
+        'SELECT id FROM inscription_players WHERE inscription_id=$1 AND category_id=$2 AND UPPER(curp)=$3',
+        [insc.id, categoryId, curp]
+      )
+      if (dupSameCat) {
+        errors.push(`${name}: CURP ${curp} ya está registrada en esta categoría del equipo`)
+        continue
+      }
+
+      // Duplicate CURP in DIFFERENT team (same tournament) — cachirul check
+      const dupOtherTeam = await queryOne(
+        `SELECT ip.id,i.team_name FROM inscription_players ip
+         JOIN inscriptions i ON ip.inscription_id=i.id
+         WHERE i.tournament_id=$1 AND ip.inscription_id<>$2 AND UPPER(ip.curp)=$3 AND i.status='approved'`,
+        [insc.tournament_id, insc.id, curp]
+      )
+      if (dupOtherTeam) {
+        errors.push(`${name}: CURP ${curp} ya está registrada en el equipo "${dupOtherTeam.team_name}"`)
+        continue
+      }
+    }
+
+    toInsert.push({ name, number: p.number||null, position: p.position||null, curp })
+  }
+
+  if (errors.length && !toInsert.length) {
+    return res.status(400).json({ error: 'No se pudo registrar ningún jugador', errors })
+  }
+
+  const inserted = []
+  for (const p of toInsert) {
+    const r = await query(
+      'INSERT INTO inscription_players (inscription_id,category_id,name,number,position,curp) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
+      [insc.id, categoryId, p.name, p.number, p.position, p.curp]
+    )
+    const newId = r.rows[0]?.id || r.lastInsertRowid
+    inserted.push({ id: newId, ...p })
+
+    // Also add to players table (linked to the team for this tournament)
+    const team = await queryOne('SELECT id FROM teams WHERE inscription_id=$1', [insc.id])
+    if (team) {
+      await query(
+        'INSERT INTO players (team_id,name,number,position,curp) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',
+        [team.id, p.name, p.number, p.position, p.curp]
+      )
+    }
+  }
+
+  res.status(201).json({ inserted, errors: errors.length ? errors : undefined })
 })
 
 // ── Awards ────────────────────────────────────────────────────────────────

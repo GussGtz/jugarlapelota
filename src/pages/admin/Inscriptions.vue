@@ -41,6 +41,22 @@
           <IconExternalLink class="w-4 h-4" /> Abrir
         </a>
       </div>
+
+      <!-- Auto-approve toggle -->
+      <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+        <div>
+          <p class="text-xs font-bold text-slate-700">Aprobación automática</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">
+            {{ autoApprove ? 'Los equipos se inscriben directamente y pasan a registrar jugadores' : 'Cada solicitud queda pendiente hasta que la apruebes manualmente' }}
+          </p>
+        </div>
+        <button @click="toggleAutoApprove"
+          :class="autoApprove ? 'bg-primary' : 'bg-slate-200'"
+          class="relative w-11 h-6 rounded-full transition-colors shrink-0 focus:outline-none">
+          <span :class="autoApprove ? 'translate-x-5' : 'translate-x-0.5'"
+            class="block w-5 h-5 bg-white rounded-full shadow transition-transform"></span>
+        </button>
+      </div>
     </div>
 
     <div class="space-y-4">
@@ -128,6 +144,7 @@ const selTournament = ref(null)
 const filterStatus  = ref('')
 const selected      = ref(null)
 const copied        = ref(false)
+const autoApprove   = ref(false)
 
 const displayed = computed(() => filterStatus.value ? inscriptions.value.filter(i=>i.status===filterStatus.value) : inscriptions.value)
 const pending   = computed(() => inscriptions.value.filter(i=>i.status==='pending').length)
@@ -182,10 +199,19 @@ async function deleteInsc(id) {
   await api.delete(`/inscriptions/${id}`); await load()
 }
 
+async function toggleAutoApprove() {
+  if (!selTournament.value) return
+  const newVal = !autoApprove.value
+  await api.patch(`/tournaments/${selTournament.value.slug}/settings`, { auto_approve_inscriptions: newVal })
+  autoApprove.value = newVal
+  selTournament.value.auto_approve_inscriptions = newVal ? 1 : 0
+}
+
 async function load() {
   if (!selTournament.value) return
   const {data} = await api.get(`/tournaments/${selTournament.value.slug}/inscriptions`)
   inscriptions.value = data
+  autoApprove.value = !!selTournament.value.auto_approve_inscriptions
 }
 
 onMounted(async () => {

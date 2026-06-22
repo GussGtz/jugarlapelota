@@ -15,7 +15,11 @@
           <div class="h-px w-12 bg-slate-200"></div>
         </div>
         <p class="text-slate-500 text-sm">Registra tu interés en participar en <strong>{{ tournament?.name }}</strong>. El organizador revisará tu solicitud y te confirmará.</p>
-        <div class="mt-4 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-4 py-2 rounded-full">
+        <div v-if="tournament?.auto_approve_inscriptions" class="mt-4 inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-4 py-2 rounded-full">
+          <IconCheckCircle class="w-3.5 h-3.5" />
+          Las inscripciones se aprueban automáticamente
+        </div>
+        <div v-else class="mt-4 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-4 py-2 rounded-full">
           <IconClock class="w-3.5 h-3.5" />
           Tu solicitud quedará pendiente de aprobación
         </div>
@@ -225,12 +229,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { uploadImagePublic } from '@/utils/upload'
 
-const route = useRoute()
-const slug  = route.params.slug
+const route  = useRoute()
+const router = useRouter()
+const slug   = route.params.slug
 const tournament = ref(null)
 const categories = ref([])
 const sent       = ref(false)
@@ -291,12 +296,16 @@ async function submit() {
     const tourData = await api.get(`/tournaments/${slug}`)
     const tid = tourData.data.id
     // Una sola inscripción con todas las categorías seleccionadas
-    await api.post('/inscriptions', {
+    const result = await api.post('/inscriptions', {
       ...form,
       tournamentId: tid,
       categoryIds:  form.categoryIds,
     })
-    sent.value = true
+    if (result.data.auto_approved) {
+      router.push(`/${slug}/inscripcion/${result.data.id}/jugadores`)
+    } else {
+      sent.value = true
+    }
   } catch(e) {
     error.value = e.response?.data?.error || 'Error al enviar la solicitud. Intenta de nuevo.'
   } finally { submitting.value = false }

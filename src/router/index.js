@@ -25,6 +25,7 @@ const routes = [
       { path: 'transmisiones', redirect: to => ({ path: `/${to.params.slug}/media` }) },
       { path: 'noticias',      redirect: to => ({ path: `/${to.params.slug}/media` }) },
       { path: 'inscripcion',   name: 'Inscription',  component: () => import('@/pages/Inscription.vue') },
+      { path: 'inscripcion/:inscriptionId/jugadores', name: 'InscriptionPlayers', component: () => import('@/pages/InscriptionPlayers.vue') },
       // Fixture redirige a partidos (páginas fusionadas)
       { path: 'fixture', redirect: to => ({ path: `/${to.params.slug}/partidos` }) },
     ]

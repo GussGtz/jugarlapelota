@@ -166,6 +166,15 @@ const PG_MIGRATIONS = [
   `ALTER TABLE users   ADD COLUMN IF NOT EXISTS tournament_id BIGINT`,
   `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rules_pdf TEXT`,
   `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS modality TEXT DEFAULT 'copa'`,
+  // CURP & auto-approve features
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS auto_approve_inscriptions INTEGER DEFAULT 0`,
+  `ALTER TABLE categories ADD COLUMN IF NOT EXISTS min_birth_year INTEGER`,
+  `ALTER TABLE categories ADD COLUMN IF NOT EXISTS max_birth_year INTEGER`,
+  `ALTER TABLE categories ADD COLUMN IF NOT EXISTS min_birth_year_girls INTEGER`,
+  `ALTER TABLE inscription_players ADD COLUMN IF NOT EXISTS curp TEXT`,
+  `ALTER TABLE inscription_players ADD COLUMN IF NOT EXISTS category_id BIGINT`,
+  `ALTER TABLE players ADD COLUMN IF NOT EXISTS curp TEXT`,
+  `ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS registration_token TEXT`,
 ]
 
 module.exports = { PG_SCHEMA, PG_MIGRATIONS }

@@ -33,6 +33,9 @@
                 <p class="font-semibold text-slate-900">{{ cat.name }}</p>
               </div>
               <p class="text-xs text-slate-400 mt-0.5">{{ cat.gender }} · {{ cat.group_name }}</p>
+              <p v-if="cat.min_birth_year" class="text-[10px] text-primary mt-0.5 font-semibold">
+                Nac. ≥ {{ cat.min_birth_year }}{{ cat.min_birth_year_girls ? ` · niñas ≥ ${cat.min_birth_year_girls}` : '' }}
+              </p>
             </div>
             <div class="flex gap-2 flex-shrink-0">
               <button @click="openEditForm(cat)"
@@ -234,6 +237,35 @@
             <input v-model.number="editForm.order_index" type="number" min="0"
               class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
           </div>
+
+          <!-- Age config -->
+          <div class="col-span-2 pt-2 border-t border-muted">
+            <p class="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+              Restricción de edad (anti-cachirul)
+            </p>
+            <p class="text-xs text-slate-400 mb-3">El sistema validará la CURP de cada jugador contra este rango. Año de nacimiento mínimo = el más viejo que acepta (ej. 2018 para sub-7).</p>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="text-[10px] text-slate-500 font-semibold mb-1 block uppercase tracking-wide">Año mín. (varonil)</label>
+                <input v-model.number="editForm.min_birth_year" type="number" min="1990" max="2030" placeholder="ej. 2018"
+                  class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
+                <p class="text-[9px] text-slate-400 mt-0.5">Nacidos este año o después</p>
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-500 font-semibold mb-1 block uppercase tracking-wide">Año máx. (opcional)</label>
+                <input v-model.number="editForm.max_birth_year" type="number" min="1990" max="2030" placeholder="ej. 2021"
+                  class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
+                <p class="text-[9px] text-slate-400 mt-0.5">Nacidos hasta este año</p>
+              </div>
+              <div>
+                <label class="text-[10px] text-pink-500 font-semibold mb-1 block uppercase tracking-wide">Año mín. niñas</label>
+                <input v-model.number="editForm.min_birth_year_girls" type="number" min="1990" max="2030" placeholder="ej. 2017"
+                  class="w-full bg-white border border-pink-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-pink-400"/>
+                <p class="text-[9px] text-slate-400 mt-0.5">Excepción femenil</p>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="flex gap-3">
           <button @click="saveEdit" :disabled="saving" class="btn-primary text-sm flex-1 disabled:opacity-50">
@@ -271,7 +303,7 @@ const originalNames  = ref(new Set()) // nombres que ya existían al abrir el mo
 // ── Edit form state ─────────────────────────────────────
 const showEditForm = ref(false)
 const editingCat   = ref(null)
-const editForm     = reactive({ name: '', gender: 'varonil', group_name: 'libre', order_index: 0 })
+const editForm     = reactive({ name: '', gender: 'varonil', group_name: 'libre', order_index: 0, min_birth_year: null, max_birth_year: null, min_birth_year_girls: null })
 
 // ── Custom category form dentro del manager ─────────────
 const customForm = reactive({ name: '', gender: 'varonil', group_name: 'libre' })
@@ -461,7 +493,7 @@ async function load() {
 // ── Editar categoría existente ──────────────────────────
 function openEditForm(cat) {
   editingCat.value = cat
-  Object.assign(editForm, { name: cat.name, gender: cat.gender, group_name: cat.group_name, order_index: cat.order_index })
+  Object.assign(editForm, { name: cat.name, gender: cat.gender, group_name: cat.group_name, order_index: cat.order_index, min_birth_year: cat.min_birth_year||null, max_birth_year: cat.max_birth_year||null, min_birth_year_girls: cat.min_birth_year_girls||null })
   showEditForm.value = true
 }
 
