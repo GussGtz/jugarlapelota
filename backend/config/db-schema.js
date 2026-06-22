@@ -175,6 +175,7 @@ const PG_MIGRATIONS = [
   `ALTER TABLE inscription_players ADD COLUMN IF NOT EXISTS category_id BIGINT`,
   `ALTER TABLE players ADD COLUMN IF NOT EXISTS curp TEXT`,
   `ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS registration_token TEXT`,
+  `ALTER TABLE categories ADD COLUMN IF NOT EXISTS max_players_per_team INTEGER`,
 ]
 
 module.exports = { PG_SCHEMA, PG_MIGRATIONS }

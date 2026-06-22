@@ -36,6 +36,9 @@
               <p v-if="cat.min_birth_year" class="text-[10px] text-primary mt-0.5 font-semibold">
                 Nac. ≥ {{ cat.min_birth_year }}{{ cat.min_birth_year_girls ? ` · niñas ≥ ${cat.min_birth_year_girls}` : '' }}
               </p>
+              <p v-if="cat.max_players_per_team" class="text-[10px] text-slate-500 mt-0.5">
+                Máx. {{ cat.max_players_per_team }} jugadores/equipo
+              </p>
             </div>
             <div class="flex gap-2 flex-shrink-0">
               <button @click="openEditForm(cat)"
@@ -238,6 +241,16 @@
               class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
           </div>
 
+          <!-- Max players -->
+          <div class="pt-2 border-t border-muted">
+            <label class="text-xs font-bold text-slate-700 mb-1 block">Máx. jugadores por equipo</label>
+            <div class="flex items-center gap-3">
+              <input v-model.number="editForm.max_players_per_team" type="number" min="1" max="50" placeholder="Sin límite"
+                class="w-40 bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
+              <p class="text-xs text-slate-400">Dejar vacío = sin límite</p>
+            </div>
+          </div>
+
           <!-- Age config -->
           <div class="col-span-2 pt-2 border-t border-muted">
             <p class="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
@@ -318,7 +331,7 @@ const originalNames  = ref(new Set()) // nombres que ya existían al abrir el mo
 // ── Edit form state ─────────────────────────────────────
 const showEditForm = ref(false)
 const editingCat   = ref(null)
-const editForm     = reactive({ name: '', gender: 'varonil', group_name: 'libre', order_index: 0, min_birth_year: null, max_birth_year: null, min_birth_year_girls: null })
+const editForm     = reactive({ name: '', gender: 'varonil', group_name: 'libre', order_index: 0, min_birth_year: null, max_birth_year: null, min_birth_year_girls: null, max_players_per_team: null })
 
 // ── Custom category form dentro del manager ─────────────
 const customForm = reactive({ name: '', gender: 'varonil', group_name: 'libre' })
@@ -508,7 +521,7 @@ async function load() {
 // ── Editar categoría existente ──────────────────────────
 function openEditForm(cat) {
   editingCat.value = cat
-  Object.assign(editForm, { name: cat.name, gender: cat.gender, group_name: cat.group_name, order_index: cat.order_index, min_birth_year: cat.min_birth_year||null, max_birth_year: cat.max_birth_year||null, min_birth_year_girls: cat.min_birth_year_girls||null })
+  Object.assign(editForm, { name: cat.name, gender: cat.gender, group_name: cat.group_name, order_index: cat.order_index, min_birth_year: cat.min_birth_year||null, max_birth_year: cat.max_birth_year||null, min_birth_year_girls: cat.min_birth_year_girls||null, max_players_per_team: cat.max_players_per_team||null })
   showEditForm.value = true
 }
 

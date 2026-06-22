@@ -144,10 +144,10 @@ router.post('/categories', authMiddleware, adminOnly, async (req, res) => {
 router.put('/categories/:id', authMiddleware, adminOnly, async (req, res) => {
   const cat = (await queryOne('SELECT tournament_id FROM categories WHERE id=$1', [req.params.id]))
   if (cat && !checkOwnerByTournamentId(req, res, cat.tournament_id)) return
-  const {name,gender,group_name,order_index,min_birth_year,max_birth_year,min_birth_year_girls} = req.body
+  const {name,gender,group_name,order_index,min_birth_year,max_birth_year,min_birth_year_girls,max_players_per_team} = req.body
   await query(
-    'UPDATE categories SET name=$1,gender=$2,group_name=$3,order_index=$4,min_birth_year=$5,max_birth_year=$6,min_birth_year_girls=$7 WHERE id=$8',
-    [name,gender,group_name,order_index||0,min_birth_year||null,max_birth_year||null,min_birth_year_girls||null,req.params.id]
+    'UPDATE categories SET name=$1,gender=$2,group_name=$3,order_index=$4,min_birth_year=$5,max_birth_year=$6,min_birth_year_girls=$7,max_players_per_team=$8 WHERE id=$9',
+    [name,gender,group_name,order_index||0,min_birth_year||null,max_birth_year||null,min_birth_year_girls||null,max_players_per_team||null,req.params.id]
   )
   res.json((await queryOne('SELECT * FROM categories WHERE id=$1', [req.params.id])))
 })
@@ -1547,6 +1547,18 @@ router.post('/inscriptions/:id/players', async (req, res) => {
   if (insc.status !== 'approved') return res.status(403).json({error:'La inscripción debe estar aprobada'})
   const category = await queryOne('SELECT * FROM categories WHERE id=$1', [categoryId])
   if (!category) return res.status(404).json({error:'Categoría no encontrada'})
+
+  // Check max players per team for this category
+  if (category.max_players_per_team) {
+    const currentCount = (await queryOne('SELECT COUNT(*) AS c FROM inscription_players WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])).c
+    const remaining = category.max_players_per_team - currentCount
+    if (remaining <= 0) {
+      return res.status(400).json({ error: `Ya alcanzaste el límite de ${category.max_players_per_team} jugadores en ${category.name}.` })
+    }
+    if (players.length > remaining) {
+      return res.status(400).json({ error: `Solo puedes agregar ${remaining} jugador(es) más en ${category.name} (límite: ${category.max_players_per_team}).` })
+    }
+  }
 
   const errors = []
   const toInsert = []

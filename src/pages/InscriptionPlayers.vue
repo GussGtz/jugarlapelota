@@ -64,6 +64,11 @@
                 <span v-if="cat.min_birth_year_girls" class="text-pink-600 ml-2">· Niñas desde {{ cat.min_birth_year_girls }}</span>
               </p>
               <p v-else class="text-xs text-slate-400 mt-0.5">Sin restricción de edad configurada</p>
+              <p v-if="cat.max_players_per_team" class="text-xs mt-0.5">
+                <span class="font-semibold text-slate-700">{{ playersForCat(cat.id).length }} / {{ cat.max_players_per_team }}</span>
+                <span class="text-slate-400"> jugadores registrados</span>
+                <span v-if="playersForCat(cat.id).length >= cat.max_players_per_team" class="ml-2 text-red-500 font-semibold">— Cupo lleno</span>
+              </p>
             </div>
             <button @click="addPlayerRow(cat.id)"
               class="text-xs text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors font-semibold shrink-0">
