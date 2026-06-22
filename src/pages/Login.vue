@@ -36,10 +36,10 @@
           </div>
         </div>
         <div>
-          <label class="text-sm text-slate-700 mb-1 block">Correo electrónico</label>
-          <input v-model="form.identifier" type="email" autocomplete="email" required
+          <label class="text-sm text-slate-700 mb-1 block">Correo o nombre de usuario</label>
+          <input v-model="form.identifier" type="text" autocomplete="username" required
             class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-primary transition-colors placeholder:text-slate-400"
-            placeholder="correo@ejemplo.com" />
+            placeholder="correo@ejemplo.com o usuario" />
         </div>
         <div>
           <label class="text-sm text-slate-700 mb-1 block">Contraseña</label>
@@ -97,7 +97,8 @@ async function handleLogin() {
   loading.value = true
   try {
     const id = form.identifier.trim().toLowerCase()
-    await auth.login(id, form.password, null)
+    const isEmail = id.includes('@')
+    await auth.login(isEmail ? id : null, form.password, isEmail ? null : id)
 
     const role = auth.user?.role
     let dest = '/admin'
