@@ -147,6 +147,11 @@
         <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
 
+      <div v-else-if="!filterTournament" class="card text-center py-10 text-slate-400">
+        <IconUsers class="w-8 h-8 mx-auto mb-3 opacity-30"/>
+        <p class="font-semibold text-sm">Selecciona un torneo para ver los responsables</p>
+      </div>
+
       <p v-else-if="!responsables.length" class="text-center text-slate-500 py-8">
         Sin responsables registrados{{ filterCategory ? ` en ${filterCategory.name}` : '' }}.
       </p>
