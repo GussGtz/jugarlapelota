@@ -155,12 +155,18 @@
         </div>
         <!-- Jugadores -->
         <div v-if="selected.players?.length">
-          <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Lista de jugadores</p>
-          <div class="space-y-1.5">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Lista de jugadores</p>
+            <span class="text-xs font-bold text-primary">{{ selected.players.length }} total</span>
+          </div>
+          <div class="space-y-1.5 max-h-60 overflow-y-auto">
             <div v-for="p in selected.players" :key="p.id" class="flex items-center gap-3 bg-slate-100 rounded-lg px-3 py-2 text-sm">
-              <span class="text-primary font-bold w-6">#{{ p.number }}</span>
-              <span class="text-slate-900 flex-1">{{ p.name }}</span>
-              <span class="text-slate-400 text-xs">{{ p.position }}</span>
+              <span class="text-primary font-bold w-6 shrink-0">{{ p.number ? `#${p.number}` : '—' }}</span>
+              <span class="text-slate-900 flex-1 truncate">{{ p.name }}</span>
+              <span class="text-slate-400 text-xs shrink-0">{{ p.position || '' }}</span>
+              <span v-if="p.curp" class="text-[10px] font-mono text-slate-400 shrink-0 hidden sm:block">{{ p.curp }}</span>
+              <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
+                class="text-[10px] text-primary font-semibold border border-primary/30 px-1.5 py-0.5 rounded shrink-0">Doc</a>
             </div>
           </div>
         </div>

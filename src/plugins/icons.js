@@ -16,7 +16,8 @@ import {
   List, ToggleLeft, ToggleRight, Maximize2, Minimize2, Loader2, PanelLeftClose, PanelLeftOpen,
   Heart, CircleDot, ClipboardEdit, CircleCheck,
   Key, Flame, Timer, Play, Pause, StopCircle, CheckCircle2,
-  Swords, BadgeCheck, ShieldCheck, ShieldAlert, Ban
+  Swords, BadgeCheck, ShieldCheck, ShieldAlert, Ban,
+  Camera, IdCard
 } from 'lucide-vue-next'
 
 export const icons = {
@@ -36,7 +37,8 @@ export const icons = {
   List, ToggleLeft, ToggleRight, Maximize2, Minimize2, Loader2, PanelLeftClose, PanelLeftOpen,
   Heart, CircleDot, ClipboardEdit, CircleCheck,
   Key, Flame, Timer, Play, Pause, StopCircle, CheckCircle2,
-  Swords, BadgeCheck, ShieldCheck, ShieldAlert, Ban
+  Swords, BadgeCheck, ShieldCheck, ShieldAlert, Ban,
+  Camera, IdCard
 }
 
 export function registerIcons(app) {

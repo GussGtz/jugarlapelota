@@ -338,7 +338,7 @@
                         class="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/5 transition-colors">
                         {{ p.documento_oficial ? 'Cambiar documento' : 'Subir documento' }}
                       </button>
-                      <p class="text-[10px] text-slate-400 mt-1">JPG, PNG o PDF · máx 10 MB</p>
+                      <p class="text-[10px] text-slate-400 mt-1">JPG, PNG o PDF · máx 25 MB</p>
                       <button v-if="p.documento_oficial" type="button" @click="p.documento_oficial = ''"
                         class="text-[10px] text-red-400 hover:text-red-600 mt-0.5">Quitar</button>
                     </div>
