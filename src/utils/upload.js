@@ -9,13 +9,22 @@ export async function uploadImage(file, { maxWidth = 1200, quality = 0.85 } = {}
   return data.url
 }
 
-// Upload sin autenticación (inscripciones públicas)
+// Upload sin autenticación (inscripciones públicas) — admite imágenes y PDFs hasta 25 MB
 export async function uploadImagePublic(file) {
-  const compressed = await compressFile(file, 800, 0.85)
+  const isPdf = file.type === 'application/pdf'
+  const processed = isPdf ? file : await compressFile(file, 800, 0.85)
   const form = new FormData()
-  form.append('file', compressed, file.name)
-  const { data } = await api.post('/upload/public', form, { headers: { 'Content-Type': 'multipart/form-data' } })
-  return data.url
+  form.append('file', processed, file.name)
+  try {
+    const { data } = await api.post('/upload/public', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return data.url
+  } catch (e) {
+    const msg = e.response?.data?.error || ''
+    if (e.response?.status === 413 || msg.includes('grande') || msg.includes('large')) {
+      throw new Error('El archivo es demasiado grande (máx 25 MB). Comprime el documento e intenta de nuevo.')
+    }
+    throw new Error(msg || 'Error al subir el archivo')
+  }
 }
 
 function compressFile(file, maxW, quality) {

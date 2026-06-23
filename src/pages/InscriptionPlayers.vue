@@ -461,7 +461,7 @@ async function onDocChange(e, catId, idx) {
   const player = newPlayers[catId]?.[idx]; if (!player) return
   player.docLoading = true
   try { player.documento_oficial = await uploadImagePublic(file) }
-  catch { alert('Error al subir el documento') }
+  catch (err) { alert(err.message || 'Error al subir el documento') }
   finally { player.docLoading = false; e.target.value = '' }
 }
 

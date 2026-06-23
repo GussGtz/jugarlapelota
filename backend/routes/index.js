@@ -58,9 +58,9 @@ cloudinary.config({
 // ── File upload → Cloudinary ──────────────────────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB
   fileFilter: (_req, file, cb) => {
-    const allowed = ['.jpg','.jpeg','.png','.webp','.gif','.svg','.mp4','.mov']
+    const allowed = ['.jpg','.jpeg','.png','.webp','.gif','.svg','.mp4','.mov','.pdf']
     cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()))
   }
 })
@@ -69,15 +69,18 @@ const upload = multer({
 async function uploadToCloudinary(buffer, mimetype) {
   return new Promise((resolve, reject) => {
     const isVideo = mimetype.startsWith('video/')
-    cloudinary.uploader.upload_stream(
-      { folder: 'jugarlapelota', resource_type: isVideo ? 'video' : 'image', quality: 'auto', fetch_format: 'auto' },
+    const isPdf   = mimetype === 'application/pdf'
+    const resourceType = isVideo ? 'video' : isPdf ? 'raw' : 'image'
+    const opts = { folder: 'jugarlapelota', resource_type: resourceType }
+    if (!isPdf && !isVideo) { opts.quality = 'auto'; opts.fetch_format = 'auto' }
+    cloudinary.uploader.upload_stream(opts,
       (err, result) => err ? reject(err) : resolve(result.secure_url)
     ).end(buffer)
   })
 }
 
 router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Archivo no válido o muy grande (máx 10 MB)' })
+  if (!req.file) return res.status(400).json({ error: 'Archivo no válido o muy grande (máx 25 MB)' })
   try {
     const url = await uploadToCloudinary(req.file.buffer, req.file.mimetype)
     res.json({ url })

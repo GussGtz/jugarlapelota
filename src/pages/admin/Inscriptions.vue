@@ -187,7 +187,12 @@ const copied        = ref(false)
 const copiedId      = ref(null)
 const autoApprove   = ref(false)
 
-const displayed = computed(() => filterStatus.value ? inscriptions.value.filter(i=>i.status===filterStatus.value) : inscriptions.value)
+// Por defecto oculta rechazadas; el filtro "Rechazadas" las muestra explícitamente
+const displayed = computed(() =>
+  filterStatus.value
+    ? inscriptions.value.filter(i => i.status === filterStatus.value)
+    : inscriptions.value.filter(i => i.status !== 'rejected')
+)
 
 const selectedCategories = computed(() => selected.value?.categories || [])
 const pending   = computed(() => inscriptions.value.filter(i=>i.status==='pending').length)
@@ -261,8 +266,7 @@ async function showDetail(insc) {
 
 async function setStatus(insc, status) {
   await api.patch(`/inscriptions/${insc.id}/status`, {status})
-  insc.status = status
-  if (status === 'approved') await load()
+  await load() // recarga siempre para reflejar el cambio de estado inmediatamente
 }
 
 async function deleteInsc(id) {
