@@ -177,6 +177,8 @@ const PG_MIGRATIONS = [
   `ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS registration_token TEXT`,
   `ALTER TABLE categories ADD COLUMN IF NOT EXISTS max_players_per_team INTEGER`,
   `ALTER TABLE inscription_players ADD COLUMN IF NOT EXISTS photo TEXT`,
+  `ALTER TABLE inscription_players ADD COLUMN IF NOT EXISTS documento_oficial TEXT`,
+  `ALTER TABLE players ADD COLUMN IF NOT EXISTS documento_oficial TEXT`,
   // Responsables por categoría en inscripción
   `CREATE TABLE IF NOT EXISTS inscription_responsables (
     id BIGSERIAL PRIMARY KEY,

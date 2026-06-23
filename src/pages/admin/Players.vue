@@ -53,6 +53,13 @@
           {{ p.goals }}
         </div>
         <div class="flex gap-1.5 shrink-0">
+          <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
+            class="text-primary px-2 py-1.5 border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors">
+            <IconIdCard class="w-4 h-4"/>
+          </a>
+          <span v-else class="text-red-400 px-2 py-1.5 border border-red-200 rounded-lg" title="Sin documento">
+            <IconAlertCircle class="w-4 h-4"/>
+          </span>
           <button @click="openForm(p)"
             class="text-xs text-slate-500 px-2.5 py-1.5 border border-muted rounded-lg hover:text-slate-900 transition-colors">
             Editar
@@ -79,6 +86,7 @@
             <th class="py-3 px-4 text-center text-primary">A</th>
             <th class="py-3 px-4 text-center text-yellow-400"><IconSquare class="w-4 h-4 inline fill-yellow-400 text-yellow-400"/></th>
             <th class="py-3 px-4 text-center text-red-400"><IconSquare class="w-4 h-4 inline fill-red-500 text-red-500"/></th>
+            <th class="py-3 px-4 text-center">Doc.</th>
             <th class="py-3 px-4 text-right">Acciones</th>
           </tr>
         </thead>
@@ -102,6 +110,15 @@
             <td class="py-3 px-4 text-center text-primary">{{ p.assists }}</td>
             <td class="py-3 px-4 text-center text-yellow-400">{{ p.yellow_cards }}</td>
             <td class="py-3 px-4 text-center text-red-400">{{ p.red_cards }}</td>
+            <td class="py-3 px-4 text-center">
+              <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
+                class="inline-flex items-center gap-1 text-xs text-primary font-semibold border border-primary/30 px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
+                <IconIdCard class="w-3.5 h-3.5"/> Ver
+              </a>
+              <span v-else class="text-[11px] text-red-400 font-semibold flex items-center justify-center gap-1">
+                <IconAlertCircle class="w-3.5 h-3.5"/> Falta
+              </span>
+            </td>
             <td class="py-3 px-4 text-right">
               <div class="flex gap-2 justify-end">
                 <button @click="openForm(p)"

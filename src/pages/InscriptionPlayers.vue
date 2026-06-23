@@ -217,6 +217,13 @@
                     <span v-if="p.curp" class="font-mono ml-1">{{ p.curp }}</span>
                   </p>
                 </div>
+                <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
+                  class="shrink-0 flex items-center gap-1 text-[10px] text-primary font-semibold border border-primary/30 px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
+                  <IconIdCard class="w-3 h-3" /> Doc
+                </a>
+                <div v-else class="shrink-0 text-[10px] text-red-400 font-semibold flex items-center gap-1">
+                  <IconAlertCircle class="w-3 h-3" /> Sin doc
+                </div>
               </div>
             </div>
 
@@ -297,6 +304,39 @@
                   <div v-if="decodedCURP(p.curp)" class="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-slate-500">
                     <span>Nacimiento: <strong>{{ decodedCURP(p.curp).birthYear }}</strong></span>
                     <span>Sexo: <strong>{{ decodedCURP(p.curp).sex === 'H' ? 'Hombre' : 'Mujer' }}</strong></span>
+                  </div>
+                </div>
+                <!-- Row 3: Documento oficial -->
+                <div>
+                  <label class="text-[10px] text-slate-400 mb-0.5 block">
+                    Documento oficial con fotografía <span class="text-red-400 font-semibold">*</span>
+                    <span class="text-slate-300 font-normal"> — credencial escolar, INE u oficial</span>
+                  </label>
+                  <div class="flex items-center gap-3">
+                    <!-- Preview miniatura -->
+                    <div class="relative w-16 h-12 rounded-lg border-2 border-dashed border-muted bg-slate-50 overflow-hidden flex items-center justify-center shrink-0 cursor-pointer group"
+                      @click="triggerDocInput(cat.id, idx)">
+                      <img v-if="p.documento_oficial" :src="p.documento_oficial" class="w-full h-full object-cover"/>
+                      <IconIdCard v-else class="w-6 h-6 text-slate-300 group-hover:text-primary transition-colors"/>
+                      <div v-if="p.docLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
+                        <div class="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    </div>
+                    <input :ref="el => setDocRef(el, cat.id, idx)" type="file" accept="image/*,application/pdf" class="hidden"
+                      @change="e => onDocChange(e, cat.id, idx)"/>
+                    <div class="flex-1">
+                      <button type="button" @click="triggerDocInput(cat.id, idx)"
+                        class="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/5 transition-colors">
+                        {{ p.documento_oficial ? 'Cambiar documento' : 'Subir documento' }}
+                      </button>
+                      <p class="text-[10px] text-slate-400 mt-1">JPG, PNG o PDF · máx 10 MB</p>
+                      <button v-if="p.documento_oficial" type="button" @click="p.documento_oficial = ''"
+                        class="text-[10px] text-red-400 hover:text-red-600 mt-0.5">Quitar</button>
+                    </div>
+                    <div v-if="p.documento_oficial" class="shrink-0">
+                      <a :href="p.documento_oficial" target="_blank"
+                        class="text-[10px] text-primary font-semibold underline">Ver</a>
+                    </div>
                   </div>
                 </div>
                 <div v-if="idx < (newPlayers[cat.id].length - 1)" class="h-px bg-slate-100"></div>
@@ -395,6 +435,22 @@ async function onPhotoChange(e, catId, idx) {
   finally { player.photoLoading = false; e.target.value = '' }
 }
 
+// ── Document refs for players ─────────────────────────────────────────────────
+const docRefs = {}
+function setDocRef(el, catId, idx) {
+  if (el) docRefs[`${catId}-${idx}`] = el
+}
+function triggerDocInput(catId, idx) { docRefs[`${catId}-${idx}`]?.click() }
+
+async function onDocChange(e, catId, idx) {
+  const file = e.target.files?.[0]; if (!file) return
+  const player = newPlayers[catId]?.[idx]; if (!player) return
+  player.docLoading = true
+  try { player.documento_oficial = await uploadImagePublic(file) }
+  catch { alert('Error al subir el documento') }
+  finally { player.docLoading = false; e.target.value = '' }
+}
+
 // ── Photo refs for responsables ───────────────────────────────────────────────
 const respPhotoRefs = {}
 function setRespPhotoRef(el, catId, idx) {
@@ -414,7 +470,7 @@ async function onRespPhotoChange(e, catId, idx) {
 // ── Player helpers ────────────────────────────────────────────────────────────
 function addPlayerRow(catId) {
   if (!newPlayers[catId]) newPlayers[catId] = []
-  newPlayers[catId].push({ name: '', number: null, position: '', curp: '', photo: '', photoLoading: false })
+  newPlayers[catId].push({ name: '', number: null, position: '', curp: '', photo: '', photoLoading: false, documento_oficial: '', docLoading: false })
 }
 
 function removePlayerRow(catId, idx) {
