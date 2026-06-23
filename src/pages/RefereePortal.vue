@@ -13,9 +13,9 @@
           <div>
             <p class="text-white font-black text-sm leading-none">{{ authStore.user?.name }}</p>
             <p class="text-slate-500 text-[10px] mt-0.5 leading-none">
-              <span v-if="tournamentId" class="text-primary font-semibold">{{ tournamentName }}</span>
-              <span v-else-if="loadingMatches" class="text-slate-600">Cargando...</span>
-              <span v-else class="text-amber-400 flex items-center gap-1"><IconAlertTriangle class="w-3 h-3"/>Sin torneo asignado</span>
+              <span v-if="loadingMatches" class="text-slate-600">Cargando...</span>
+              <span v-else-if="allMatches.length" class="text-primary font-semibold">{{ allMatches.length }} partido{{ allMatches.length !== 1 ? 's' : '' }} disponible{{ allMatches.length !== 1 ? 's' : '' }}</span>
+              <span v-else class="text-slate-500">Portal global de arbitraje</span>
             </p>
           </div>
         </div>
@@ -25,17 +25,8 @@
         </button>
       </div>
 
-      <!-- Sin torneo asignado -->
-      <div v-if="!tournamentId && !loadingMatches" class="flex-1 flex items-center justify-center p-6 text-center">
-        <div class="space-y-3">
-          <IconAlertTriangle class="w-12 h-12 text-amber-500 mx-auto opacity-50"/>
-          <p class="text-white font-black text-lg">Sin torneo asignado</p>
-          <p class="text-slate-400 text-sm max-w-xs">El administrador debe asignarte a un torneo antes de que puedas arbitrar partidos.</p>
-        </div>
-      </div>
-
       <!-- Contenido principal -->
-      <div v-else class="flex-1 flex flex-col">
+      <div class="flex-1 flex flex-col">
 
         <!-- ── Vista: Seleccionar partido ─────────────────────── -->
         <div v-if="!activeMatch" class="flex-1 p-4 max-w-2xl mx-auto w-full space-y-4">
@@ -415,7 +406,7 @@
             </button>
             <button @click="openMatch(pendingMatch)"
               class="flex-1 py-2.5 rounded-xl font-black text-white text-sm bg-primary hover:bg-primary/90 transition">
-              Sí, arbitrar
+              Arbitrar
             </button>
           </div>
         </div>
@@ -450,9 +441,10 @@
               Cancelar
             </button>
             <button @click="portalStartMatch()"
-              class="py-3 rounded-xl font-black text-white text-sm transition active:scale-95"
+              :disabled="submittingStart"
+              class="py-3 rounded-xl font-black text-white text-sm transition active:scale-95 disabled:opacity-50"
               style="background:#16a34a">
-              ¡Iniciar!
+              {{ submittingStart ? 'Iniciando...' : '¡Iniciar!' }}
             </button>
           </div>
         </div>
@@ -475,9 +467,10 @@
           <div class="flex gap-3">
             <button @click="confirmPev.show=false" class="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 font-bold text-sm">Cancelar</button>
             <button @click="doPevAdd()"
-              class="flex-1 py-2.5 rounded-xl font-black text-white text-sm"
+              :disabled="confirmPev.submitting"
+              class="flex-1 py-2.5 rounded-xl font-black text-white text-sm disabled:opacity-50 transition"
               :class="eventTypes.find(e=>e.type===pev.type)?.btnClass||'bg-primary'">
-              Confirmar
+              {{ confirmPev.submitting ? 'Guardando...' : 'Confirmar' }}
             </button>
           </div>
         </div>
@@ -512,7 +505,10 @@
           <p class="text-slate-500 text-xs">Árbitro: <strong class="text-slate-300">{{ authStore.user?.name }}</strong></p>
           <div class="grid grid-cols-2 gap-3">
             <button @click="confirmEndShow=false" class="py-3 rounded-xl border border-white/10 text-slate-400 font-bold text-sm">Seguir jugando</button>
-            <button @click="portalEndMatch()" class="py-3 rounded-xl font-black text-white text-sm bg-red-600 hover:bg-red-700 transition active:scale-95">Finalizar</button>
+            <button @click="portalEndMatch()" :disabled="submittingEnd"
+              class="py-3 rounded-xl font-black text-white text-sm bg-red-600 hover:bg-red-700 transition active:scale-95 disabled:opacity-50">
+              {{ submittingEnd ? 'Finalizando...' : 'Finalizar' }}
+            </button>
           </div>
         </div>
       </div>
@@ -603,6 +599,9 @@ async function openMatch(m) {
   matchEvents.value = evRes.status==='fulfilled' ? evRes.value.data : []
   homePlayers.value  = hp.status==='fulfilled'  ? hp.value.data  : []
   awayPlayers.value  = ap.status==='fulfilled'  ? ap.value.data  : []
+
+  // Si el partido ya está EN VIVO (árbitro retomando), arrancar el cronómetro desde started_at
+  if (m.status === 'live') startPevTimer(m.started_at)
 }
 
 // ── Timer ──────────────────────────────────────────────────
@@ -653,7 +652,7 @@ const pevPlayers = computed(() => {
 
 function selectPevTeam(id) { pev.teamId = id; pev.playerId = null; pevSearch.value = '' }
 
-const confirmPev = reactive({ show: false, title: '', body: '' })
+const confirmPev = reactive({ show: false, title: '', body: '', submitting: false })
 function confirmPevAdd() {
   if (!pev.type || !pev.teamId) return
   const teamName = String(pev.teamId) === String(activeMatch.value?.home_team) ? activeMatch.value?.homeTeam : activeMatch.value?.awayTeam
@@ -665,40 +664,66 @@ function confirmPevAdd() {
   confirmPev.show  = true
 }
 async function doPevAdd() {
-  confirmPev.show = false
+  if (confirmPev.submitting) return
+  confirmPev.submitting = true
   try {
     const { data } = await api.post(`/matches/${activeMatch.value.id}/events`, {
       type: pev.type, teamId: pev.teamId, playerId: pev.playerId||null,
       minute: pev.minute, second: pev.second
     })
+    confirmPev.show = false
     activeMatch.value = { ...activeMatch.value, ...data.match }
     matchEvents.value = (await api.get(`/matches/${activeMatch.value.id}/events`)).data
     pev.type = ''; pev.playerId = null; pevSearch.value = ''
-  } catch(e) { alert(e.response?.data?.error || 'Error al registrar') }
+  } catch(e) {
+    confirmPev.show = false
+    alert(e.response?.data?.error || 'Error al registrar')
+  } finally {
+    confirmPev.submitting = false
+  }
 }
 
 // ── Iniciar / Finalizar ────────────────────────────────────
-const confirmStartShow = ref(false)
-const confirmEndShow   = ref(false)
+const confirmStartShow   = ref(false)
+const confirmEndShow     = ref(false)
+const submittingStart    = ref(false)
+const submittingEnd      = ref(false)
 
 async function portalStartMatch() {
-  confirmStartShow.value = false
-  const { data } = await api.patch(`/matches/${activeMatch.value.id}/start`)
-  activeMatch.value = { ...activeMatch.value, ...data, status: 'live' }
-  startPevTimer(data.started_at)
-  // Quitar de la lista de disponibles
-  allMatches.value = allMatches.value.filter(m => m.id !== activeMatch.value.id)
+  if (submittingStart.value) return
+  submittingStart.value = true
+  try {
+    const { data } = await api.patch(`/matches/${activeMatch.value.id}/start`)
+    confirmStartShow.value = false
+    activeMatch.value = { ...activeMatch.value, ...data, status: 'live' }
+    startPevTimer(data.started_at)
+    allMatches.value = allMatches.value.filter(m => m.id !== activeMatch.value.id)
+  } catch(e) {
+    confirmStartShow.value = false
+    alert(e.response?.data?.error || 'Error al iniciar el partido. Intenta de nuevo.')
+  } finally {
+    submittingStart.value = false
+  }
 }
 
 async function portalEndMatch() {
-  confirmEndShow.value = false
-  await api.patch(`/matches/${activeMatch.value.id}/score`, {
-    homeScore: activeMatch.value.home_score,
-    awayScore: activeMatch.value.away_score,
-    finish: true
-  })
-  activeMatch.value = { ...activeMatch.value, status: 'finished' }
-  stopPevTimer()
+  if (submittingEnd.value) return
+  submittingEnd.value = true
+  try {
+    await api.patch(`/matches/${activeMatch.value.id}/score`, {
+      homeScore: activeMatch.value.home_score,
+      awayScore: activeMatch.value.away_score,
+      finish: true
+    })
+    confirmEndShow.value = false
+    activeMatch.value = { ...activeMatch.value, status: 'finished' }
+    stopPevTimer()
+  } catch(e) {
+    confirmEndShow.value = false
+    alert(e.response?.data?.error || 'Error al finalizar el partido. Intenta de nuevo.')
+  } finally {
+    submittingEnd.value = false
+  }
 }
 
 // ── Logout ─────────────────────────────────────────────────

@@ -19,7 +19,7 @@
           <IconCheckCircle class="w-3.5 h-3.5" />
           Las inscripciones se aprueban automáticamente
         </div>
-        <div v-else class="mt-4 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-4 py-2 rounded-full">
+        <div v-else-if="tournament" class="mt-4 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-4 py-2 rounded-full">
           <IconClock class="w-3.5 h-3.5" />
           Tu solicitud quedará pendiente de aprobación
         </div>
@@ -27,8 +27,24 @@
     </section>
 
     <div class="max-w-3xl mx-auto px-4 py-10">
+
+      <!-- Loading -->
+      <div v-if="loadingPage" class="flex justify-center py-20">
+        <div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+
+      <!-- Error de carga -->
+      <div v-else-if="pageError" class="text-center py-20">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5">
+          <IconXCircle class="w-8 h-8 text-red-500" />
+        </div>
+        <h2 class="text-xl font-black text-slate-900 mb-2">No disponible</h2>
+        <p class="text-slate-500 text-sm mb-6">{{ pageError }}</p>
+        <router-link to="/" class="btn-ghost text-sm">← Volver al inicio</router-link>
+      </div>
+
       <!-- Success state -->
-      <div v-if="sent" class="text-center py-20">
+      <div v-else-if="sent" class="text-center py-20">
         <div class="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-6">
           <IconCheckCircle class="w-10 h-10 text-accent" />
         </div>
@@ -68,8 +84,13 @@
 
             <p class="text-xs text-slate-500">Marca todas las categorías en las que deseas inscribir tu equipo.</p>
 
+            <!-- Sin categorías -->
+            <p v-if="!groupedCategories.length" class="text-slate-400 text-sm italic text-center py-4">
+              Este torneo no tiene categorías disponibles aún.
+            </p>
+
             <!-- Grid de categorías agrupadas -->
-            <div v-if="groupedCategories.length" class="space-y-4">
+            <div v-else class="space-y-4">
               <div v-for="group in groupedCategories" :key="group.key">
                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{{ group.label }}</p>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -199,13 +220,15 @@ import { uploadImagePublic } from '@/utils/upload'
 const route  = useRoute()
 const router = useRouter()
 const slug   = route.params.slug
-const tournament = ref(null)
-const categories = ref([])
-const sent       = ref(false)
-const submitting = ref(false)
-const error      = ref('')
-const catError   = ref('')
-const logoInput  = ref(null)
+const tournament    = ref(null)
+const categories    = ref([])
+const sent          = ref(false)
+const submitting    = ref(false)
+const loadingPage   = ref(true)
+const pageError     = ref('')
+const error         = ref('')
+const catError      = ref('')
+const logoInput     = ref(null)
 
 const form = reactive({
   categoryIds: [],
@@ -216,8 +239,13 @@ const form = reactive({
 
 async function onLogoChange(e) {
   const file = e.target.files[0]; if (!file) return
+  if (file.size > 2 * 1024 * 1024) {
+    alert('El logo no debe superar 2 MB. Usa una imagen más pequeña.')
+    e.target.value = ''
+    return
+  }
   try { form.logo = await uploadImagePublic(file) }
-  catch { alert('Error al subir logo') }
+  catch { alert('Error al subir logo. Intenta con otra imagen.') }
 }
 
 // Agrupar categorías igual que CategorySelector
@@ -257,6 +285,7 @@ async function submit() {
   }
   submitting.value = true
   let createdId = null
+  let createdToken = ''
   try {
     const tid = tournament.value?.id
     if (!tid) throw new Error('No se pudo obtener el torneo.')
@@ -265,16 +294,18 @@ async function submit() {
       tournamentId: tid,
       categoryIds:  form.categoryIds,
     })
-    createdId = result.data.id
+    createdId    = result.data.id
+    createdToken = result.data.token || ''
     if (result.data.auto_approved) {
-      await router.push(`/${slug}/inscripcion/${createdId}/jugadores`)
+      await router.push(`/${slug}/inscripcion/${createdId}/jugadores?token=${createdToken}`)
     } else {
       sent.value = true
+      submitting.value = false
     }
   } catch(e) {
     if (createdId) {
       // La inscripción fue creada pero la navegación falló — redirigir manualmente
-      window.location.href = `/${slug}/inscripcion/${createdId}/jugadores`
+      window.location.href = `/${slug}/inscripcion/${createdId}/jugadores?token=${createdToken}`
     } else {
       error.value = e.response?.data?.error || 'Error al enviar la solicitud. Intenta de nuevo.'
       submitting.value = false
@@ -283,11 +314,19 @@ async function submit() {
 }
 
 onMounted(async () => {
-  const [t, cats] = await Promise.all([
-    api.get(`/tournaments/${slug}`),
-    api.get(`/tournaments/${slug}/categories`)
-  ])
-  tournament.value = t.data
-  categories.value = cats.data
+  try {
+    const [t, cats] = await Promise.all([
+      api.get(`/tournaments/${slug}`),
+      api.get(`/tournaments/${slug}/categories`)
+    ])
+    tournament.value = t.data
+    categories.value = cats.data
+  } catch(e) {
+    pageError.value = e.response?.status === 404
+      ? 'Este torneo no existe o no está disponible.'
+      : 'No se pudo cargar el torneo. Intenta recargar la página.'
+  } finally {
+    loadingPage.value = false
+  }
 })
 </script>

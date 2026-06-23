@@ -506,11 +506,17 @@ function confirmSaveMatch() {
 }
 
 async function setStatus(m, status) {
-  await api.patch(`/matches/${m.id}/status`,{status}); await loadMatches()
+  try {
+    await api.patch(`/matches/${m.id}/status`, { status })
+    await loadMatches()
+  } catch(e) { alert(e.response?.data?.error || 'Error al cambiar el estado del partido') }
 }
 
 async function deleteMatch(id) {
-  await api.delete(`/matches/${id}`); await loadMatches()
+  try {
+    await api.delete(`/matches/${id}`)
+    await loadMatches()
+  } catch(e) { alert(e.response?.data?.error || 'Error al eliminar el partido') }
 }
 
 const route = useRoute()

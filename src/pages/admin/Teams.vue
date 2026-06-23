@@ -690,8 +690,10 @@ async function save() {
 
 async function deleteTeam(id) {
   if (!confirm('¿Eliminar este equipo? Se eliminarán sus jugadores.')) return
-  await api.delete(`/teams/${id}`)
-  await loadTeams()
+  try {
+    await api.delete(`/teams/${id}`)
+    await loadTeams()
+  } catch(e) { alert(e.response?.data?.error || 'Error al eliminar el equipo') }
 }
 
 async function deleteGroup(group) {
@@ -699,8 +701,12 @@ async function deleteGroup(group) {
     ? `¿Eliminar "${group.name}" de TODAS sus categorías (${group.allTeamIds.length} entradas)?`
     : `¿Eliminar el equipo "${group.name}"?`
   if (!confirm(msg)) return
-  await Promise.all(group.allTeamIds.map(id => api.delete(`/teams/${id}`)))
-  await loadTeams()
+  try {
+    const results = await Promise.allSettled(group.allTeamIds.map(id => api.delete(`/teams/${id}`)))
+    const failed = results.filter(r => r.status === 'rejected')
+    if (failed.length) alert(failed[0].reason?.response?.data?.error || `${failed.length} equipo(s) no se pudieron eliminar`)
+    await loadTeams()
+  } catch(e) { alert(e.response?.data?.error || 'Error al eliminar los equipos') }
 }
 
 // Category manager

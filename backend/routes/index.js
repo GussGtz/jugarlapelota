@@ -118,7 +118,8 @@ async function checkOwnerByTournamentId(req, res, tournamentId) {
   if (req.user?.role === 'superadmin') return true
   const t = (await queryOne('SELECT created_by FROM tournaments WHERE id=$1', [tournamentId]))
   if (!t) { res.status(404).json({ error: 'Torneo no encontrado' }); return false }
-  if (t.created_by !== req.user.id) {
+  // Comparar como strings para evitar mismatch de tipos (pg puede retornar INTEGER, JWT decodifica como número o string)
+  if (String(t.created_by) !== String(req.user.id)) {
     res.status(403).json({ error: 'No tienes permiso para gestionar este torneo' }); return false
   }
   return true
@@ -146,7 +147,8 @@ router.post('/categories', authMiddleware, adminOnly, async (req, res) => {
 })
 router.put('/categories/:id', authMiddleware, adminOnly, async (req, res) => {
   const cat = (await queryOne('SELECT tournament_id FROM categories WHERE id=$1', [req.params.id]))
-  if (cat && !checkOwnerByTournamentId(req, res, cat.tournament_id)) return
+  if (!cat) return res.status(404).json({ error: 'Categoría no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, cat.tournament_id)) return
   const {name,gender,group_name,order_index,min_birth_year,max_birth_year,min_birth_year_girls,max_players_per_team} = req.body
   await query(
     'UPDATE categories SET name=$1,gender=$2,group_name=$3,order_index=$4,min_birth_year=$5,max_birth_year=$6,min_birth_year_girls=$7,max_players_per_team=$8 WHERE id=$9',
@@ -165,7 +167,8 @@ router.patch('/tournaments/:slug/settings', authMiddleware, adminOnly, async (re
 
 router.delete('/categories/:id', authMiddleware, adminOnly, async (req, res) => {
   const cat = (await queryOne('SELECT tournament_id FROM categories WHERE id=$1', [req.params.id]))
-  if (cat && !checkOwnerByTournamentId(req, res, cat.tournament_id)) return
+  if (!cat) return res.status(404).json({ error: 'Categoría no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, cat.tournament_id)) return
   await query('DELETE FROM categories WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 
@@ -216,7 +219,8 @@ router.post('/phases', authMiddleware, adminOnly, async (req, res) => {
 })
 router.put('/phases/:id', authMiddleware, adminOnly, async (req, res) => {
   const phase = (await queryOne('SELECT tournament_id FROM phases WHERE id=$1', [req.params.id]))
-  if (phase && !checkOwnerByTournamentId(req, res, phase.tournament_id)) return
+  if (!phase) return res.status(404).json({ error: 'Fase no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, phase.tournament_id)) return
   const {name,type,order_index,is_active} = req.body
   await query('UPDATE phases SET name=$1,type=$2,order_index=$3,is_active=$4 WHERE id=$5', [name,type,order_index||0,is_active?1:0,req.params.id])
   res.json((await queryOne('SELECT * FROM phases WHERE id=$1', [req.params.id])))
@@ -224,7 +228,20 @@ router.put('/phases/:id', authMiddleware, adminOnly, async (req, res) => {
 router.delete('/phases/:id', authMiddleware, adminOnly, async (req, res) => {
   const id = req.params.id
   const phase = (await queryOne('SELECT tournament_id FROM phases WHERE id=$1', [id]))
-  if (phase && !checkOwnerByTournamentId(req, res, phase.tournament_id)) return
+  if (!phase) return res.status(404).json({ error: 'Fase no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, phase.tournament_id)) return
+  // Revertir estadísticas de jugadores de partidos finalizados en esta fase
+  const finishedMatches = (await query("SELECT id FROM matches WHERE phase_id=$1 AND status='finished'", [id])).rows
+  for (const m of finishedMatches) {
+    const events = (await query('SELECT * FROM match_events WHERE match_id=$1', [m.id])).rows
+    for (const ev of events) {
+      if (!ev.player_id) continue
+      if (ev.type === 'goal' || ev.type === 'own_goal') await query('UPDATE players SET goals=GREATEST(0,goals-1) WHERE id=$1', [ev.player_id])
+      if (ev.type === 'assist')      await query('UPDATE players SET assists=GREATEST(0,assists-1) WHERE id=$1', [ev.player_id])
+      if (ev.type === 'yellow_card') await query('UPDATE players SET yellow_cards=GREATEST(0,yellow_cards-1) WHERE id=$1', [ev.player_id])
+      if (ev.type === 'red_card')    await query('UPDATE players SET red_cards=GREATEST(0,red_cards-1) WHERE id=$1', [ev.player_id])
+    }
+  }
   await query('DELETE FROM matches WHERE phase_id=$1', [id])
   await query('DELETE FROM rounds  WHERE phase_id=$1', [id])
   await query('DELETE FROM phase_groups WHERE phase_id=$1', [id])
@@ -443,6 +460,12 @@ router.put('/rounds/:id', authMiddleware, adminOnly, async (req, res) => {
   res.json((await queryOne('SELECT * FROM rounds WHERE id=$1', [req.params.id])))
 })
 router.delete('/rounds/:id', authMiddleware, adminOnly, async (req, res) => {
+  const round = (await queryOne('SELECT r.id, ph.tournament_id FROM rounds r JOIN phases ph ON r.phase_id=ph.id WHERE r.id=$1', [req.params.id]))
+  if (!round) return res.status(404).json({ error: 'Ronda no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, round.tournament_id)) return
+  // Bloquear si la ronda tiene partidos (para no dejar fixtures huérfanos)
+  const hasMatches = await queryOne('SELECT id FROM matches WHERE round_id=$1 LIMIT 1', [req.params.id])
+  if (hasMatches) return res.status(409).json({ error: 'No se puede eliminar la ronda: tiene partidos asignados. Elimina primero los partidos.' })
   await query('DELETE FROM rounds WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 
@@ -504,7 +527,11 @@ router.get('/teams/:id/players', async (req, res) => {
 })
 router.delete('/teams/:id', authMiddleware, adminOnly, async (req, res) => {
   const team = (await queryOne('SELECT tournament_id FROM teams WHERE id=$1', [req.params.id]))
-  if (team && !checkOwnerByTournamentId(req, res, team.tournament_id)) return
+  if (!team) return res.status(404).json({ error: 'Equipo no encontrado' })
+  if (!await checkOwnerByTournamentId(req, res, team.tournament_id)) return
+  // Bloquear si el equipo tiene partidos activos
+  const hasMatches = await queryOne('SELECT id FROM matches WHERE (home_team=$1 OR away_team=$1) AND status<>\'finished\' LIMIT 1', [req.params.id])
+  if (hasMatches) return res.status(409).json({ error: 'No se puede eliminar el equipo: tiene partidos programados o en curso. Elimina primero los partidos.' })
   await query('DELETE FROM teams WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 
@@ -610,7 +637,8 @@ router.post('/players', authMiddleware, adminOnly, async (req, res) => {
   const { teamId, name, photo, number, position } = req.body
   if (!teamId || !name) return res.status(400).json({ error: 'Nombre y equipo son requeridos' })
   const teamTournament = (await queryOne('SELECT tournament_id FROM teams WHERE id=$1', [teamId]))
-  if (teamTournament && !checkOwnerByTournamentId(req, res, teamTournament.tournament_id)) return
+  if (!teamTournament) return res.status(404).json({ error: 'Equipo no encontrado' })
+  if (!await checkOwnerByTournamentId(req, res, teamTournament.tournament_id)) return
 
   const dup = await checkPlayerDuplicate(teamId, name)
   if (dup) {
@@ -649,6 +677,9 @@ router.post('/players/check-duplicate', authMiddleware, adminOnly, async (req, r
   res.json({ duplicate: dup || null })
 })
 router.delete('/players/:id', authMiddleware, adminOnly, async (req, res) => {
+  const p = await queryOne('SELECT t.tournament_id FROM players pl JOIN teams t ON pl.team_id=t.id WHERE pl.id=$1', [req.params.id])
+  if (!p) return res.status(404).json({ error: 'Jugador no encontrado' })
+  if (!await checkOwnerByTournamentId(req, res, p.tournament_id)) return
   await query('DELETE FROM players WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 
@@ -760,6 +791,23 @@ router.patch('/matches/:id/status', authMiddleware, adminOnly, async (req, res) 
   res.json(m)
 })
 router.delete('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
+  const m = await queryOne('SELECT * FROM matches WHERE id=$1', [req.params.id])
+  if (!m) return res.status(404).json({ error: 'Partido no encontrado' })
+  if (!await checkOwnerByTournamentId(req, res, m.tournament_id)) return
+  if (m.status === 'live') return res.status(409).json({ error: 'No se puede eliminar un partido en curso. Finalízalo primero.' })
+  // Revertir stats de jugadores si el partido estaba finalizado
+  if (m.status === 'finished') {
+    const events = (await query('SELECT * FROM match_events WHERE match_id=$1', [m.id])).rows
+    for (const ev of events) {
+      if (!ev.player_id) continue
+      if (ev.type === 'goal' || ev.type === 'own_goal') await query('UPDATE players SET goals=GREATEST(0,goals-1) WHERE id=$1', [ev.player_id])
+      if (ev.type === 'assist')      await query('UPDATE players SET assists=GREATEST(0,assists-1) WHERE id=$1', [ev.player_id])
+      if (ev.type === 'yellow_card') await query('UPDATE players SET yellow_cards=GREATEST(0,yellow_cards-1) WHERE id=$1', [ev.player_id])
+      if (ev.type === 'red_card')    await query('UPDATE players SET red_cards=GREATEST(0,red_cards-1) WHERE id=$1', [ev.player_id])
+    }
+    // Recalcular standings sin este partido
+    if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(() => {})
+  }
   await query('DELETE FROM matches WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 
@@ -786,6 +834,7 @@ router.post('/matches/:id/events', authMiddleware, refereeOrAdmin, async (req, r
   if (!type) return res.status(400).json({ error: 'El tipo de evento es requerido' })
   if (!teamId) return res.status(400).json({ error: 'El equipo es requerido' })
   if (match.status === 'finished') return res.status(400).json({ error: 'El partido ya ha finalizado' })
+  if (match.status !== 'live') return res.status(400).json({ error: 'El partido no está en curso' })
   // Comparar como strings para evitar mismatch number/string de PostgreSQL
   const allowedTeams = [String(match.home_team), String(match.away_team)]
   if (!allowedTeams.includes(String(teamId))) return res.status(400).json({ error: 'Equipo no pertenece al partido' })
@@ -846,11 +895,12 @@ router.delete('/match-events/:id', authMiddleware, adminOnly, async (req, res) =
   if ((ev.type === 'goal' || ev.type === 'own_goal') && match) {
     let home = match.home_score
     let away = match.away_score
+    const isHomeEv = String(ev.team_id) === String(match.home_team)
     if (ev.type === 'goal') {
-      if (ev.team_id === match.home_team) home = Math.max(0, home - 1)
+      if (isHomeEv) home = Math.max(0, home - 1)
       else away = Math.max(0, away - 1)
     } else {
-      if (ev.team_id === match.home_team) away = Math.max(0, away - 1)
+      if (isHomeEv) away = Math.max(0, away - 1)
       else home = Math.max(0, home - 1)
     }
     await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [home, away, ev.match_id])
@@ -869,6 +919,11 @@ router.delete('/match-events/:id', authMiddleware, adminOnly, async (req, res) =
 
 // Iniciar partido (guarda started_at + árbitro)
 router.patch('/matches/:id/start', authMiddleware, refereeOrAdmin, async (req, res) => {
+  const existing = await queryOne('SELECT status FROM matches WHERE id=$1', [req.params.id])
+  if (!existing) return res.status(404).json({ error: 'Partido no encontrado' })
+  if (existing.status === 'live')     return res.status(400).json({ error: 'El partido ya está en curso' })
+  if (existing.status === 'finished') return res.status(400).json({ error: 'El partido ya ha finalizado' })
+
   const now = new Date().toISOString()
   const refereeId = req.user?.id || null
   await query("UPDATE matches SET status='live', started_at=$1, referee_id=COALESCE(referee_id,$2) WHERE id=$3", [now, refereeId, req.params.id])
@@ -1389,6 +1444,9 @@ router.patch('/streams/:id/live', authMiddleware, adminOnly, async (req, res) =>
   req.io?.emit('stream:update',s); res.json(s)
 })
 router.delete('/streams/:id', authMiddleware, adminOnly, async (req, res) => {
+  const s = await queryOne('SELECT tournament_id FROM streams WHERE id=$1', [req.params.id])
+  if (!s) return res.status(404).json({ error: 'Transmisión no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, s.tournament_id)) return
   await query('DELETE FROM streams WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 
@@ -1425,6 +1483,9 @@ router.put('/news/:id', authMiddleware, adminOnly, async (req, res) => {
   res.json(r.rows[0])
 })
 router.delete('/news/:id', authMiddleware, adminOnly, async (req, res) => {
+  const n = await queryOne('SELECT tournament_id FROM news WHERE id=$1', [req.params.id])
+  if (!n) return res.status(404).json({ error: 'Noticia no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, n.tournament_id)) return
   await query('DELETE FROM news WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 
@@ -1445,6 +1506,9 @@ router.post('/galleries', authMiddleware, adminOnly, async (req, res) => {
   res.status(201).json((await queryOne('SELECT * FROM galleries WHERE id=$1', [r.lastInsertRowid])))
 })
 router.delete('/galleries/:id', authMiddleware, adminOnly, async (req, res) => {
+  const g = await queryOne('SELECT tournament_id FROM galleries WHERE id=$1', [req.params.id])
+  if (!g) return res.status(404).json({ error: 'Galería no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, g.tournament_id)) return
   await query('DELETE FROM galleries WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 router.post('/gallery-images', authMiddleware, adminOnly, async (req, res) => {
@@ -1459,6 +1523,7 @@ router.delete('/gallery-images/:id', authMiddleware, adminOnly, async (req, res)
 // ── Inscriptions ──────────────────────────────────────────────────────────
 router.get('/tournaments/:slug/inscriptions', authMiddleware, adminOnly, async (req, res) => {
   const t = await getTournament(req.params.slug); if(!t) return notFound(res)
+  if (!await checkOwnerByTournamentId(req, res, t.id)) return
   const rows = (await query(`SELECT i.*,c.name AS "categoryName", (SELECT COUNT(*) FROM inscription_players ip WHERE ip.inscription_id=i.id) AS "actual_players_count" FROM inscriptions i LEFT JOIN categories c ON i.category_id=c.id WHERE i.tournament_id=$1 ORDER BY i.created_at DESC`, [t.id])).rows
   const result = rows.map(r => {
     let categories = []
@@ -1471,16 +1536,24 @@ router.get('/tournaments/:slug/inscriptions', authMiddleware, adminOnly, async (
 router.post('/inscriptions', async (req, res) => {  // Public — no auth
   const {tournamentId,categoryIds,team_name,contact_name,contact_email,contact_phone,players_count,notes,players,logo} = req.body
   if(!team_name||!contact_name||!contact_email) return res.status(400).json({error:'Campos requeridos faltantes'})
-  // Resolver nombres de categorías para guardar en JSON
-  let categories = []
-  if (categoryIds?.length) {
-    const catRows = (await query(`SELECT id,name FROM categories WHERE id=ANY($1::bigint[])`, [categoryIds])).rows
-    categories = catRows.map(c => ({ id: c.id, name: c.name }))
-  }
-  const firstCatId = categories[0]?.id || null
+  if(!tournamentId) return res.status(400).json({error:'Torneo no especificado'})
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email)) return res.status(400).json({error:'El correo electrónico no tiene un formato válido'})
+  // Prevenir inscripción duplicada del mismo equipo en el mismo torneo
+  const dup = await queryOne(
+    "SELECT id FROM inscriptions WHERE tournament_id=$1 AND LOWER(TRIM(team_name))=LOWER(TRIM($2)) AND status<>'rejected'",
+    [tournamentId, team_name.trim()]
+  )
+  if (dup) return res.status(409).json({ error: 'Ya existe una inscripción con ese nombre de equipo en este torneo. Si ya enviaste tu solicitud, revisa tu correo o contacta al organizador.' })
   const token = crypto.randomBytes(20).toString('hex')
   const tournament = await queryOne('SELECT id,auto_approve_inscriptions FROM tournaments WHERE id=$1', [tournamentId])
-  const autoApprove = tournament?.auto_approve_inscriptions === 1
+  if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' })
+  // Resolver y validar categorías — obligatorias y deben pertenecer a este torneo
+  if (!categoryIds?.length) return res.status(400).json({ error: 'Debes seleccionar al menos una categoría' })
+  const catRows = (await query(`SELECT id,name FROM categories WHERE id=ANY($1::bigint[]) AND tournament_id=$2`, [categoryIds, tournament.id])).rows
+  const categories = catRows.map(c => ({ id: c.id, name: c.name }))
+  if (!categories.length) return res.status(400).json({ error: 'Las categorías seleccionadas no son válidas para este torneo' })
+  const firstCatId = categories[0]?.id || null
+  const autoApprove = tournament.auto_approve_inscriptions === 1
   const status = autoApprove ? 'approved' : 'pending'
   const r = await query(
     'INSERT INTO inscriptions (tournament_id,category_id,categories_json,logo,team_name,contact_name,contact_email,contact_phone,players_count,notes,status,registration_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id',
@@ -1499,25 +1572,57 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
 })
 router.patch('/inscriptions/:id/status', authMiddleware, adminOnly, async (req, res) => {
   const {status} = req.body
-  await query('UPDATE inscriptions SET status=$1 WHERE id=$2', [status, req.params.id])
   const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
-  if (status === 'approved' && insc) await createTeamsFromInscription(insc)
-  if (status === 'rejected' && insc) await query('DELETE FROM teams WHERE inscription_id=$1', [insc.id])
-  res.json(insc)
+  if (!insc) return res.status(404).json({error:'Inscripción no encontrada'})
+  if (!await checkOwnerByTournamentId(req, res, insc.tournament_id)) return
+  if (status === 'rejected') {
+    // No borrar equipos si ya tienen partidos programados o jugados
+    const hasMatches = await queryOne(
+      `SELECT m.id FROM matches m
+       JOIN teams t ON (m.home_team=t.id OR m.away_team=t.id)
+       WHERE t.inscription_id=$1 LIMIT 1`,
+      [insc.id]
+    )
+    if (hasMatches) return res.status(409).json({ error: 'No se puede rechazar: los equipos de esta inscripción ya tienen partidos asignados. Elimina primero los partidos o cambia el estado manualmente.' })
+    await query('DELETE FROM teams WHERE inscription_id=$1', [insc.id])
+  }
+  await query('UPDATE inscriptions SET status=$1 WHERE id=$2', [status, req.params.id])
+  const updated = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
+  if (status === 'approved' && updated) await createTeamsFromInscription(updated)
+  res.json(updated)
 })
 // Alias sin /status — el panel admin hace PATCH /inscriptions/:id directamente
 router.patch('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) => {
   const {status, notes} = req.body
-  if (status) await query('UPDATE inscriptions SET status=$1 WHERE id=$2', [status, req.params.id])
-  if (notes !== undefined) await query('UPDATE inscriptions SET notes=$1 WHERE id=$2', [notes, req.params.id])
   const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
   if (!insc) return res.status(404).json({error:'Inscripción no encontrada'})
-  if (status === 'approved') await createTeamsFromInscription(insc)
-  if (status === 'rejected') await query('DELETE FROM teams WHERE inscription_id=$1', [insc.id])
-  res.json(insc)
+  if (!await checkOwnerByTournamentId(req, res, insc.tournament_id)) return
+  if (status === 'rejected') {
+    const hasMatches = await queryOne(
+      `SELECT m.id FROM matches m
+       JOIN teams t ON (m.home_team=t.id OR m.away_team=t.id)
+       WHERE t.inscription_id=$1 LIMIT 1`,
+      [insc.id]
+    )
+    if (hasMatches) return res.status(409).json({ error: 'No se puede rechazar: los equipos ya tienen partidos asignados.' })
+    await query('DELETE FROM teams WHERE inscription_id=$1', [insc.id])
+  }
+  if (status) await query('UPDATE inscriptions SET status=$1 WHERE id=$2', [status, req.params.id])
+  if (notes !== undefined) await query('UPDATE inscriptions SET notes=$1 WHERE id=$2', [notes, req.params.id])
+  const updated = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
+  if (status === 'approved') await createTeamsFromInscription(updated)
+  res.json(updated)
 })
 router.delete('/inscriptions/:id', authMiddleware, adminOnly, async (req, res) => {
-  // Remove teams created from this inscription before deleting
+  const insc = await queryOne('SELECT i.*, t.created_by FROM inscriptions i JOIN tournaments t ON i.tournament_id=t.id WHERE i.id=$1', [req.params.id])
+  if (!insc) return res.status(404).json({ error: 'Inscripción no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, insc.tournament_id)) return
+  // Verificar que no haya partidos antes de borrar equipos
+  const hasMatches = await queryOne(
+    'SELECT m.id FROM matches m JOIN teams t ON (m.home_team=t.id OR m.away_team=t.id) WHERE t.inscription_id=$1 LIMIT 1',
+    [req.params.id]
+  )
+  if (hasMatches) return res.status(409).json({ error: 'No se puede eliminar: los equipos de esta inscripción ya tienen partidos asignados.' })
   await query('DELETE FROM teams WHERE inscription_id=$1', [req.params.id])
   await query('DELETE FROM inscriptions WHERE id=$1', [req.params.id])
   res.status(204).end()
@@ -1529,12 +1634,20 @@ async function createTeamsFromInscription(insc) {
   if (insc.categories_json) { try { cats = JSON.parse(insc.categories_json) } catch{} }
   if (!cats.length && insc.category_id) cats = [{ id: insc.category_id }]
   if (!cats.length) {
-    // fallback: create uncategorized team
+    // fallback: equipo sin categoría
     const ex = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id IS NULL', [insc.id])
     if (!ex) await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, null, insc.team_name, insc.logo||null, insc.id])
     return
   }
-  for (const cat of cats) {
+  // Filtrar solo categorías que todavía existen en la BD (evita FK error si borraron la categoría)
+  const catIds = cats.map(c => c.id)
+  const existingCats = (await query('SELECT id FROM categories WHERE id=ANY($1::bigint[])', [catIds])).rows.map(r => String(r.id))
+  const validCats = cats.filter(c => existingCats.includes(String(c.id)))
+  if (!validCats.length) {
+    console.warn(`[createTeams] Inscripción ${insc.id}: ninguna categoría del JSON existe ya en BD`)
+    return
+  }
+  for (const cat of validCats) {
     const ex = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2', [insc.id, cat.id])
     if (!ex) {
       await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, cat.id, insc.team_name, insc.logo||null, insc.id])
@@ -1546,7 +1659,16 @@ async function createTeamsFromInscription(insc) {
 router.get('/inscriptions/:id/register', async (req, res) => {
   const insc = await queryOne('SELECT i.*,t.name AS "tournamentName",t.slug AS "tournamentSlug" FROM inscriptions i JOIN tournaments t ON i.tournament_id=t.id WHERE i.id=$1', [req.params.id])
   if (!insc) return res.status(404).json({error:'Inscripción no encontrada'})
-  if (insc.status !== 'approved') return res.status(403).json({error:'Esta inscripción no está aprobada'})
+  if (insc.status === 'pending') return res.status(403).json({error:'Tu solicitud está pendiente de revisión. El organizador te notificará cuando sea aprobada.'})
+  if (insc.status === 'rejected') return res.status(403).json({error:'Esta inscripción fue rechazada. Contacta al organizador para más información.'})
+  if (insc.status !== 'approved') return res.status(403).json({error:'Esta inscripción no está disponible'})
+  // Verificar token (skip si viene con sesión admin)
+  const authHeader = req.headers.authorization
+  const isAdmin = authHeader && (() => { try { const { role } = require('jsonwebtoken').verify(authHeader.replace('Bearer ',''), process.env.JWT_SECRET||'secret'); return role==='admin'||role==='superadmin' } catch{return false} })()
+  if (!isAdmin) {
+    const token = req.query.token
+    if (!token || token !== insc.registration_token) return res.status(403).json({error:'Enlace de registro inválido o expirado'})
+  }
   let categories = []
   if (insc.categories_json) { try { categories = JSON.parse(insc.categories_json) } catch{} }
   // Load full category data (with age config)
@@ -1566,12 +1688,21 @@ router.post('/inscriptions/:id/players', async (req, res) => {
   const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
   if (!insc) return res.status(404).json({error:'Inscripción no encontrada'})
   if (insc.status !== 'approved') return res.status(403).json({error:'La inscripción debe estar aprobada'})
+  // Verificar token (skip si viene con sesión admin)
+  const authHeader = req.headers.authorization
+  const isAdmin = authHeader && (() => { try { const { role } = require('jsonwebtoken').verify(authHeader.replace('Bearer ',''), process.env.JWT_SECRET||'secret'); return role==='admin'||role==='superadmin' } catch{return false} })()
+  if (!isAdmin) {
+    const token = req.body.token || req.query.token
+    if (!token || token !== insc.registration_token) return res.status(403).json({error:'Enlace de registro inválido o expirado'})
+  }
   const category = await queryOne('SELECT * FROM categories WHERE id=$1', [categoryId])
   if (!category) return res.status(404).json({error:'Categoría no encontrada'})
+  // Validar que la categoría pertenece al torneo de esta inscripción
+  if (String(category.tournament_id) !== String(insc.tournament_id)) return res.status(400).json({error:'La categoría no pertenece al torneo de esta inscripción'})
 
   // Check max players per team for this category
   if (category.max_players_per_team) {
-    const currentCount = (await queryOne('SELECT COUNT(*) AS c FROM inscription_players WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])).c
+    const currentCount = Number((await queryOne('SELECT COUNT(*) AS c FROM inscription_players WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])).c) || 0
     const remaining = category.max_players_per_team - currentCount
     if (remaining <= 0) {
       return res.status(400).json({ error: `Ya alcanzaste el límite de ${category.max_players_per_team} jugadores en ${category.name}.` })
@@ -1713,6 +1844,7 @@ router.post('/inscriptions/:id/players', async (req, res) => {
 router.get('/inscriptions/:id/responsables', authMiddleware, adminOnly, async (req, res) => {
   const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
   if (!insc) return res.status(404).json({ error: 'Inscripción no encontrada' })
+  if (!await checkOwnerByTournamentId(req, res, insc.tournament_id)) return
   const rows = (await query(
     'SELECT r.*,c.name AS "categoryName" FROM inscription_responsables r LEFT JOIN categories c ON r.category_id=c.id WHERE r.inscription_id=$1 ORDER BY r.category_id,r.orden',
     [insc.id]
@@ -1730,6 +1862,16 @@ router.post('/inscriptions/:id/responsables', async (req, res) => {
   const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
   if (!insc) return res.status(404).json({ error: 'Inscripción no encontrada' })
   if (insc.status !== 'approved') return res.status(403).json({ error: 'La inscripción debe estar aprobada' })
+  // Verificar que la categoría pertenece al torneo de esta inscripción
+  const cat = await queryOne('SELECT id FROM categories WHERE id=$1 AND tournament_id=$2', [categoryId, insc.tournament_id])
+  if (!cat) return res.status(400).json({ error: 'La categoría no pertenece al torneo de esta inscripción' })
+  // Verificar token (skip si viene con sesión admin)
+  const authHeader = req.headers.authorization
+  const isAdmin = authHeader && (() => { try { const { role } = require('jsonwebtoken').verify(authHeader.replace('Bearer ',''), process.env.JWT_SECRET||'secret'); return role==='admin'||role==='superadmin' } catch{return false} })()
+  if (!isAdmin) {
+    const token = req.body.token || req.query.token
+    if (!token || token !== insc.registration_token) return res.status(403).json({error:'Enlace de registro inválido o expirado'})
+  }
   if (responsables.length < 2) return res.status(400).json({ error: 'Se requieren mínimo 2 responsables por categoría' })
   if (responsables.length > 3) return res.status(400).json({ error: 'Máximo 3 responsables por categoría' })
   for (const r of responsables) {
@@ -1757,6 +1899,7 @@ router.post('/inscriptions/:id/responsables', async (req, res) => {
 // Todos los responsables de un torneo (admin)
 router.get('/tournaments/:slug/responsables', authMiddleware, adminOnly, async (req, res) => {
   const t = await getTournament(req.params.slug); if (!t) return notFound(res)
+  if (!await checkOwnerByTournamentId(req, res, t.id)) return
   const catId = req.query.cat ? parseInt(req.query.cat) : null
   const sql = catId
     ? `SELECT r.*,i.team_name,c.name AS "categoryName"
@@ -1796,6 +1939,9 @@ router.put('/awards/:id', authMiddleware, adminOnly, async (req, res) => {
   res.json((await queryOne(`SELECT a.*,p.name AS "playerName",p.photo AS "playerPhoto",te.name AS "teamName",te.logo AS "teamLogo",c.name AS "categoryName" FROM awards a LEFT JOIN players p ON a.player_id=p.id LEFT JOIN teams te ON a.team_id=te.id LEFT JOIN categories c ON a.category_id=c.id WHERE a.id=$1`, [req.params.id])))
 })
 router.delete('/awards/:id', authMiddleware, adminOnly, async (req, res) => {
+  const a = await queryOne('SELECT tournament_id FROM awards WHERE id=$1', [req.params.id])
+  if (!a) return res.status(404).json({ error: 'Premio no encontrado' })
+  if (!await checkOwnerByTournamentId(req, res, a.tournament_id)) return
   await query('DELETE FROM awards WHERE id=$1', [req.params.id]); res.status(204).end()
 })
 // Escanear todas las fases completas y generar premios faltantes (one-shot)
@@ -2677,6 +2823,27 @@ router.get('/admin/all-matches', authMiddleware, adminOnly, async (req, res) => 
   res.json(rows)
 })
 
+// Actualizar perfil del admin autenticado
+router.patch('/admin/me', authMiddleware, adminOnly, async (req, res) => {
+  const { name, email, password } = req.body
+  const userId = req.user.id
+  if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' })
+  if (!email?.trim()) return res.status(400).json({ error: 'El email es requerido' })
+  // Verificar que el email no esté en uso por otro usuario
+  const dup = await queryOne('SELECT id FROM users WHERE LOWER(email)=LOWER($1) AND id<>$2', [email.trim(), userId])
+  if (dup) return res.status(409).json({ error: 'Ese email ya está en uso por otro usuario' })
+  if (password) {
+    if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' })
+    const bcryptLocal = require('bcryptjs')
+    const hash = bcryptLocal.hashSync(password, 10)
+    await query('UPDATE users SET name=$1,email=$2,password=$3 WHERE id=$4', [name.trim(), email.trim().toLowerCase(), hash, userId])
+  } else {
+    await query('UPDATE users SET name=$1,email=$2 WHERE id=$3', [name.trim(), email.trim().toLowerCase(), userId])
+  }
+  const updated = await queryOne('SELECT id,name,email,role FROM users WHERE id=$1', [userId])
+  res.json(updated)
+})
+
 router.get('/admin/stats', authMiddleware, adminOnly, async (req, res) => {
   const today = new Date().toISOString().slice(0, 10)
   const isSuperAdmin = req.user.role === 'superadmin'
@@ -3011,7 +3178,7 @@ router.patch('/superadmin/admins/:id/status', authMiddleware, superAdminOnly, as
 // Eliminar admin
 router.delete('/superadmin/admins/:id', authMiddleware, superAdminOnly, async (req, res) => {
   const id = Number(req.params.id)
-  if (id === req.user.id) return res.status(400).json({ error: 'No puedes eliminarte a ti mismo' })
+  if (String(id) === String(req.user.id)) return res.status(400).json({ error: 'No puedes eliminarte a ti mismo' })
   const user = (await queryOne('SELECT id,role FROM users WHERE id=$1', [id]))
   if (!user) return res.status(404).json({ error: 'Admin no encontrado' })
   await query('DELETE FROM users WHERE id=$1', [id])

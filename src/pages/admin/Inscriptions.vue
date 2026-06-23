@@ -108,8 +108,8 @@
         <!-- Botones siempre en su propia fila -->
         <div class="flex gap-2 flex-wrap pt-1 border-t border-muted">
           <button @click="showDetail(insc)" class="text-xs text-slate-500 hover:text-slate-900 px-3 py-1.5 border border-muted rounded-lg">Ver detalle</button>
-          <button v-if="insc.status==='pending'" @click="setStatus(insc,'approved')" class="text-xs text-accent px-3 py-1.5 border border-accent/30 rounded-lg hover:bg-accent/10 font-bold flex items-center gap-1"><IconCheckCircle class="w-4 h-4" /> Aprobar</button>
-          <button v-if="insc.status==='pending'" @click="setStatus(insc,'rejected')" class="text-xs text-red-500 px-3 py-1.5 border border-red-600/30 rounded-lg hover:bg-red-600/10 flex items-center gap-1"><IconXCircle class="w-4 h-4" /> Rechazar</button>
+          <button v-if="insc.status==='pending'" @click="setStatus(insc,'approved')" :disabled="processingStatus[insc.id]" class="text-xs text-accent px-3 py-1.5 border border-accent/30 rounded-lg hover:bg-accent/10 font-bold flex items-center gap-1 disabled:opacity-40"><IconCheckCircle class="w-4 h-4" /> {{ processingStatus[insc.id] ? '...' : 'Aprobar' }}</button>
+          <button v-if="insc.status==='pending'" @click="setStatus(insc,'rejected')" :disabled="processingStatus[insc.id]" class="text-xs text-red-500 px-3 py-1.5 border border-red-600/30 rounded-lg hover:bg-red-600/10 flex items-center gap-1 disabled:opacity-40"><IconXCircle class="w-4 h-4" /> {{ processingStatus[insc.id] ? '...' : 'Rechazar' }}</button>
           <button @click="deleteInsc(insc.id)" class="text-xs text-red-500 px-2 py-1.5 border border-red-600/30 rounded-lg hover:bg-red-50"><IconTrash2 class="w-4 h-4" /></button>
         </div>
         <p v-if="insc.notes" class="text-slate-600 text-sm bg-slate-100 rounded-lg p-3">{{ insc.notes }}</p>
@@ -171,8 +171,8 @@
           </div>
         </div>
         <div class="flex gap-3">
-          <button v-if="selected.status==='pending'" @click="setStatus(selected,'approved');selected=null" class="btn-accent text-sm flex-1 flex items-center justify-center gap-2"><IconCheckCircle class="w-4 h-4" /> Aprobar</button>
-          <button v-if="selected.status==='pending'" @click="setStatus(selected,'rejected');selected=null" class="flex-1 text-sm border border-red-600/30 text-red-400 rounded-xl py-2 flex items-center justify-center gap-2"><IconXCircle class="w-4 h-4" /> Rechazar</button>
+          <button v-if="selected.status==='pending'" @click="setStatus(selected,'approved').then(()=>selected=null)" :disabled="processingStatus[selected.id]" class="btn-accent text-sm flex-1 flex items-center justify-center gap-2 disabled:opacity-40"><IconCheckCircle class="w-4 h-4" /> {{ processingStatus[selected.id] ? 'Procesando...' : 'Aprobar' }}</button>
+          <button v-if="selected.status==='pending'" @click="setStatus(selected,'rejected').then(()=>selected=null)" :disabled="processingStatus[selected.id]" class="flex-1 text-sm border border-red-600/30 text-red-400 rounded-xl py-2 flex items-center justify-center gap-2 disabled:opacity-40"><IconXCircle class="w-4 h-4" /> {{ processingStatus[selected.id] ? 'Procesando...' : 'Rechazar' }}</button>
           <button @click="selected=null" class="btn-ghost text-sm">Cerrar</button>
         </div>
       </div>
@@ -181,7 +181,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import api from '@/api'
 
 const inscriptions  = ref([])
@@ -242,7 +242,8 @@ const statusClass = s => statusClasses[s] || ''
 
 function playerRegUrl(insc) {
   const slug = selTournament.value?.slug || insc.tournament_slug || ''
-  return `${window.location.origin}/${slug}/inscripcion/${insc.id}/jugadores`
+  const token = insc.registration_token ? `?token=${insc.registration_token}` : ''
+  return `${window.location.origin}/${slug}/inscripcion/${insc.id}/jugadores${token}`
 }
 
 async function copyPlayerLink(insc) {
@@ -281,34 +282,61 @@ async function showDetail(insc) {
   }
 }
 
+const processingStatus = reactive({}) // inscriptionId → bool
+
 async function setStatus(insc, status) {
-  await api.patch(`/inscriptions/${insc.id}/status`, {status})
-  await load() // recarga siempre para reflejar el cambio de estado inmediatamente
+  if (processingStatus[insc.id]) return
+  processingStatus[insc.id] = true
+  try {
+    await api.patch(`/inscriptions/${insc.id}/status`, { status })
+    await load()
+  } catch(e) {
+    alert(e.response?.data?.error || 'Error al cambiar el estado')
+  } finally {
+    processingStatus[insc.id] = false
+  }
 }
 
 async function deleteInsc(id) {
   if (!confirm('¿Eliminar esta inscripción?')) return
-  await api.delete(`/inscriptions/${id}`); await load()
+  try {
+    await api.delete(`/inscriptions/${id}`)
+    await load()
+  } catch(e) { alert(e.response?.data?.error || 'Error al eliminar la inscripción') }
 }
 
 async function toggleAutoApprove() {
   if (!selTournament.value) return
   const newVal = !autoApprove.value
-  await api.patch(`/tournaments/${selTournament.value.slug}/settings`, { auto_approve_inscriptions: newVal })
-  autoApprove.value = newVal
-  selTournament.value.auto_approve_inscriptions = newVal ? 1 : 0
+  try {
+    await api.patch(`/tournaments/${selTournament.value.slug}/settings`, { auto_approve_inscriptions: newVal })
+    autoApprove.value = newVal
+    selTournament.value.auto_approve_inscriptions = newVal ? 1 : 0
+  } catch(e) {
+    alert(e.response?.data?.error || 'Error al actualizar la configuración')
+    // No cambia el valor local porque el servidor falló
+  }
 }
 
 async function load() {
   if (!selTournament.value) return
-  const {data} = await api.get(`/tournaments/${selTournament.value.slug}/inscriptions`)
-  inscriptions.value = data
-  autoApprove.value = !!selTournament.value.auto_approve_inscriptions
+  try {
+    const {data} = await api.get(`/tournaments/${selTournament.value.slug}/inscriptions`)
+    inscriptions.value = data
+    autoApprove.value = !!selTournament.value.auto_approve_inscriptions
+  } catch(e) {
+    console.error('Error cargando inscripciones:', e)
+  }
 }
 
 onMounted(async () => {
-  const {data} = await api.get('/tournaments'); tournaments.value=data
-  if (data.length) { selTournament.value=data[0]; await load() }
+  try {
+    const {data} = await api.get('/tournaments')
+    tournaments.value = data
+    if (data.length) { selTournament.value = data[0]; await load() }
+  } catch(e) {
+    console.error('Error cargando torneos:', e)
+  }
 })
 </script>
 

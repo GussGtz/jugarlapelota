@@ -408,6 +408,7 @@ import { uploadImagePublic } from '@/utils/upload'
 
 const route = useRoute()
 const { slug, inscriptionId } = route.params
+const regToken = route.query.token || ''
 
 const inscription    = ref(null)
 const loading        = ref(true)
@@ -443,6 +444,7 @@ function triggerCameraInput(catId, idx) { photoRefs[`${catId}-${idx}-cam`]?.clic
 
 async function onPhotoChange(e, catId, idx) {
   const file = e.target.files?.[0]; if (!file) return
+  if (file.size > 5 * 1024 * 1024) { alert('La foto no debe superar 5 MB.'); e.target.value = ''; return }
   const player = newPlayers[catId]?.[idx]; if (!player) return
   player.photoLoading = true
   try { player.photo = await uploadImagePublic(file) }
@@ -459,6 +461,7 @@ function triggerDocInput(catId, idx) { docRefs[`${catId}-${idx}`]?.click() }
 
 async function onDocChange(e, catId, idx) {
   const file = e.target.files?.[0]; if (!file) return
+  if (file.size > 25 * 1024 * 1024) { alert('El documento no debe superar 25 MB.'); e.target.value = ''; return }
   const player = newPlayers[catId]?.[idx]; if (!player) return
   player.docLoading = true
   try { player.documento_oficial = await uploadImagePublic(file) }
@@ -475,6 +478,7 @@ function triggerRespPhoto(catId, idx) { respPhotoRefs[`${catId}-${idx}`]?.click(
 
 async function onRespPhotoChange(e, catId, idx) {
   const file = e.target.files?.[0]; if (!file) return
+  if (file.size > 5 * 1024 * 1024) { alert('La foto no debe superar 5 MB.'); e.target.value = ''; return }
   const resp = newResponsables[catId]?.[idx]; if (!resp) return
   resp.photoLoading = true
   try { resp.foto = await uploadImagePublic(file) }
@@ -560,6 +564,7 @@ async function saveResponsables(cat) {
   try {
     const res = await api.post(`/inscriptions/${inscriptionId}/responsables`, {
       categoryId: cat.id,
+      token: regToken,
       responsables: rs.map(r => ({
         nombre: r.nombre.trim(),
         apellidos: r.apellidos.trim(),
@@ -607,7 +612,10 @@ async function savePlayers(cat) {
   try {
     const res = await api.post(`/inscriptions/${inscriptionId}/players`, {
       categoryId: cat.id,
-      players
+      token: regToken,
+      players: players.map(({ name, number, position, curp, photo, documento_oficial }) =>
+        ({ name, number, position, curp, photo, documento_oficial })
+      )
     })
     const inserted = res.data.inserted || []
     registeredPlayers.value.push(...inserted.map(p => ({ ...p, category_id: cat.id })))
@@ -631,7 +639,7 @@ async function savePlayers(cat) {
 
 onMounted(async () => {
   try {
-    const { data } = await api.get(`/inscriptions/${inscriptionId}/register`)
+    const { data } = await api.get(`/inscriptions/${inscriptionId}/register`, { params: { token: regToken } })
     inscription.value = data
     registeredPlayers.value    = data.players || []
     registeredResponsables.value = data.responsables || []

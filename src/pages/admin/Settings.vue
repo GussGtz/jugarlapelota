@@ -31,13 +31,19 @@ const auth = useAuthStore()
 const saved = ref(false)
 const form = reactive({ name: auth.user?.name || '', email: auth.user?.email || '', password: '' })
 async function saveAccount() {
+  saved.value = false
   try {
-    saved.value = false
-    // In a real app this would call PATCH /users/me
-    auth.user = { ...auth.user, name: form.name, email: form.email }
+    const { data } = await api.patch('/admin/me', {
+      name: form.name,
+      email: form.email,
+      password: form.password || undefined,
+    })
+    // Actualizar store local con los datos confirmados por el servidor
+    auth.user = { ...auth.user, name: data.name, email: data.email }
     localStorage.setItem('jlp_user', JSON.stringify(auth.user))
+    form.password = ''
     saved.value = true
     setTimeout(() => saved.value = false, 3000)
-  } catch { alert('Error al guardar') }
+  } catch(e) { alert(e.response?.data?.error || 'Error al guardar los cambios') }
 }
 </script>
