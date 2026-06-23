@@ -1552,8 +1552,9 @@ router.get('/inscriptions/:id/register', async (req, res) => {
     const catRows = (await query('SELECT * FROM categories WHERE id=ANY($1::bigint[])', [ids])).rows
     categories = catRows
   }
-  const players = (await query('SELECT ip.*,c.name AS "categoryName" FROM inscription_players ip LEFT JOIN categories c ON ip.category_id=c.id WHERE ip.inscription_id=$1 ORDER BY ip.category_id,ip.id', [insc.id])).rows
-  res.json({ ...insc, categories, players })
+  const players       = (await query('SELECT ip.*,c.name AS "categoryName" FROM inscription_players ip LEFT JOIN categories c ON ip.category_id=c.id WHERE ip.inscription_id=$1 ORDER BY ip.category_id,ip.id', [insc.id])).rows
+  const responsables  = (await query('SELECT * FROM inscription_responsables WHERE inscription_id=$1 ORDER BY category_id,orden', [insc.id])).rows
+  res.json({ ...insc, categories, players, responsables })
 })
 
 router.post('/inscriptions/:id/players', async (req, res) => {
@@ -1682,6 +1683,35 @@ router.post('/inscriptions/:id/players', async (req, res) => {
   }
 
   res.status(201).json({ inserted, errors: errors.length ? errors : undefined })
+})
+
+// Guardar responsables por categoría (reemplaza los de esa categoría)
+router.post('/inscriptions/:id/responsables', async (req, res) => {
+  const { categoryId, responsables } = req.body
+  if (!categoryId || !Array.isArray(responsables)) return res.status(400).json({ error: 'Datos incompletos' })
+  const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
+  if (!insc) return res.status(404).json({ error: 'Inscripción no encontrada' })
+  if (insc.status !== 'approved') return res.status(403).json({ error: 'La inscripción debe estar aprobada' })
+  if (responsables.length < 2) return res.status(400).json({ error: 'Se requieren mínimo 2 responsables por categoría' })
+  if (responsables.length > 3) return res.status(400).json({ error: 'Máximo 3 responsables por categoría' })
+  for (const r of responsables) {
+    if (!r.nombre?.trim() || !r.apellidos?.trim()) return res.status(400).json({ error: 'Nombre y apellidos son obligatorios para cada responsable' })
+    if (!r.curp?.trim()) return res.status(400).json({ error: 'La CURP es obligatoria para cada responsable' })
+    const parsed = parseCURP(r.curp)
+    if (!parsed) return res.status(400).json({ error: `CURP inválida: ${r.curp}` })
+  }
+  // Reemplazar responsables de esta categoría
+  await query('DELETE FROM inscription_responsables WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])
+  const saved = []
+  for (let i = 0; i < responsables.length; i++) {
+    const r = responsables[i]
+    const row = await queryOne(
+      'INSERT INTO inscription_responsables (inscription_id,category_id,nombre,apellidos,curp,foto,orden) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [insc.id, categoryId, r.nombre.trim(), r.apellidos.trim(), r.curp.trim().toUpperCase(), r.foto||null, i+1]
+    )
+    saved.push(row)
+  }
+  res.status(201).json({ saved })
 })
 
 // ── Awards ────────────────────────────────────────────────────────────────

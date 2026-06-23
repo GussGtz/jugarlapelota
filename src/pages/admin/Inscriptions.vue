@@ -130,6 +130,30 @@
           <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Teléfono</p><p class="text-slate-900">{{ selected.contact_phone || '—' }}</p></div>
           <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Jugadores</p><p class="text-slate-900">{{ selected.actual_players_count || selected.players_count || 0 }}</p></div>
         </div>
+        <!-- Responsables por categoría -->
+        <div v-if="selected.responsables?.length">
+          <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Responsables / Cuerpo Técnico</p>
+          <div v-for="cat in selectedCategories" :key="cat.id" class="mb-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-1.5">{{ cat.name }}</p>
+            <div class="space-y-1.5">
+              <div v-for="r in selected.responsables.filter(r => String(r.category_id) === String(cat.id))" :key="r.id"
+                class="flex items-center gap-3 bg-primary/5 border border-primary/15 rounded-xl px-3 py-2 text-sm">
+                <img v-if="r.foto" :src="r.foto" class="w-9 h-9 rounded-lg object-cover shrink-0 border border-primary/20"/>
+                <div v-else class="w-9 h-9 rounded-lg bg-primary/10 border border-primary/15 shrink-0 flex items-center justify-center">
+                  <IconUser class="w-4 h-4 text-primary/40"/>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-slate-900 truncate">{{ r.nombre }} {{ r.apellidos }}</p>
+                  <p class="text-[10px] text-slate-400 font-mono">{{ r.curp }}</p>
+                </div>
+                <span class="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full shrink-0">R{{ r.orden }}</span>
+              </div>
+              <p v-if="!selected.responsables.filter(r => String(r.category_id) === String(cat.id)).length"
+                class="text-xs text-slate-400 italic px-2">Sin responsables registrados aún</p>
+            </div>
+          </div>
+        </div>
+        <!-- Jugadores -->
         <div v-if="selected.players?.length">
           <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Lista de jugadores</p>
           <div class="space-y-1.5">
@@ -164,6 +188,11 @@ const copiedId      = ref(null)
 const autoApprove   = ref(false)
 
 const displayed = computed(() => filterStatus.value ? inscriptions.value.filter(i=>i.status===filterStatus.value) : inscriptions.value)
+
+const selectedCategories = computed(() => {
+  if (!selected.value?.categories_json) return []
+  try { return JSON.parse(selected.value.categories_json) } catch { return [] }
+})
 const pending   = computed(() => inscriptions.value.filter(i=>i.status==='pending').length)
 
 const inscriptionUrl = computed(() => {
@@ -218,7 +247,15 @@ async function copyPlayerLink(insc) {
   setTimeout(() => { copiedId.value = null }, 2500)
 }
 
-function showDetail(insc) { selected.value = insc }
+async function showDetail(insc) {
+  selected.value = insc
+  if (insc.status === 'approved') {
+    try {
+      const { data } = await api.get(`/inscriptions/${insc.id}/register`)
+      selected.value = { ...insc, players: data.players || [], responsables: data.responsables || [], categories_json: data.categories_json }
+    } catch {}
+  }
+}
 
 async function setStatus(insc, status) {
   await api.patch(`/inscriptions/${insc.id}/status`, {status})
