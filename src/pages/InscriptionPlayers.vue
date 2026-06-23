@@ -387,8 +387,13 @@
       </template>
 
       <!-- Error state -->
-      <div v-else-if="loadError" class="text-center py-20">
-        <p class="text-red-500 font-semibold">{{ loadError }}</p>
+      <div v-else-if="loadError" class="text-center py-20 max-w-md mx-auto">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5">
+          <IconXCircle class="w-8 h-8 text-red-500" />
+        </div>
+        <h2 class="text-xl font-black text-slate-900 mb-2">Acceso no disponible</h2>
+        <p class="text-slate-500 text-sm mb-6">{{ loadError }}</p>
+        <router-link v-if="slug" :to="`/${slug}`" class="btn-ghost text-sm">← Ver el torneo</router-link>
       </div>
     </div>
   </div>
