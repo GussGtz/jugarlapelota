@@ -17,7 +17,7 @@ import {
   Heart, CircleDot, ClipboardEdit, CircleCheck,
   Key, Flame, Timer, Play, Pause, StopCircle, CheckCircle2,
   Swords, BadgeCheck, ShieldCheck, ShieldAlert, Ban,
-  Camera, IdCard
+  Camera, IdCard, FileDown
 } from 'lucide-vue-next'
 
 export const icons = {
@@ -38,7 +38,7 @@ export const icons = {
   Heart, CircleDot, ClipboardEdit, CircleCheck,
   Key, Flame, Timer, Play, Pause, StopCircle, CheckCircle2,
   Swords, BadgeCheck, ShieldCheck, ShieldAlert, Ban,
-  Camera, IdCard
+  Camera, IdCard, FileDown
 }
 
 export function registerIcons(app) {
