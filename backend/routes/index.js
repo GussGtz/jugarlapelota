@@ -851,11 +851,11 @@ router.delete('/match-events/:id', authMiddleware, adminOnly, async (req, res) =
       else home = Math.max(0, home - 1)
     }
     await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [home, away, ev.match_id])
-    if (ev.player_id) await query('UPDATE players SET goals=MAX(0,goals-1) WHERE id=$1', [ev.player_id])
+    if (ev.player_id) await query('UPDATE players SET goals=GREATEST(0,goals-1) WHERE id=$1', [ev.player_id])
   }
-  if (ev.type === 'assist'      && ev.player_id) await query('UPDATE players SET assists=MAX(0,assists-1) WHERE id=$1', [ev.player_id])
-  if (ev.type === 'yellow_card' && ev.player_id) await query('UPDATE players SET yellow_cards=MAX(0,yellow_cards-1) WHERE id=$1', [ev.player_id])
-  if (ev.type === 'red_card'    && ev.player_id) await query('UPDATE players SET red_cards=MAX(0,red_cards-1) WHERE id=$1', [ev.player_id])
+  if (ev.type === 'assist'      && ev.player_id) await query('UPDATE players SET assists=GREATEST(0,assists-1) WHERE id=$1', [ev.player_id])
+  if (ev.type === 'yellow_card' && ev.player_id) await query('UPDATE players SET yellow_cards=GREATEST(0,yellow_cards-1) WHERE id=$1', [ev.player_id])
+  if (ev.type === 'red_card'    && ev.player_id) await query('UPDATE players SET red_cards=GREATEST(0,red_cards-1) WHERE id=$1', [ev.player_id])
 
   await query('DELETE FROM match_events WHERE id=$1', [ev.id])
 
