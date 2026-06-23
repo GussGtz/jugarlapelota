@@ -171,14 +171,15 @@
               </p>
             </div>
 
-            <!-- Guardar responsables -->
-            <button @click="saveResponsables(cat)"
-              :disabled="savingResp || !canSaveResponsables(cat.id)"
+            <!-- Guardar responsables — solo cuando el formulario está activo -->
+            <button v-if="!responsablesForCat(cat.id).length || editingResp[cat.id]"
+              @click="saveResponsables(cat)"
+              :disabled="savingResp[cat.id] || !canSaveResponsables(cat.id)"
               class="btn-primary w-full disabled:opacity-50">
               <span class="flex items-center justify-center gap-2">
-                <IconLoader2 v-if="savingResp" class="w-4 h-4 animate-spin"/>
+                <IconLoader2 v-if="savingResp[cat.id]" class="w-4 h-4 animate-spin"/>
                 <IconUsers v-else class="w-4 h-4" />
-                {{ savingResp ? 'Guardando...' : `Guardar responsables de ${cat.name}` }}
+                {{ savingResp[cat.id] ? 'Guardando...' : `Guardar responsables de ${cat.name}` }}
               </span>
             </button>
           </div>
@@ -367,11 +368,11 @@
             <!-- Save players -->
             <button v-if="newPlayers[cat.id]?.some(p => p.name.trim())"
               @click="savePlayers(cat)"
-              :disabled="saving || newPlayers[cat.id]?.some(p => p.name.trim() && curpStatus(p) !== 'valid')"
+              :disabled="saving[cat.id] || newPlayers[cat.id]?.some(p => p.name.trim() && curpStatus(p) !== 'valid')"
               class="btn-primary w-full disabled:opacity-50">
               <span class="flex items-center justify-center gap-2">
-                <IconLoader2 v-if="saving" class="w-4 h-4 animate-spin"/>
-                {{ saving ? 'Guardando...' : `Guardar jugadores en ${cat.name}` }}
+                <IconLoader2 v-if="saving[cat.id]" class="w-4 h-4 animate-spin"/>
+                {{ saving[cat.id] ? 'Guardando...' : `Guardar jugadores en ${cat.name}` }}
               </span>
             </button>
           </div>
@@ -411,8 +412,8 @@ const { slug, inscriptionId } = route.params
 const inscription    = ref(null)
 const loading        = ref(true)
 const loadError      = ref('')
-const saving         = ref(false)
-const savingResp     = ref(false)
+const saving     = reactive({}) // categoryId → bool
+const savingResp = reactive({}) // categoryId → bool
 const done           = ref(false)
 const activeCategory = ref(null)
 const newPlayers     = reactive({}) // categoryId → [{name, number, position, curp, photo}]
@@ -555,14 +556,14 @@ function respCurpStatus(resp) {
 async function saveResponsables(cat) {
   const rs = (newResponsables[cat.id] || []).filter(r => r.nombre.trim())
   responsableErrors[cat.id] = []
-  savingResp.value = true
+  savingResp[cat.id] = true
   try {
     const res = await api.post(`/inscriptions/${inscriptionId}/responsables`, {
       categoryId: cat.id,
       responsables: rs.map(r => ({
         nombre: r.nombre.trim(),
         apellidos: r.apellidos.trim(),
-        curp: r.curp.trim().toUpperCase(),
+        curp: r.curp?.trim().toUpperCase() || null,
         foto: r.foto || null,
       }))
     })
@@ -581,28 +582,50 @@ async function saveResponsables(cat) {
     const err = e.response?.data
     responsableErrors[cat.id] = [err?.error || 'Error al guardar responsables']
   } finally {
-    savingResp.value = false
+    savingResp[cat.id] = false
   }
 }
 
 async function savePlayers(cat) {
   const players = (newPlayers[cat.id] || []).filter(p => p.name.trim())
   if (!players.length) return
-  saving.value = true
+
+  // Validación rápida de duplicados en el mismo envío
+  const curpsEnvio = players.map(p => p.curp?.trim().toUpperCase()).filter(Boolean)
+  if (new Set(curpsEnvio).size !== curpsEnvio.length) {
+    categoryErrors[cat.id] = ['Hay CURPs duplicadas entre los jugadores que intentas registrar']
+    return
+  }
+  const numsEnvio = players.map(p => p.number).filter(n => n != null && n !== '')
+  if (new Set(numsEnvio).size !== numsEnvio.length) {
+    categoryErrors[cat.id] = ['Hay números de dorsal duplicados entre los jugadores que intentas registrar']
+    return
+  }
+
+  saving[cat.id] = true
   categoryErrors[cat.id] = []
   try {
     const res = await api.post(`/inscriptions/${inscriptionId}/players`, {
       categoryId: cat.id,
       players
     })
-    registeredPlayers.value.push(...(res.data.inserted || []).map(p => ({ ...p, category_id: cat.id })))
-    newPlayers[cat.id] = []
+    const inserted = res.data.inserted || []
+    registeredPlayers.value.push(...inserted.map(p => ({ ...p, category_id: cat.id })))
+    // Solo eliminar del formulario los que se insertaron correctamente
+    const insertedCurps = new Set(inserted.map(p => p.curp?.toUpperCase()).filter(Boolean))
+    const insertedNames = new Set(inserted.map(p => p.name?.toLowerCase()).filter(Boolean))
+    newPlayers[cat.id] = (newPlayers[cat.id] || []).filter(p => {
+      const curp = p.curp?.trim().toUpperCase()
+      if (curp && insertedCurps.has(curp)) return false
+      if (!curp && insertedNames.has(p.name?.trim().toLowerCase())) return false
+      return true
+    })
     if (res.data.errors?.length) categoryErrors[cat.id] = res.data.errors
   } catch (e) {
     const err = e.response?.data
     categoryErrors[cat.id] = err?.errors || [err?.error || 'Error al guardar jugadores']
   } finally {
-    saving.value = false
+    saving[cat.id] = false
   }
 }
 

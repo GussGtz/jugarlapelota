@@ -1633,13 +1633,17 @@ router.post('/inscriptions/:id/players', async (req, res) => {
         }
       }
 
-      // Duplicate CURP in same inscription + same category
+      // Duplicate CURP in same inscription + same category (DB + current batch)
       const dupSameCat = await queryOne(
         'SELECT id FROM inscription_players WHERE inscription_id=$1 AND category_id=$2 AND UPPER(curp)=$3',
         [insc.id, categoryId, curp]
       )
       if (dupSameCat) {
-        errors.push(`${name}: CURP ${curp} ya está registrada en esta categoría del equipo`)
+        errors.push(`${name}: CURP ${curp} ya está registrada en esta categoría`)
+        continue
+      }
+      if (toInsert.some(ti => ti.curp === curp)) {
+        errors.push(`${name}: CURP ${curp} aparece duplicada en este mismo envío`)
         continue
       }
 
@@ -1656,7 +1660,24 @@ router.post('/inscriptions/:id/players', async (req, res) => {
       }
     }
 
-    toInsert.push({ name, number: p.number||null, position: p.position||null, curp, photo: p.photo||null, documento_oficial: p.documento_oficial||null })
+    // Duplicate jersey number in same inscription + category
+    const num = p.number ? parseInt(p.number) : null
+    if (num) {
+      const dupNum = await queryOne(
+        'SELECT id FROM inscription_players WHERE inscription_id=$1 AND category_id=$2 AND number=$3',
+        [insc.id, categoryId, num]
+      )
+      if (dupNum) {
+        errors.push(`${name}: el número #${num} ya está registrado en esta categoría`)
+        continue
+      }
+      if (toInsert.some(ti => ti.number === num)) {
+        errors.push(`${name}: el número #${num} aparece duplicado en este mismo envío`)
+        continue
+      }
+    }
+
+    toInsert.push({ name, number: num, position: p.position||null, curp, photo: p.photo||null, documento_oficial: p.documento_oficial||null })
   }
 
   if (errors.length && !toInsert.length) {
@@ -1713,6 +1734,11 @@ router.post('/inscriptions/:id/responsables', async (req, res) => {
   if (responsables.length > 3) return res.status(400).json({ error: 'Máximo 3 responsables por categoría' })
   for (const r of responsables) {
     if (!r.nombre?.trim() || !r.apellidos?.trim()) return res.status(400).json({ error: 'Nombre y apellidos son obligatorios para cada responsable' })
+  }
+  // Verificar CURPs duplicadas entre responsables del mismo envío
+  const curps = responsables.map(r => r.curp?.trim().toUpperCase()).filter(Boolean)
+  if (new Set(curps).size !== curps.length) {
+    return res.status(400).json({ error: 'Hay CURPs duplicadas entre los responsables' })
   }
   // Reemplazar responsables de esta categoría
   await query('DELETE FROM inscription_responsables WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])
