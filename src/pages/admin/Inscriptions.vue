@@ -241,7 +241,8 @@ const statusLabel = s => statusLabels[s]  || s
 const statusClass = s => statusClasses[s] || ''
 
 function playerRegUrl(insc) {
-  return `${window.location.origin}/${selTournament.value?.slug}/inscripcion/${insc.id}/jugadores`
+  const slug = selTournament.value?.slug || insc.tournament_slug || ''
+  return `${window.location.origin}/${slug}/inscripcion/${insc.id}/jugadores`
 }
 
 async function copyPlayerLink(insc) {
@@ -256,16 +257,26 @@ async function copyPlayerLink(insc) {
 }
 
 async function showDetail(insc) {
-  selected.value = { ...insc, categories: [], responsables: [], players: [] }
+  // Usar las categorías ya cargadas en la lista como fallback inmediato
+  selected.value = { ...insc, categories: insc.categories || [], responsables: [], players: [] }
   try {
-    // Cargar responsables (endpoint admin, sin restricción de status)
     const respRes = await api.get(`/inscriptions/${insc.id}/responsables`)
-    selected.value = { ...selected.value, responsables: respRes.data.responsables || [], categories: respRes.data.categories || [] }
-  } catch {}
+    selected.value = {
+      ...selected.value,
+      responsables: respRes.data.responsables || [],
+      categories: respRes.data.categories?.length ? respRes.data.categories : selected.value.categories,
+    }
+  } catch {
+    // si falla, las categorías de la lista siguen disponibles para mostrar el modal
+  }
   if (insc.status === 'approved') {
     try {
       const { data } = await api.get(`/inscriptions/${insc.id}/register`)
-      selected.value = { ...selected.value, players: data.players || [], categories: data.categories || selected.value.categories }
+      selected.value = {
+        ...selected.value,
+        players: data.players || [],
+        categories: data.categories?.length ? data.categories : selected.value.categories,
+      }
     } catch {}
   }
 }

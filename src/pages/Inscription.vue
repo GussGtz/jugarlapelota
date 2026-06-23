@@ -256,6 +256,7 @@ async function submit() {
     return
   }
   submitting.value = true
+  let createdId = null
   try {
     const tid = tournament.value?.id
     if (!tid) throw new Error('No se pudo obtener el torneo.')
@@ -264,15 +265,20 @@ async function submit() {
       tournamentId: tid,
       categoryIds:  form.categoryIds,
     })
+    createdId = result.data.id
     if (result.data.auto_approved) {
-      // No restablecer submitting: mantener botón deshabilitado mientras navega
-      await router.push(`/${slug}/inscripcion/${result.data.id}/jugadores`)
+      await router.push(`/${slug}/inscripcion/${createdId}/jugadores`)
     } else {
       sent.value = true
     }
   } catch(e) {
-    error.value = e.response?.data?.error || 'Error al enviar la solicitud. Intenta de nuevo.'
-    submitting.value = false
+    if (createdId) {
+      // La inscripción fue creada pero la navegación falló — redirigir manualmente
+      window.location.href = `/${slug}/inscripcion/${createdId}/jugadores`
+    } else {
+      error.value = e.response?.data?.error || 'Error al enviar la solicitud. Intenta de nuevo.'
+      submitting.value = false
+    }
   }
 }
 
