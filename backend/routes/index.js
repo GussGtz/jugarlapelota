@@ -1685,6 +1685,20 @@ router.post('/inscriptions/:id/players', async (req, res) => {
   res.status(201).json({ inserted, errors: errors.length ? errors : undefined })
 })
 
+// Consultar responsables de una inscripción (admin)
+router.get('/inscriptions/:id/responsables', authMiddleware, adminOnly, async (req, res) => {
+  const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
+  if (!insc) return res.status(404).json({ error: 'Inscripción no encontrada' })
+  const rows = (await query(
+    'SELECT r.*,c.name AS "categoryName" FROM inscription_responsables r LEFT JOIN categories c ON r.category_id=c.id WHERE r.inscription_id=$1 ORDER BY r.category_id,r.orden',
+    [insc.id]
+  )).rows
+  // también devolvemos las categorías para el admin
+  let categories = []
+  if (insc.categories_json) { try { categories = JSON.parse(insc.categories_json) } catch {} }
+  res.json({ responsables: rows, categories })
+})
+
 // Guardar responsables por categoría (reemplaza los de esa categoría)
 router.post('/inscriptions/:id/responsables', async (req, res) => {
   const { categoryId, responsables } = req.body

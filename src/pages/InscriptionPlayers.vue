@@ -67,23 +67,31 @@
 
             <!-- Responsables ya guardados -->
             <div v-if="responsablesForCat(cat.id).length" class="space-y-2">
-              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Guardados</p>
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <IconCheckCircle class="w-3.5 h-3.5"/> Responsables registrados
+                </p>
+                <button type="button" @click="editingResp[cat.id] = !editingResp[cat.id]"
+                  class="text-[10px] text-primary font-semibold border border-primary/30 px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
+                  {{ editingResp[cat.id] ? 'Cancelar edición' : 'Editar' }}
+                </button>
+              </div>
               <div v-for="r in responsablesForCat(cat.id)" :key="r.id"
-                class="flex items-center gap-3 px-3 py-2.5 bg-primary/5 border border-primary/15 rounded-xl text-sm">
-                <img v-if="r.foto" :src="r.foto" class="w-10 h-10 rounded-lg object-cover shrink-0 border border-primary/20"/>
-                <div v-else class="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 shrink-0 flex items-center justify-center">
-                  <IconUser class="w-5 h-5 text-primary/50" />
+                class="flex items-center gap-3 px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-sm">
+                <img v-if="r.foto" :src="r.foto" class="w-10 h-10 rounded-lg object-cover shrink-0 border border-emerald-200"/>
+                <div v-else class="w-10 h-10 rounded-lg bg-emerald-100 border border-emerald-200 shrink-0 flex items-center justify-center">
+                  <IconUser class="w-5 h-5 text-emerald-400" />
                 </div>
                 <div class="flex-1 min-w-0">
                   <p class="font-semibold text-slate-900 truncate">{{ r.nombre }} {{ r.apellidos }}</p>
                   <p class="text-[10px] text-slate-400 font-mono">{{ r.curp }}</p>
                 </div>
-                <span class="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">R{{ r.orden }}</span>
+                <span class="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">R{{ r.orden }}</span>
               </div>
             </div>
 
-            <!-- Formulario de responsables -->
-            <div class="space-y-4">
+            <!-- Formulario de responsables (siempre visible si no hay guardados, o si está en modo edición) -->
+            <div v-if="!responsablesForCat(cat.id).length || editingResp[cat.id]" class="space-y-4">
               <div v-for="(r, idx) in newResponsables[cat.id]" :key="idx"
                 class="border border-muted rounded-2xl p-4 space-y-3 bg-slate-50/50">
                 <div class="flex items-center justify-between mb-1">
@@ -404,8 +412,9 @@ const done           = ref(false)
 const activeCategory = ref(null)
 const newPlayers     = reactive({}) // categoryId → [{name, number, position, curp, photo}]
 const categoryErrors = reactive({}) // categoryId → [string]
-const newResponsables  = reactive({}) // categoryId → [{nombre, apellidos, curp, foto}]
+const newResponsables   = reactive({}) // categoryId → [{nombre, apellidos, curp, foto}]
 const responsableErrors = reactive({}) // categoryId → [string]
+const editingResp       = reactive({}) // categoryId → bool (mostrar form de edición)
 
 const registeredPlayers     = ref([])
 const registeredResponsables = ref([])
@@ -499,10 +508,10 @@ function removeResponsable(catId, idx) {
 
 function canSaveResponsables(catId) {
   const rs = newResponsables[catId] || []
-  const required = rs.slice(0, 2)
-  return required.length === 2 &&
-    required.every(r => r.nombre.trim() && r.apellidos.trim() && respCurpStatus(r) === 'valid' && r.foto) &&
-    rs.every(r => !r.nombre.trim() || (r.apellidos.trim() && respCurpStatus(r) === 'valid'))
+  const withName = rs.filter(r => r.nombre.trim())
+  if (withName.length < 2) return false
+  // Todos los que tienen nombre deben tener apellidos y CURP válida
+  return withName.every(r => r.apellidos.trim() && respCurpStatus(r) === 'valid')
 }
 
 // ── CURP helpers ──────────────────────────────────────────────────────────────
@@ -558,11 +567,12 @@ async function saveResponsables(cat) {
       ...registeredResponsables.value.filter(r => String(r.category_id) !== String(cat.id)),
       ...(res.data.saved || [])
     ]
-    // Reset form (keep 2 empty slots)
+    // Reset form y cerrar modo edición
     newResponsables[cat.id] = [
       { nombre: '', apellidos: '', curp: '', foto: '', photoLoading: false },
       { nombre: '', apellidos: '', curp: '', foto: '', photoLoading: false },
     ]
+    editingResp[cat.id] = false
   } catch (e) {
     const err = e.response?.data
     responsableErrors[cat.id] = [err?.error || 'Error al guardar responsables']

@@ -131,7 +131,7 @@
           <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Jugadores</p><p class="text-slate-900">{{ selected.actual_players_count || selected.players_count || 0 }}</p></div>
         </div>
         <!-- Responsables por categoría -->
-        <div v-if="selected.responsables?.length">
+        <div v-if="selectedCategories.length">
           <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Responsables / Cuerpo Técnico</p>
           <div v-for="cat in selectedCategories" :key="cat.id" class="mb-3">
             <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-1.5">{{ cat.name }}</p>
@@ -189,10 +189,7 @@ const autoApprove   = ref(false)
 
 const displayed = computed(() => filterStatus.value ? inscriptions.value.filter(i=>i.status===filterStatus.value) : inscriptions.value)
 
-const selectedCategories = computed(() => {
-  if (!selected.value?.categories_json) return []
-  try { return JSON.parse(selected.value.categories_json) } catch { return [] }
-})
+const selectedCategories = computed(() => selected.value?.categories || [])
 const pending   = computed(() => inscriptions.value.filter(i=>i.status==='pending').length)
 
 const inscriptionUrl = computed(() => {
@@ -248,11 +245,16 @@ async function copyPlayerLink(insc) {
 }
 
 async function showDetail(insc) {
-  selected.value = insc
+  selected.value = { ...insc, categories: [], responsables: [], players: [] }
+  try {
+    // Cargar responsables (endpoint admin, sin restricción de status)
+    const respRes = await api.get(`/inscriptions/${insc.id}/responsables`)
+    selected.value = { ...selected.value, responsables: respRes.data.responsables || [], categories: respRes.data.categories || [] }
+  } catch {}
   if (insc.status === 'approved') {
     try {
       const { data } = await api.get(`/inscriptions/${insc.id}/register`)
-      selected.value = { ...insc, players: data.players || [], responsables: data.responsables || [], categories_json: data.categories_json }
+      selected.value = { ...selected.value, players: data.players || [], categories: data.categories || selected.value.categories }
     } catch {}
   }
 }
