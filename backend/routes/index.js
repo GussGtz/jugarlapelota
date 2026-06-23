@@ -1552,7 +1552,7 @@ router.get('/inscriptions/:id/register', async (req, res) => {
   // Load full category data (with age config)
   if (categories.length) {
     const ids = categories.map(c => c.id)
-    const catRows = (await query('SELECT * FROM categories WHERE id=ANY($1::bigint[])', [ids])).rows
+    const catRows = (await query('SELECT * FROM categories WHERE id=ANY($1::bigint[]) ORDER BY id', [ids])).rows
     categories = catRows
   }
   const players       = (await query('SELECT ip.*,c.name AS "categoryName" FROM inscription_players ip LEFT JOIN categories c ON ip.category_id=c.id WHERE ip.inscription_id=$1 ORDER BY ip.category_id,ip.id', [insc.id])).rows
