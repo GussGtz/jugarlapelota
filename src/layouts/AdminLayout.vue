@@ -68,6 +68,7 @@
         <p class="px-5 pb-2 text-xs font-black uppercase tracking-widest text-slate-400">Panel de administración</p>
 
         <!-- Grid de accesos rápidos -->
+        <div class="overflow-y-auto" style="max-height: calc(75vh - 90px)">
         <div class="grid grid-cols-3 gap-2 px-4 pb-4">
           <router-link v-for="item in drawerQuickLinks" :key="item.to" :to="item.to"
             @click="quickDrawer = false"
@@ -77,6 +78,7 @@
           </router-link>
         </div>
 
+        </div><!-- /scroll wrapper -->
         <!-- Cerrar sesión — siempre visible y destacado -->
         <div class="px-4 pb-4 border-t border-slate-100 pt-3">
           <button @click="handleLogout"
@@ -131,15 +133,21 @@ const adminBottomTabs = [
 ]
 
 const drawerQuickLinks = [
-  { to: '/admin/torneos',       label: 'Torneos',       icon: 'IconTrophy' },
-  { to: '/admin/equipos',       label: 'Equipos',       icon: 'IconShield' },
-  { to: '/admin/jugadores',     label: 'Jugadores',     icon: 'IconUser' },
-  { to: '/admin/inscripciones', label: 'Inscripciones', icon: 'IconClipboardList' },
-  { to: '/admin/tabla',         label: 'Resultados',    icon: 'IconBarChart2' },
-  { to: '/admin/premios',       label: 'Premios',       icon: 'IconMedal' },
-  { to: '/admin/noticias',      label: 'Noticias',      icon: 'IconNewspaper' },
-  { to: '/admin/config',        label: 'Config',        icon: 'IconSettings' },
-  { to: '/admin/analytics',     label: 'Analytics',     icon: 'IconTrendingUp' },
+  { to: '/admin/torneos',        label: 'Torneos',        icon: 'IconTrophy' },
+  { to: '/admin/categorias',     label: 'Categorías',     icon: 'IconLayers' },
+  { to: '/admin/fases',          label: 'Fases',          icon: 'IconShuffle' },
+  { to: '/admin/equipos',        label: 'Equipos',        icon: 'IconShield' },
+  { to: '/admin/jugadores',      label: 'Jugadores',      icon: 'IconUser' },
+  { to: '/admin/partidos',       label: 'Partidos',       icon: 'IconCircleDot' },
+  { to: '/admin/arbitraje',      label: 'Arbitraje',      icon: 'IconShieldCheck' },
+  { to: '/admin/inscripciones',  label: 'Inscripciones',  icon: 'IconClipboardList' },
+  { to: '/admin/tabla',          label: 'Resultados',     icon: 'IconBarChart2' },
+  { to: '/admin/premios',        label: 'Premios',        icon: 'IconMedal' },
+  { to: '/admin/transmisiones',  label: 'Transmisiones',  icon: 'IconRadio' },
+  { to: '/admin/galeria',        label: 'Galería',        icon: 'IconImage' },
+  { to: '/admin/noticias',       label: 'Noticias',       icon: 'IconNewspaper' },
+  { to: '/admin/analytics',      label: 'Analytics',      icon: 'IconTrendingUp' },
+  { to: '/admin/config',         label: 'Config',         icon: 'IconSettings' },
 ]
 </script>
 
