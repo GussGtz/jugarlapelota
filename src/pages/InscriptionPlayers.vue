@@ -515,8 +515,7 @@ function canSaveResponsables(catId) {
   const rs = newResponsables[catId] || []
   const withName = rs.filter(r => r.nombre.trim())
   if (withName.length < 2) return false
-  // Todos los que tienen nombre deben tener apellidos y CURP válida
-  return withName.every(r => r.apellidos.trim() && respCurpStatus(r) === 'valid')
+  return withName.every(r => r.apellidos.trim())
 }
 
 // ── CURP helpers ──────────────────────────────────────────────────────────────

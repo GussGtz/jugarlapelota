@@ -1710,9 +1710,6 @@ router.post('/inscriptions/:id/responsables', async (req, res) => {
   if (responsables.length > 3) return res.status(400).json({ error: 'Máximo 3 responsables por categoría' })
   for (const r of responsables) {
     if (!r.nombre?.trim() || !r.apellidos?.trim()) return res.status(400).json({ error: 'Nombre y apellidos son obligatorios para cada responsable' })
-    if (!r.curp?.trim()) return res.status(400).json({ error: 'La CURP es obligatoria para cada responsable' })
-    const parsed = parseCURP(r.curp)
-    if (!parsed) return res.status(400).json({ error: `CURP inválida: ${r.curp}` })
   }
   // Reemplazar responsables de esta categoría
   await query('DELETE FROM inscription_responsables WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])
@@ -1721,11 +1718,32 @@ router.post('/inscriptions/:id/responsables', async (req, res) => {
     const r = responsables[i]
     const row = await queryOne(
       'INSERT INTO inscription_responsables (inscription_id,category_id,nombre,apellidos,curp,foto,orden) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [insc.id, categoryId, r.nombre.trim(), r.apellidos.trim(), r.curp.trim().toUpperCase(), r.foto||null, i+1]
+      [insc.id, categoryId, r.nombre.trim(), r.apellidos.trim(), r.curp ? r.curp.trim().toUpperCase() : null, r.foto||null, i+1]
     )
     saved.push(row)
   }
   res.status(201).json({ saved })
+})
+
+// Todos los responsables de un torneo (admin)
+router.get('/tournaments/:slug/responsables', authMiddleware, adminOnly, async (req, res) => {
+  const t = await getTournament(req.params.slug); if (!t) return notFound(res)
+  const catId = req.query.cat ? parseInt(req.query.cat) : null
+  const sql = catId
+    ? `SELECT r.*,i.team_name,c.name AS "categoryName"
+       FROM inscription_responsables r
+       JOIN inscriptions i ON r.inscription_id=i.id
+       LEFT JOIN categories c ON r.category_id=c.id
+       WHERE i.tournament_id=$1 AND r.category_id=$2
+       ORDER BY c.name,i.team_name,r.orden`
+    : `SELECT r.*,i.team_name,c.name AS "categoryName"
+       FROM inscription_responsables r
+       JOIN inscriptions i ON r.inscription_id=i.id
+       LEFT JOIN categories c ON r.category_id=c.id
+       WHERE i.tournament_id=$1
+       ORDER BY c.name,i.team_name,r.orden`
+  const rows = (await query(sql, catId ? [t.id, catId] : [t.id])).rows
+  res.json(rows)
 })
 
 // ── Awards ────────────────────────────────────────────────────────────────
