@@ -2622,15 +2622,13 @@ router.delete('/referees/:id', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ── Árbitro: partidos asignables ─────────────────────────────────────────
-// GET /referee/matches — partidos del torneo: scheduled + live propios del árbitro
+// GET /referee/matches — todos los partidos globales: scheduled + live propios del árbitro
 router.get('/referee/matches', authMiddleware, async (req, res) => {
   if (req.user?.role !== 'referee' && req.user?.role !== 'admin') {
     return res.status(403).json({ error: 'Acceso denegado' })
   }
-  const referee = (await queryOne('SELECT tournament_id FROM users WHERE id=$1', [req.user.id]))
-  const tournamentId = referee?.tournament_id
 
-  let sql = `
+  const rows = (await query(`
     SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
            ht.logo AS "homeLogo", at.logo AS "awayLogo",
            t.name AS "tournamentName", t.slug AS "tournamentSlug",
@@ -2647,23 +2645,13 @@ router.get('/referee/matches', authMiddleware, async (req, res) => {
     )
     AND COALESCE(m.home_is_tbd, 0) = 0
     AND COALESCE(m.away_is_tbd, 0) = 0
-  `
-  // $1 = req.user.id (para filtrar partidos live del árbitro)
-  const params = [req.user.id]
-  if (tournamentId) {
-    params.push(tournamentId)
-    sql += ` AND m.tournament_id=$${params.length}`
-  }
-  sql += ' ORDER BY m.date ASC LIMIT 100'
+    ORDER BY m.date ASC LIMIT 100
+  `, [req.user.id])).rows
 
-  const rows = (await query(sql, params)).rows
+  // Devolver categorías de todos los torneos activos para el filtro
+  const categories = (await query('SELECT DISTINCT c.id, c.name FROM categories c JOIN matches m ON m.category_id=c.id WHERE m.status=\'scheduled\' OR m.status=\'live\' ORDER BY c.name ASC')).rows
 
-  // También devolver las categorías del torneo para el filtro
-  const categories = tournamentId
-    ? (await query('SELECT id, name FROM categories WHERE tournament_id=$1 ORDER BY name ASC', [tournamentId])).rows
-    : []
-
-  res.json({ matches: rows, categories, tournamentId, tournamentName: rows[0]?.tournamentName || null })
+  res.json({ matches: rows, categories, tournamentId: null, tournamentName: null })
 })
 
 // ── Admin stats ───────────────────────────────────────────────────────────
