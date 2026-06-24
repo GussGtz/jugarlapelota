@@ -65,6 +65,15 @@
             :style="{ background: tournament?.primary_color || '#0ea5e9' }">
             Ver Partidos
           </router-link>
+          <button v-if="pushSupported" @click="toggleFollow" :disabled="followLoading"
+            class="px-8 py-3 rounded-xl font-bold uppercase tracking-wide text-sm transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
+            :class="isFollowed
+              ? 'bg-white/20 backdrop-blur-sm text-white border border-white/30 hover:bg-white/30'
+              : 'bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20'">
+            <IconBell v-if="!isFollowed" class="w-4 h-4" />
+            <IconBellRing v-else class="w-4 h-4 text-yellow-300" />
+            {{ isFollowed ? 'Siguiendo' : 'Seguir torneo' }}
+          </button>
         </div>
 
         <!-- Scroll indicator -->
@@ -832,8 +841,27 @@ import { useTournament } from '@/composables/useTournament'
 import { onTournamentMatch, onStandingsUpdate } from '@/services/socket'
 import api from '@/api'
 import MatchCard from '@/components/MatchCard/MatchCard.vue'
+import { useFollowingStore } from '@/stores/following'
+import { usePWA } from '@/composables/usePWA'
 
 const { slug, tournament } = useTournament()
+const following = useFollowingStore()
+const { pushSupported, pushGranted, subscribePush, pushEndpoint } = usePWA()
+
+const isFollowed = computed(() => tournament.value ? following.isFollowingTournament(tournament.value.id) : false)
+const followLoading = ref(false)
+
+async function toggleFollow() {
+  if (!tournament.value) return
+  followLoading.value = true
+  if (!pushGranted.value) {
+    const ok = await subscribePush()
+    if (!ok) { followLoading.value = false; return }
+    await following.syncFromServer(pushEndpoint.value)
+  }
+  await following.toggleTournament(tournament.value.id, pushEndpoint.value)
+  followLoading.value = false
+}
 
 const matches      = ref([])
 const standings    = ref([])

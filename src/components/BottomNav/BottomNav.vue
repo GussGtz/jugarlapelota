@@ -148,48 +148,76 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <component :is="IcHeart" class="w-5 h-5 text-red-400" />
-              <h3 class="text-base font-black text-slate-900">Mis equipos</h3>
-              <span v-if="followedTeams.length" class="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                {{ followedTeams.length }}
+              <h3 class="text-base font-black text-slate-900">Siguiendo</h3>
+              <span v-if="following.count" class="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                {{ following.count }}
               </span>
             </div>
             <button @click="followingDrawerOpen = false" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors text-lg font-bold">×</button>
           </div>
         </div>
         <div class="flex-1 overflow-y-auto px-4 pb-2">
-          <div v-if="teamsLoading" class="flex justify-center py-10">
+          <div v-if="followingLoading" class="flex justify-center py-10">
             <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
           </div>
-          <div v-else-if="teamsError" class="flex flex-col items-center justify-center py-10 gap-3">
+          <div v-else-if="followingError" class="flex flex-col items-center justify-center py-10 gap-3">
             <div class="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
               <component :is="IcShield" class="w-8 h-8 text-red-300" />
             </div>
-            <p class="font-semibold text-slate-500 text-sm">No se pudieron cargar los equipos</p>
+            <p class="font-semibold text-slate-500 text-sm">No se pudieron cargar los datos</p>
             <button @click="openFollowingDrawer" class="text-xs text-primary font-bold px-4 py-2 rounded-xl bg-primary/10">Reintentar</button>
           </div>
-          <div v-else-if="!followedTeams.length" class="flex flex-col items-center justify-center py-10 gap-3">
+          <div v-else-if="!followedTeams.length && !followedTournaments.length" class="flex flex-col items-center justify-center py-10 gap-3">
             <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
               <component :is="IcHeart" class="w-8 h-8 text-slate-300" />
             </div>
-            <p class="font-semibold text-slate-500 text-sm">No sigues ningún equipo</p>
-            <p class="text-xs text-slate-400 text-center">Entra al perfil de un equipo y toca "Seguir"</p>
+            <p class="font-semibold text-slate-500 text-sm">No sigues nada aún</p>
+            <p class="text-xs text-slate-400 text-center">Sigue equipos o torneos para verlos aquí</p>
           </div>
-          <div v-else class="space-y-2">
-            <button
-              v-for="team in followedTeams" :key="team.id"
-              @click="goToTeam(team)"
-              class="w-full flex items-center gap-3 bg-white border border-slate-100 rounded-2xl px-4 py-3 shadow-sm text-left active:scale-[0.98] transition-transform">
-              <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-                :style="team.color ? `background:${team.color}22` : 'background:#f1f5f9'">
-                <img v-if="team.logo" :src="team.logo" class="w-full h-full object-contain p-1" />
-                <component v-else :is="IcShield" class="w-6 h-6 text-slate-400" />
+          <div v-else class="space-y-4">
+            <!-- Torneos seguidos -->
+            <div v-if="followedTournaments.length">
+              <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
+                <component :is="IcTrophy" class="w-3 h-3" /> Torneos
+              </p>
+              <div class="space-y-2">
+                <button v-for="t in followedTournaments" :key="t.id"
+                  @click="goToTournament(t)"
+                  class="w-full flex items-center gap-3 bg-white border border-slate-100 rounded-2xl px-4 py-3 shadow-sm text-left active:scale-[0.98] transition-transform">
+                  <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden bg-slate-100">
+                    <img v-if="t.logo" :src="t.logo" class="w-full h-full object-contain p-1" />
+                    <component v-else :is="IcTrophy" class="w-6 h-6 text-slate-400" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-bold text-slate-900 text-sm truncate">{{ t.name }}</p>
+                    <p class="text-xs text-slate-400 truncate">{{ t.location }}</p>
+                  </div>
+                  <component :is="IcChevronRight" class="w-4 h-4 text-slate-300 shrink-0" />
+                </button>
               </div>
-              <div class="flex-1 min-w-0">
-                <p class="font-bold text-slate-900 text-sm truncate">{{ team.name }}</p>
-                <p class="text-xs text-slate-400 truncate">{{ team.tournamentName }}</p>
+            </div>
+            <!-- Equipos seguidos -->
+            <div v-if="followedTeams.length">
+              <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
+                <component :is="IcShield" class="w-3 h-3" /> Equipos
+              </p>
+              <div class="space-y-2">
+                <button v-for="team in followedTeams" :key="team.id"
+                  @click="goToTeam(team)"
+                  class="w-full flex items-center gap-3 bg-white border border-slate-100 rounded-2xl px-4 py-3 shadow-sm text-left active:scale-[0.98] transition-transform">
+                  <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+                    :style="team.color ? `background:${team.color}22` : 'background:#f1f5f9'">
+                    <img v-if="team.logo" :src="team.logo" class="w-full h-full object-contain p-1" />
+                    <component v-else :is="IcShield" class="w-6 h-6 text-slate-400" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-bold text-slate-900 text-sm truncate">{{ team.name }}</p>
+                    <p class="text-xs text-slate-400 truncate">{{ team.tournamentName }}</p>
+                  </div>
+                  <component :is="IcChevronRight" class="w-4 h-4 text-slate-300 shrink-0" />
+                </button>
               </div>
-              <component :is="IcChevronRight" class="w-4 h-4 text-slate-300 shrink-0" />
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -216,11 +244,12 @@ const liveDrawerOpen      = ref(false)
 const followingDrawerOpen = ref(false)
 const tappedTab           = ref(null)
 
-const liveMatches   = ref([])
-const liveLoading   = ref(false)
-const followedTeams = ref([])
-const teamsLoading  = ref(false)
-const teamsError    = ref(false)
+const liveMatches        = ref([])
+const liveLoading        = ref(false)
+const followedTeams      = ref([])
+const followedTournaments = ref([])
+const followingLoading   = ref(false)
+const followingError     = ref(false)
 
 const liveCount = computed(() => matches.live?.length ?? 0)
 
@@ -275,27 +304,40 @@ async function openLiveDrawer() {
 
 async function openFollowingDrawer() {
   followingDrawerOpen.value = true
-  const ids = [...following.teamIds].map(Number)
-  if (!ids.length) return
+  const teamIds       = [...following.teamIds].map(Number)
+  const tournamentIds = [...following.tournamentIds].map(Number)
+  if (!teamIds.length && !tournamentIds.length) return
 
-  teamsLoading.value = true
-  teamsError.value   = false
-  followedTeams.value = []
+  followingLoading.value    = true
+  followingError.value      = false
+  followedTeams.value       = []
+  followedTournaments.value = []
 
   try {
-    const { data } = await api.get('/teams')
-    const existingIds = new Set(data.map(t => Number(t.id)))
+    const [teamsRes, tourRes] = await Promise.all([
+      teamIds.length ? api.get('/teams') : Promise.resolve({ data: [] }),
+      tournamentIds.length ? api.get('/tournaments') : Promise.resolve({ data: [] }),
+    ])
 
-    // Filtrar primero, limpiar stale IDs solo si la llamada fue exitosa
-    followedTeams.value = data.filter(t => ids.includes(Number(t.id)))
+    if (teamIds.length) {
+      const existingIds = new Set(teamsRes.data.map(t => Number(t.id)))
+      followedTeams.value = teamsRes.data.filter(t => teamIds.includes(Number(t.id)))
+      for (const id of teamIds) {
+        if (!existingIds.has(id)) following.unfollow(id)
+      }
+    }
 
-    for (const id of ids) {
-      if (!existingIds.has(id)) following.unfollow(id)
+    if (tournamentIds.length) {
+      const existingIds = new Set(tourRes.data.map(t => Number(t.id)))
+      followedTournaments.value = tourRes.data.filter(t => tournamentIds.includes(Number(t.id)))
+      for (const id of tournamentIds) {
+        if (!existingIds.has(id)) following.unfollowTournament(id)
+      }
     }
   } catch {
-    teamsError.value = true
+    followingError.value = true
   } finally {
-    teamsLoading.value = false
+    followingLoading.value = false
   }
 }
 
@@ -314,6 +356,11 @@ function goToMatch(m) {
 function goToTeam(team) {
   followingDrawerOpen.value = false
   router.push(`/${team.tournamentSlug}/equipo/${team.id}`)
+}
+
+function goToTournament(t) {
+  followingDrawerOpen.value = false
+  router.push(`/${t.slug}`)
 }
 </script>
 

@@ -776,16 +776,14 @@ router.patch('/matches/:id/status', authMiddleware, adminOnly, async (req, res) 
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
-    global.sendPushToTeams?.([m.home_team, m.away_team], {
-      type: 'match:finished', title: 'Resultado final',
-      body: `${m.homeTeam} ${m.home_score} - ${m.away_score} ${m.awayTeam}`, url: `/partidos`
-    })
+    const finishedPayload = { type: 'match:finished', title: '⚽ Resultado final', body: `${m.homeTeam} ${m.home_score} - ${m.away_score} ${m.awayTeam}`, url: `/partidos` }
+    global.sendPushToTeams?.([m.home_team, m.away_team], finishedPayload)
+    global.sendPushToTournaments?.([m.tournament_id], finishedPayload)
   }
   if (status === 'live') {
-    global.sendPushToTeams?.([m.home_team, m.away_team], {
-      type: 'match:live', title: 'Partido en vivo',
-      body: `${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url: `/partidos`
-    })
+    const livePayload = { type: 'match:live', title: '🔴 Partido en vivo', body: `${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url: `/partidos` }
+    global.sendPushToTeams?.([m.home_team, m.away_team], livePayload)
+    global.sendPushToTournaments?.([m.tournament_id], livePayload)
   }
   req.io?.emit(status === 'live' ? 'match:live' : 'match:update', m)
   res.json(m)
@@ -929,10 +927,9 @@ router.patch('/matches/:id/start', authMiddleware, refereeOrAdmin, async (req, r
   await query("UPDATE matches SET status='live', started_at=$1, referee_id=COALESCE(referee_id,$2) WHERE id=$3", [now, refereeId, req.params.id])
   const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam" FROM matches m
     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id WHERE m.id=$1`, [req.params.id]))
-  global.sendPushToTeams?.([m.home_team, m.away_team], {
-    type:'match:live', title:'🔴 ¡Partido en vivo!',
-    body:`${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url:`/partidos`
-  })
+  const startPayload = { type:'match:live', title:'🔴 ¡Partido en vivo!', body:`${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url:`/partidos` }
+  global.sendPushToTeams?.([m.home_team, m.away_team], startPayload)
+  global.sendPushToTournaments?.([m.tournament_id], startPayload)
   req.io?.emit('match:live', m)
   res.json(m)
 })
@@ -1468,9 +1465,11 @@ router.post('/news', authMiddleware, adminOnly, async (req, res) => {
   const news = r.rows[0]
   // Push en background — no bloquea la respuesta ni crashea si falla
   setImmediate(() => {
+    const newsPayload = { type:'news', title:'📰 Nueva noticia', body: title, url:'/noticias' }
     query('SELECT id FROM teams WHERE tournament_id=$1', [tournamentId])
-      .then(({ rows }) => global.sendPushToTeams?.(rows.map(t => t.id), { type:'news', title:'📰 Nueva noticia', body: title, url:'/noticias' }))
+      .then(({ rows }) => global.sendPushToTeams?.(rows.map(t => t.id), newsPayload))
       .catch(() => {})
+    global.sendPushToTournaments?.([tournamentId], newsPayload)
   })
   res.status(201).json(news)
 })
@@ -2991,12 +2990,12 @@ router.post('/push/subscribe', optionalAuth, async (req, res) => {
 router.post('/push/unsubscribe', async (req, res) => {
   const { endpoint } = req.body
   await query('DELETE FROM team_follows WHERE endpoint=$1', [endpoint])
+  await query('DELETE FROM tournament_follows WHERE endpoint=$1', [endpoint])
   await query('DELETE FROM push_subscriptions WHERE endpoint=$1', [endpoint])
   res.json({ ok: true })
 })
 
-// ── Team follows (by push endpoint) ───────────────────────────────────────
-// Get followed team IDs for an endpoint
+// ── Team follows ───────────────────────────────────────────────────────────
 router.post('/follows', async (req, res) => {
   const { endpoint } = req.body
   if (!endpoint) return res.json([])
@@ -3004,21 +3003,43 @@ router.post('/follows', async (req, res) => {
   res.json(rows.map(r => r.team_id))
 })
 
-// Follow a team
 router.post('/follows/add', async (req, res) => {
   const { endpoint, teamId } = req.body
   if (!endpoint || !teamId) return res.status(400).json({ error: 'Faltan datos' })
   try {
-    await query('INSERT INTO team_follows (endpoint, team_id) VALUES ($1,$2) RETURNING id', [endpoint, teamId])
+    await query('INSERT INTO team_follows (endpoint, team_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, teamId])
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-// Unfollow a team
 router.post('/follows/remove', async (req, res) => {
   const { endpoint, teamId } = req.body
   if (!endpoint || !teamId) return res.status(400).json({ error: 'Faltan datos' })
   await query('DELETE FROM team_follows WHERE endpoint=$1 AND team_id=$2', [endpoint, teamId])
+  res.json({ ok: true })
+})
+
+// ── Tournament follows ─────────────────────────────────────────────────────
+router.post('/follows/tournaments', async (req, res) => {
+  const { endpoint } = req.body
+  if (!endpoint) return res.json([])
+  const rows = (await query('SELECT tournament_id FROM tournament_follows WHERE endpoint=$1', [endpoint])).rows
+  res.json(rows.map(r => r.tournament_id))
+})
+
+router.post('/follows/tournament/add', async (req, res) => {
+  const { endpoint, tournamentId } = req.body
+  if (!endpoint || !tournamentId) return res.status(400).json({ error: 'Faltan datos' })
+  try {
+    await query('INSERT INTO tournament_follows (endpoint, tournament_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, tournamentId])
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+router.post('/follows/tournament/remove', async (req, res) => {
+  const { endpoint, tournamentId } = req.body
+  if (!endpoint || !tournamentId) return res.status(400).json({ error: 'Faltan datos' })
+  await query('DELETE FROM tournament_follows WHERE endpoint=$1 AND tournament_id=$2', [endpoint, tournamentId])
   res.json({ ok: true })
 })
 
@@ -3036,24 +3057,38 @@ function sendPush(subs, payload) {
   }
 }
 
-// Send only to subscribers following at least one of the given team IDs
 async function sendPushToTeams(teamIds, payload) {
   if (!teamIds?.length) return
-  const endpoints = (await query(`SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
+  const ph = teamIds.map((_, i) => `$${i + 1}`).join(',')
+  const endpoints = (await query(
+    `SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
      FROM push_subscriptions ps
      INNER JOIN team_follows tf ON tf.endpoint = ps.endpoint
-     WHERE tf.team_id IN (${placeholders})`, [...teamIds])).rows
+     WHERE tf.team_id IN (${ph})`, [...teamIds]
+  )).rows
   sendPush(endpoints, payload)
 }
 
-// Send to ALL subscribers — only for admin-triggered announcements
+async function sendPushToTournaments(tournamentIds, payload) {
+  if (!tournamentIds?.length) return
+  const ph = tournamentIds.map((_, i) => `$${i + 1}`).join(',')
+  const endpoints = (await query(
+    `SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
+     FROM push_subscriptions ps
+     INNER JOIN tournament_follows tf ON tf.endpoint = ps.endpoint
+     WHERE tf.tournament_id IN (${ph})`, [...tournamentIds]
+  )).rows
+  sendPush(endpoints, payload)
+}
+
 async function sendPushToAll(payload) {
   const subs = (await query('SELECT * FROM push_subscriptions', [])).rows
   sendPush(subs, payload)
 }
 
-global.sendPushToAll   = sendPushToAll
-global.sendPushToTeams = sendPushToTeams
+global.sendPushToAll         = sendPushToAll
+global.sendPushToTeams       = sendPushToTeams
+global.sendPushToTournaments = sendPushToTournaments
 
 // ══════════════════════════════════════════════════════════
 //  SOLICITUDES DE ADMIN

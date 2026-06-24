@@ -191,6 +191,12 @@ const PG_MIGRATIONS = [
     orden          INTEGER DEFAULT 1,
     created_at     TIMESTAMPTZ DEFAULT NOW()
   )`,
+  `CREATE TABLE IF NOT EXISTS tournament_follows (
+    endpoint      TEXT NOT NULL,
+    tournament_id BIGINT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (endpoint, tournament_id)
+  )`,
 ]
 
 module.exports = { PG_SCHEMA, PG_MIGRATIONS }
