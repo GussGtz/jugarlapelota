@@ -65,31 +65,31 @@
       </template>
     </div>
 
-    <!-- ── DRAWER: En Vivo ─────────────────────────────── -->
+  </nav>
+
+  <!-- ── DRAWER: En Vivo (teleport fuera del nav para evitar backdrop-filter stacking context) ── -->
+  <Teleport to="body">
     <Transition name="fade-overlay">
-      <div v-if="liveDrawerOpen" class="fixed inset-0 bg-black/40 z-40" @click="liveDrawerOpen = false" />
+      <div v-if="liveDrawerOpen" class="fixed inset-0 bg-black/40 z-[100]" @click="liveDrawerOpen = false" />
     </Transition>
     <Transition name="slide-up-drawer">
       <div v-if="liveDrawerOpen"
-        class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl"
+        class="fixed bottom-0 left-0 right-0 z-[101] bg-white rounded-t-3xl"
         style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem); max-height: 75vh; display: flex; flex-direction: column;">
-        <!-- Handle + header -->
         <div class="shrink-0 px-5 pt-4 pb-3">
           <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-            <h3 class="text-base font-black text-slate-900">Partidos en vivo</h3>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+              <h3 class="text-base font-black text-slate-900">Partidos en vivo</h3>
+            </div>
+            <button @click="liveDrawerOpen = false" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors text-lg font-bold">×</button>
           </div>
         </div>
-
-        <!-- Contenido scrollable -->
         <div class="flex-1 overflow-y-auto px-4 pb-2">
-          <!-- Loading -->
           <div v-if="liveLoading" class="flex justify-center py-10">
             <div class="w-6 h-6 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
           </div>
-
-          <!-- Sin partidos -->
           <div v-else-if="!liveMatches.length" class="flex flex-col items-center justify-center py-10 gap-3">
             <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
               <component :is="IcCircle" class="w-8 h-8 text-slate-300" />
@@ -97,21 +97,17 @@
             <p class="font-semibold text-slate-500 text-sm">No hay partidos en vivo</p>
             <p class="text-xs text-slate-400 text-center">Cuando empiece un partido aparecerá aquí en tiempo real</p>
           </div>
-
-          <!-- Lista de partidos -->
           <div v-else class="space-y-3">
             <button
               v-for="m in liveMatches" :key="m.id"
               @click="goToMatch(m)"
               class="w-full bg-white border border-slate-100 rounded-2xl p-4 shadow-sm text-left active:scale-[0.98] transition-transform">
-              <!-- Torneo + categoría -->
               <div class="flex items-center gap-1.5 mb-3">
                 <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
                 <span class="text-[10px] font-bold text-red-500 uppercase tracking-wider">En Vivo</span>
                 <span class="text-[10px] text-slate-400">· {{ m.tournamentName }}</span>
                 <span v-if="m.categoryName" class="text-[10px] text-slate-400">· {{ m.categoryName }}</span>
               </div>
-              <!-- Marcador -->
               <div class="flex items-center justify-between gap-2">
                 <div class="flex-1 flex items-center gap-2 min-w-0">
                   <div class="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
@@ -136,46 +132,41 @@
         </div>
       </div>
     </Transition>
+  </Teleport>
 
-    <!-- ── DRAWER: Siguiendo ───────────────────────────── -->
+  <!-- ── DRAWER: Siguiendo ── -->
+  <Teleport to="body">
     <Transition name="fade-overlay">
-      <div v-if="followingDrawerOpen" class="fixed inset-0 bg-black/40 z-40" @click="followingDrawerOpen = false" />
+      <div v-if="followingDrawerOpen" class="fixed inset-0 bg-black/40 z-[100]" @click="followingDrawerOpen = false" />
     </Transition>
     <Transition name="slide-up-drawer">
       <div v-if="followingDrawerOpen"
-        class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl"
+        class="fixed bottom-0 left-0 right-0 z-[101] bg-white rounded-t-3xl"
         style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem); max-height: 75vh; display: flex; flex-direction: column;">
-        <!-- Handle + header -->
         <div class="shrink-0 px-5 pt-4 pb-3">
           <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <div class="flex items-center gap-2">
-            <component :is="IcHeart" class="w-5 h-5 text-red-400" />
-            <h3 class="text-base font-black text-slate-900">Mis equipos</h3>
-            <span v-if="followedTeams.length" class="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-              {{ followedTeams.length }}
-            </span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <component :is="IcHeart" class="w-5 h-5 text-red-400" />
+              <h3 class="text-base font-black text-slate-900">Mis equipos</h3>
+              <span v-if="followedTeams.length" class="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                {{ followedTeams.length }}
+              </span>
+            </div>
+            <button @click="followingDrawerOpen = false" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors text-lg font-bold">×</button>
           </div>
         </div>
-
-        <!-- Contenido scrollable -->
         <div class="flex-1 overflow-y-auto px-4 pb-2">
-          <!-- Loading -->
           <div v-if="teamsLoading" class="flex justify-center py-10">
             <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
           </div>
-
-          <!-- Error de red -->
           <div v-else-if="teamsError" class="flex flex-col items-center justify-center py-10 gap-3">
             <div class="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
               <component :is="IcShield" class="w-8 h-8 text-red-300" />
             </div>
             <p class="font-semibold text-slate-500 text-sm">No se pudieron cargar los equipos</p>
-            <button @click="openFollowingDrawer" class="text-xs text-primary font-bold px-4 py-2 rounded-xl bg-primary/10">
-              Reintentar
-            </button>
+            <button @click="openFollowingDrawer" class="text-xs text-primary font-bold px-4 py-2 rounded-xl bg-primary/10">Reintentar</button>
           </div>
-
-          <!-- Sin equipos seguidos -->
           <div v-else-if="!followedTeams.length" class="flex flex-col items-center justify-center py-10 gap-3">
             <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
               <component :is="IcHeart" class="w-8 h-8 text-slate-300" />
@@ -183,8 +174,6 @@
             <p class="font-semibold text-slate-500 text-sm">No sigues ningún equipo</p>
             <p class="text-xs text-slate-400 text-center">Entra al perfil de un equipo y toca "Seguir"</p>
           </div>
-
-          <!-- Lista de equipos -->
           <div v-else class="space-y-2">
             <button
               v-for="team in followedTeams" :key="team.id"
@@ -205,8 +194,7 @@
         </div>
       </div>
     </Transition>
-
-  </nav>
+  </Teleport>
 </template>
 
 <script setup>
@@ -261,9 +249,8 @@ const tournamentTabs = computed(() => [
 
 const globalTabs = computed(() => {
   const base = [
-    { key: 'inicio',  label: 'Inicio',   icon: IcHome,   path: '/',        active: route.path === '/' },
-    { key: 'torneos', label: 'Torneos',  icon: IcTrophy, path: '/torneos', active: isActive('/torneos') },
-    { key: 'live',    label: 'En Vivo',  icon: IcCircle, path: null,       active: false },
+    { key: 'inicio', label: 'Inicio',  icon: IcHome,   path: '/',   active: route.path === '/' },
+    { key: 'live',   label: 'En Vivo', icon: IcCircle, path: null,  active: false },
   ]
   if (auth.isFan) {
     base.push({ key: 'siguiendo', label: 'Siguiendo', icon: IcHeart, path: null, active: false, badge: following.count || null })
