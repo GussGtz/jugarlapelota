@@ -770,18 +770,18 @@ router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, r
 router.patch('/matches/:id/status', authMiddleware, adminOnly, async (req, res) => {
   const { status } = req.body
   await query('UPDATE matches SET status=$1 WHERE id=$2', [status, req.params.id])
-  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id WHERE m.id=$1`, [req.params.id]))
+  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",t.slug AS "tournamentSlug" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id JOIN tournaments t ON m.tournament_id=t.id WHERE m.id=$1`, [req.params.id]))
   if (status === 'finished') {
     if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
-    const finishedPayload = { type: 'match:finished', title: '⚽ Resultado final', body: `${m.homeTeam} ${m.home_score} - ${m.away_score} ${m.awayTeam}`, url: `/partidos` }
+    const finishedPayload = { type: 'match:finished', title: '⚽ Resultado final', body: `${m.homeTeam} ${m.home_score} - ${m.away_score} ${m.awayTeam}`, url: `/${m.tournamentSlug}/partidos`, tag: `match-${m.id}` }
     global.sendPushToTeams?.([m.home_team, m.away_team], finishedPayload)
     global.sendPushToTournaments?.([m.tournament_id], finishedPayload)
   }
   if (status === 'live') {
-    const livePayload = { type: 'match:live', title: '🔴 Partido en vivo', body: `${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url: `/partidos` }
+    const livePayload = { type: 'match:live', title: '🔴 Partido en vivo', body: `${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url: `/${m.tournamentSlug}/partidos`, tag: `match-${m.id}` }
     global.sendPushToTeams?.([m.home_team, m.away_team], livePayload)
     global.sendPushToTournaments?.([m.tournament_id], livePayload)
   }
@@ -925,9 +925,9 @@ router.patch('/matches/:id/start', authMiddleware, refereeOrAdmin, async (req, r
   const now = new Date().toISOString()
   const refereeId = req.user?.id || null
   await query("UPDATE matches SET status='live', started_at=$1, referee_id=COALESCE(referee_id,$2) WHERE id=$3", [now, refereeId, req.params.id])
-  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam" FROM matches m
-    JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id WHERE m.id=$1`, [req.params.id]))
-  const startPayload = { type:'match:live', title:'🔴 ¡Partido en vivo!', body:`${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url:`/partidos` }
+  const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",t.slug AS "tournamentSlug" FROM matches m
+    JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id JOIN tournaments t ON m.tournament_id=t.id WHERE m.id=$1`, [req.params.id]))
+  const startPayload = { type:'match:live', title:'🔴 ¡Partido en vivo!', body:`${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url:`/${m.tournamentSlug}/partidos`, tag:`match-${m.id}` }
   global.sendPushToTeams?.([m.home_team, m.away_team], startPayload)
   global.sendPushToTournaments?.([m.tournament_id], startPayload)
   req.io?.emit('match:live', m)
@@ -1465,11 +1465,14 @@ router.post('/news', authMiddleware, adminOnly, async (req, res) => {
   const news = r.rows[0]
   // Push en background — no bloquea la respuesta ni crashea si falla
   setImmediate(() => {
-    const newsPayload = { type:'news', title:'📰 Nueva noticia', body: title, url:'/noticias' }
-    query('SELECT id FROM teams WHERE tournament_id=$1', [tournamentId])
-      .then(({ rows }) => global.sendPushToTeams?.(rows.map(t => t.id), newsPayload))
-      .catch(() => {})
-    global.sendPushToTournaments?.([tournamentId], newsPayload)
+    queryOne('SELECT slug FROM tournaments WHERE id=$1', [tournamentId]).then(tour => {
+      const newsUrl = tour ? `/${tour.slug}/noticias` : '/noticias'
+      const newsPayload = { type:'news', title:'📰 Nueva noticia', body: title, url: newsUrl, tag: `news-${tournamentId}` }
+      query('SELECT id FROM teams WHERE tournament_id=$1', [tournamentId])
+        .then(({ rows }) => global.sendPushToTeams?.(rows.map(t => t.id), newsPayload))
+        .catch(() => {})
+      global.sendPushToTournaments?.([tournamentId], newsPayload)
+    }).catch(() => {})
   })
   res.status(201).json(news)
 })

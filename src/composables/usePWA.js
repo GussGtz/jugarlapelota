@@ -7,6 +7,7 @@ const pushSupported  = ref(false)
 const pushGranted    = ref(false)
 const pushSub        = ref(null)
 const pushEndpoint   = ref(localStorage.getItem('jlp_push_endpoint') || null)
+const pushError      = ref('')
 
 // Detect install state
 if (typeof window !== 'undefined') {
@@ -16,6 +17,13 @@ if (typeof window !== 'undefined') {
   })
   window.addEventListener('appinstalled', () => { isInstalled.value = true })
   if (window.matchMedia('(display-mode: standalone)').matches) isInstalled.value = true
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = atob(base64)
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
 }
 
 export function usePWA() {
@@ -34,31 +42,55 @@ export function usePWA() {
 
   async function subscribePush() {
     if (!pushSupported.value) return false
+    pushError.value = ''
     try {
       const permission = await Notification.requestPermission()
+      if (permission === 'denied') {
+        pushError.value = 'Bloqueaste las notificaciones. Actívalas en la configuración de tu navegador.'
+        return false
+      }
       if (permission !== 'granted') return false
       pushGranted.value = true
 
+      // Obtener SW registrado
       const reg = await navigator.serviceWorker.ready
+
+      // Obtener VAPID key del servidor
       const { data } = await api.get('/push/vapid-public-key')
+      if (!data?.publicKey) {
+        pushError.value = 'Error de configuración del servidor. Intenta más tarde.'
+        console.error('[Push] Servidor no devolvió VAPID public key')
+        return false
+      }
 
-      // Convert base64 key to Uint8Array
-      const key = data.publicKey
-      const padding = '='.repeat((4 - key.length % 4) % 4)
-      const base64 = (key + padding).replace(/-/g, '+').replace(/_/g, '/')
-      const rawKey = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+      // Verificar si ya hay una suscripción activa
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(data.publicKey)
+        })
+      }
 
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: rawKey
-      })
       pushSub.value      = sub
       pushEndpoint.value = sub.endpoint
       localStorage.setItem('jlp_push_endpoint', sub.endpoint)
-      await api.post('/push/subscribe', sub.toJSON())
+
+      // Registrar en el servidor
+      const payload = sub.toJSON()
+      await api.post('/push/subscribe', {
+        endpoint: payload.endpoint,
+        keys:     payload.keys,
+      })
+
       return true
     } catch (e) {
-      console.warn('Push subscribe failed:', e)
+      if (e.name === 'NotAllowedError') {
+        pushError.value = 'Permiso de notificaciones denegado.'
+      } else {
+        pushError.value = 'No se pudo activar las notificaciones. Intenta de nuevo.'
+        console.warn('[Push] subscribePush error:', e)
+      }
       return false
     }
   }
@@ -66,15 +98,15 @@ export function usePWA() {
   async function unsubscribePush() {
     const endpoint = pushSub.value?.endpoint || pushEndpoint.value
     if (!endpoint) return
-    await api.post('/push/unsubscribe', { endpoint })
-    if (pushSub.value) { await pushSub.value.unsubscribe(); pushSub.value = null }
+    try { await api.post('/push/unsubscribe', { endpoint }) } catch {}
+    if (pushSub.value) { try { await pushSub.value.unsubscribe() } catch {} pushSub.value = null }
     pushGranted.value  = false
     pushEndpoint.value = null
     localStorage.removeItem('jlp_push_endpoint')
   }
 
   return {
-    installPrompt, isInstalled, pushSupported, pushGranted, pushSub, pushEndpoint,
+    installPrompt, isInstalled, pushSupported, pushGranted, pushSub, pushEndpoint, pushError,
     promptInstall, subscribePush, unsubscribePush
   }
 }

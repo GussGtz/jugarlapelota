@@ -846,7 +846,7 @@ import { usePWA } from '@/composables/usePWA'
 
 const { slug, tournament } = useTournament()
 const following = useFollowingStore()
-const { pushSupported, pushGranted, subscribePush, pushEndpoint } = usePWA()
+const { pushSupported, pushGranted, subscribePush, pushEndpoint, pushError } = usePWA()
 
 const isFollowed = computed(() => tournament.value ? following.isFollowingTournament(tournament.value.id) : false)
 const followLoading = ref(false)
@@ -856,7 +856,11 @@ async function toggleFollow() {
   followLoading.value = true
   if (!pushGranted.value) {
     const ok = await subscribePush()
-    if (!ok) { followLoading.value = false; return }
+    if (!ok) {
+      followLoading.value = false
+      if (pushError.value) alert(pushError.value)
+      return
+    }
     await following.syncFromServer(pushEndpoint.value)
   }
   await following.toggleTournament(tournament.value.id, pushEndpoint.value)

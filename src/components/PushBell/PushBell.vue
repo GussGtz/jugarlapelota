@@ -61,7 +61,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { usePWA } from '@/composables/usePWA'
 import { useFollowingStore } from '@/stores/following'
 
-const { pushSupported, pushGranted, subscribePush, unsubscribePush, pushEndpoint } = usePWA()
+const { pushSupported, pushGranted, subscribePush, unsubscribePush, pushEndpoint, pushError } = usePWA()
 const following = useFollowingStore()
 
 const wiggle  = ref(false)
@@ -81,8 +81,9 @@ function onClickOutside(e) {
 
 async function subscribe() {
   loading.value = true
-  await subscribePush()
-  if (pushEndpoint.value) await following.syncFromServer(pushEndpoint.value)
+  const ok = await subscribePush()
+  if (ok && pushEndpoint.value) await following.syncFromServer(pushEndpoint.value)
+  if (!ok && pushError.value) alert(pushError.value)
   loading.value = false
 }
 
