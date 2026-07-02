@@ -137,3 +137,18 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 **Bug encontrado y corregido:** `GET /tournaments/:slug/responsables` (backend/routes/index.js:1904) daba 500 (`no such table: inscription_responsables`) en SQLite local — tabla presente en el schema de Postgres pero nunca agregada al init de SQLite. Corregido en [backend/config/db-sqlite-init.js](backend/config/db-sqlite-init.js).
 
 **Conclusión:** con este fix, la paridad de tablas entre Postgres (producción) y SQLite (dev local) queda completa — las dos listas de `CREATE TABLE` coinciden exactamente. Build de frontend limpio, backend sin errores de sintaxis, y recorrido completo de páginas públicas + admin sin errores de consola.
+
+### 2026-07-02 — Feature: animaciones y micro-interacciones en el Home público
+**Pedido:** hacer más atractiva/profesional (con buena UX y diseño) la sección de "Instala la app" + "Un torneo conectado para todos", y en general todo el lado público/aficionado del sitio.
+
+**Solución:** nueva directiva global reutilizable `v-reveal` ([src/directives/reveal.js](src/directives/reveal.js)) — fade + slide-up cuando el elemento entra al viewport, con un solo `IntersectionObserver` compartido para toda la app (más eficiente que instanciar uno por componente). Soporta `v-reveal="{ delay: N }"` para escalonar listas. CSS base en [src/styles/main.css](src/styles/main.css) con fallback a `prefers-reduced-motion`. Registrada globalmente en [src/main.js](src/main.js).
+
+Nota: `FeatureSections.vue` ya tenía su propio sistema de reveal con `IntersectionObserver` manual por componente (patrón preexistente) — no se tocó esa lógica, solo se le agregó hover premium a los mockups de teléfono (`translateY` + shadow al hover). El resto de la home usa la nueva directiva.
+
+**Aplicado en:**
+- [HeroSection.vue](src/components/Hero/HeroSection.vue) — como es contenido visible desde el primer momento (above the fold), no usa scroll-reveal sino una entrada escalonada al montar (`hero-anim` + `animation-delay` por elemento: badge, headline, features, CTAs, stat cards). Badge "Marcadores en tiempo real" con flotado continuo sutil.
+- [InstallTutorial.vue](src/components/InstallTutorial/InstallTutorial.vue) — reveal escalonado en badge/heading/párrafo/videos; hover premium en las tarjetas (scale + shadow + zoom del video); anillo de pulso alrededor del botón de play para dirigir la atención; modal con transición fade+scale (antes solo fade).
+- [Home.vue](src/pages/Home.vue) — stagger en grid de torneos activos (hover con zoom de imagen + lift) y en las 4 role-cards de "Un torneo conectado para todos" (con micro-rotación del ícono al hover).
+- [ContratarBanner.vue](src/components/ContratarBanner/ContratarBanner.vue) — reveal en texto/CTA, círculos decorativos de fondo con drift continuo.
+
+**Validado con:** build de Vite exitoso, preview en desktop (1280px) y mobile (375px) — animaciones se disparan correctamente al hacer scroll, hover states funcionan, el modal de video sigue abriendo/cerrando bien con la nueva transición, sin errores de consola en ninguna resolución.
