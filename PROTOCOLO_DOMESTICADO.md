@@ -35,4 +35,11 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 
 **Validado con:** build de Vite exitoso, y prueba manual vía curl contra SQLite local: follow sin `endpoint` pero con JWT válido se persiste y es legible solo con ese token (no visible sin token), confirmando que ya no depende del dispositivo.
 
-**Pendiente/nota:** no se tocó el requisito de login para seguir un torneo (sigue permitiendo seguir anónimamente con solo push activado, como ya funcionaba); solo se garantizó que SI hay sesión, el follow vive en BD ligado a la cuenta.
+**Nota histórica:** en este cambio no se tocó el requisito de login para seguir un torneo (se mantuvo el flujo anónimo con solo push). Ver siguiente entrada — se corrigió después para exigir login también en torneos.
+
+### 2026-07-02 — Fix: seguir torneo ahora exige login (igual que equipos)
+**Problema reportado:** seguir un equipo ya exigía login primero (`TeamDetail.vue`), pero seguir un torneo no — bastaba con aceptar notificaciones push, quedando inconsistente y permitiendo follows anónimos que no viven en la cuenta.
+
+**Solución:** [src/pages/TournamentHome.vue](src/pages/TournamentHome.vue) `toggleFollow()` ahora replica la misma guarda que `TeamDetail.vue`: si `!auth.isLoggedIn`, redirige a `{ name: 'Login', query: { redirect: route.fullPath } }` antes de intentar seguir, en vez de solo pedir permiso de push.
+
+**Validado con:** preview en navegador contra backend local (SQLite) — se creó `.env.local` temporal apuntando a `localhost:3000` (el proyecto usa producción/Railway por defecto en `.env`) y se corrió el backend con `FRONTEND_URL=http://localhost:5175` para pasar CORS. Clic en "SEGUIR TORNEO" sin sesión → redirige correctamente a `/login?redirect=/COPACARIBE`. Se limpió `.env.local` al terminar (no se commitea, ya está en `.gitignore`).

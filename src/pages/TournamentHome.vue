@@ -837,15 +837,20 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useTournament } from '@/composables/useTournament'
 import { onTournamentMatch, onStandingsUpdate } from '@/services/socket'
 import api from '@/api'
 import MatchCard from '@/components/MatchCard/MatchCard.vue'
 import { useFollowingStore } from '@/stores/following'
+import { useAuthStore } from '@/stores/auth'
 import { usePWA } from '@/composables/usePWA'
 
+const route  = useRoute()
+const router = useRouter()
 const { slug, tournament } = useTournament()
 const following = useFollowingStore()
+const auth = useAuthStore()
 const { pushSupported, pushGranted, subscribePush, pushEndpoint, pushError } = usePWA()
 
 const isFollowed = computed(() => tournament.value ? following.isFollowingTournament(tournament.value.id) : false)
@@ -853,6 +858,11 @@ const followLoading = ref(false)
 
 async function toggleFollow() {
   if (!tournament.value) return
+  if (!auth.isLoggedIn) {
+    // Igual que con equipos: manda a login primero, guardando la ruta para volver
+    router.push({ name: 'Login', query: { redirect: route.fullPath } })
+    return
+  }
   followLoading.value = true
   if (!pushGranted.value) {
     const ok = await subscribePush()
