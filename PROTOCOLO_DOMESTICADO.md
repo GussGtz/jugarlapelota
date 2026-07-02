@@ -123,3 +123,17 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 **Solución:** se reemplazó por `IN (${placeholders dinámicos})` — mismo patrón portable ya usado en `sendPushToTeams`/`sendPushToTournaments` (ver entrada del 2026-07-02 sobre follows). Los placeholders del filtro de categoría (`catFilter`) se recalculan según la nueva cantidad de params.
 
 **Validado con:** backend local (SQLite) — `GET /tournaments/COPACARIBE/players/phase-stats` (con y sin `?cat=`) responde 200 con datos correctos en vez de 500. Páginas admin Dashboard y Jugadores cargan sin errores de consola.
+
+### 2026-07-02 — Revisión completa del proyecto sin errores
+**Pedido:** revisar que todo el proyecto funcione sin errores.
+
+**Metodología:**
+1. `node -c` en todos los `.js` de `backend/` — sin errores de sintaxis.
+2. `npm run build` (frontend) — build limpio, sin warnings.
+3. Comparación sistemática de tablas `CREATE TABLE` entre `backend/config/db-schema.js` (Postgres) y `backend/config/db-sqlite-init.js` — reveló que **faltaba `inscription_responsables`** en SQLite (mismo patrón que el bug de `tournament_follows` de una sesión anterior). Se agregó la tabla siguiendo el mismo estilo que `inscription_players` (tabla vecina).
+4. Smoke test con `curl` de ~20 endpoints backend (públicos y con auth admin: tournaments, categories, matches, news, galleries, streams, players/phase-stats, awards, teams, follows, inscriptions, responsables, phases) — todos 200 tras el fix.
+5. Recorrido en navegador (preview local contra backend SQLite) de: Home, Torneo (Inicio/Partidos/Media), TeamDetail, Players, Standings, Login, y Admin completo (Dashboard, Torneos, Equipos, Jugadores, Inscripciones, Galería, Noticias, Transmisiones, Premios, Categorías, Partidos) — **sin errores de consola en ninguna**.
+
+**Bug encontrado y corregido:** `GET /tournaments/:slug/responsables` (backend/routes/index.js:1904) daba 500 (`no such table: inscription_responsables`) en SQLite local — tabla presente en el schema de Postgres pero nunca agregada al init de SQLite. Corregido en [backend/config/db-sqlite-init.js](backend/config/db-sqlite-init.js).
+
+**Conclusión:** con este fix, la paridad de tablas entre Postgres (producción) y SQLite (dev local) queda completa — las dos listas de `CREATE TABLE` coinciden exactamente. Build de frontend limpio, backend sin errores de sintaxis, y recorrido completo de páginas públicas + admin sin errores de consola.
