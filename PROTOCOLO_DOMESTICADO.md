@@ -54,3 +54,10 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 **Solución:** nuevo componente [src/components/InstallTutorial/InstallTutorial.vue](src/components/InstallTutorial/InstallTutorial.vue) — dos tarjetas con thumbnail de video (Android / iPhone), al hacer clic abren un modal con el video en reproducción con controles nativos. Integrado en [src/pages/Home.vue](src/pages/Home.vue) entre la sección de torneos activos y la sección "Un torneo conectado para todos".
 
 **Validado con:** build de Vite exitoso (confirmado que Vite copia `public/videos/` a `dist/videos/` automáticamente), y prueba en navegador de preview — clic en la tarjeta "Android" abre el modal y el video reproduce correctamente, sin errores de consola.
+
+### 2026-07-02 — Style: tutorial + características en dos columnas
+**Pedido:** poner el tutorial de instalación y la sección "Un torneo conectado para todos" en la misma línea (tutorial a la izquierda, características a la derecha), y cambiar el copy introductorio del tutorial.
+
+**Solución:** se fusionaron ambas secciones en un solo `<section>` con `grid lg:grid-cols-2` en [src/pages/Home.vue](src/pages/Home.vue) — en desktop quedan lado a lado, en mobile se apilan (tutorial arriba). [InstallTutorial.vue](src/components/InstallTutorial/InstallTutorial.vue) se refactorizó de `<section>` centrada a un `<div>` alineado a la izquierda para encajar como columna. Texto cambiado a: "Sin descargas pesadas ni tiendas de apps. Más rápido, más ligero y sin ocupar espacio en tu memoria."
+
+**Validado con:** preview en navegador en desktop (1280px, columnas lado a lado) y mobile (375px, apilado), sin errores de consola.
