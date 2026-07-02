@@ -16,14 +16,15 @@
       <!-- Contenido centrado -->
       <div class="relative z-10 px-4 py-20 space-y-6 w-full max-w-4xl mx-auto">
         <!-- Logo en círculo con borde dorado -->
-        <div class="mx-auto w-36 h-36 md:w-48 md:h-48 rounded-full border-4 flex items-center justify-center bg-black/30 backdrop-blur-sm overflow-hidden"
+        <div class="th-hero-anim mx-auto w-36 h-36 md:w-48 md:h-48 rounded-full border-4 flex items-center justify-center bg-black/30 backdrop-blur-sm overflow-hidden"
+          style="animation-delay: 0.05s"
           :style="{ borderColor: tournament?.secondary_color || '#FFD700' }">
           <img v-if="tournament?.logo" :src="tournament.logo" class="w-full h-full object-contain p-4" />
           <IconTrophy v-else class="w-16 h-16 text-white" />
         </div>
 
         <!-- Nombre del torneo -->
-        <div>
+        <div class="th-hero-anim" style="animation-delay: 0.18s">
           <h1 class="text-4xl md:text-7xl font-black text-white uppercase tracking-wider leading-none drop-shadow-2xl">
             {{ tournament?.name }}
           </h1>
@@ -34,12 +35,12 @@
         </div>
 
         <!-- Descripción -->
-        <p v-if="tournament?.description" class="text-white/80 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
+        <p v-if="tournament?.description" class="th-hero-anim text-white/80 text-base md:text-lg max-w-xl mx-auto leading-relaxed" style="animation-delay: 0.3s">
           {{ tournament.description }}
         </p>
 
         <!-- Stats row — solo muestra datos reales, nunca inventados -->
-        <div class="flex items-center justify-center gap-8 md:gap-16 py-4">
+        <div class="th-hero-anim flex items-center justify-center gap-8 md:gap-16 py-4" style="animation-delay: 0.4s">
           <div class="text-center">
             <p class="text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.teams }}</p>
             <p class="text-white/60 text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Equipos</p>
@@ -59,14 +60,14 @@
         </div>
 
         <!-- CTAs -->
-        <div class="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+        <div class="th-hero-anim flex flex-col sm:flex-row gap-3 justify-center pt-2" style="animation-delay: 0.5s">
           <router-link :to="`/${slug}/partidos`"
-            class="px-8 py-3 rounded-xl font-bold uppercase tracking-wide text-sm transition-all hover:opacity-90 text-white shadow-lg"
+            class="px-8 py-3 rounded-xl font-bold uppercase tracking-wide text-sm transition-all hover:opacity-90 hover:scale-105 text-white shadow-lg"
             :style="{ background: tournament?.primary_color || '#0ea5e9' }">
             Ver Partidos
           </router-link>
           <button v-if="pushSupported" @click="toggleFollow" :disabled="followLoading"
-            class="px-8 py-3 rounded-xl font-bold uppercase tracking-wide text-sm transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
+            class="px-8 py-3 rounded-xl font-bold uppercase tracking-wide text-sm transition-all hover:scale-105 shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
             :class="isFollowed
               ? 'bg-white/20 backdrop-blur-sm text-white border border-white/30 hover:bg-white/30'
               : 'bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20'">
@@ -77,8 +78,10 @@
         </div>
 
         <!-- Scroll indicator -->
-        <div class="animate-bounce mt-4">
-          <IconChevronDown class="w-6 h-6 text-white/40 mx-auto" />
+        <div class="th-hero-anim mt-4" style="animation-delay: 0.7s">
+          <div class="animate-bounce">
+            <IconChevronDown class="w-6 h-6 text-white/40 mx-auto" />
+          </div>
         </div>
       </div>
     </section>
@@ -91,19 +94,19 @@
 
         <!-- En vivo banner -->
         <div v-if="liveMatches.length" class="mb-10">
-          <div class="flex items-center justify-center gap-3 mb-6">
+          <div v-reveal class="flex items-center justify-center gap-3 mb-6">
             <span class="inline-flex items-center gap-2 bg-red-600 text-white text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg animate-pulse">
               <IconCircle class="w-2.5 h-2.5 fill-white" /> En Vivo
             </span>
           </div>
           <div class="grid sm:grid-cols-2 gap-4">
-            <MatchCard v-for="m in liveMatches" :key="m.id" :match="m" :tournament-slug="slug" />
+            <MatchCard v-for="(m, i) in liveMatches" :key="m.id" v-reveal="{ delay: i * 100 }" :match="m" :tournament-slug="slug" />
           </div>
         </div>
 
         <!-- Últimos Resultados -->
         <div v-if="recentMatches.length" class="mb-12">
-          <div class="text-center mb-8">
+          <div v-reveal class="text-center mb-8">
             <h2 class="text-3xl md:text-4xl font-black uppercase text-slate-900 tracking-wide">Últimos Resultados</h2>
             <div class="mt-3 flex items-center justify-center gap-3">
               <div class="h-px w-16 bg-slate-200"></div>
@@ -112,8 +115,9 @@
             </div>
           </div>
           <div class="grid sm:grid-cols-2 gap-3 max-w-4xl mx-auto">
-            <div v-for="m in recentMatches" :key="m.id"
-              class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-md hover:border-slate-200 transition-all"
+            <div v-for="(m, i) in recentMatches" :key="m.id"
+              v-reveal="{ delay: (i % 6) * 70 }"
+              class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-md hover:border-slate-200 hover:-translate-y-0.5 transition-all"
               @click="$router.push(`/${slug}/partido/${m.id}`)">
               <!-- Badge de categoría -->
               <div v-if="m.categoryName" class="px-4 pt-2.5 pb-0 flex items-center gap-1.5">
@@ -143,7 +147,7 @@
 
         <!-- Próximos Encuentros -->
         <div v-if="upcomingMatches.length">
-          <div class="text-center mb-8">
+          <div v-reveal class="text-center mb-8">
             <h2 class="text-3xl md:text-4xl font-black uppercase text-slate-900 tracking-wide">Próximos Encuentros</h2>
             <div class="mt-3 flex items-center justify-center gap-3">
               <div class="h-px w-16 bg-slate-200"></div>
@@ -152,8 +156,9 @@
             </div>
           </div>
           <div class="grid sm:grid-cols-2 gap-3 max-w-4xl mx-auto">
-            <div v-for="m in upcomingMatches" :key="m.id"
-              class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-md hover:border-slate-200 transition-all"
+            <div v-for="(m, i) in upcomingMatches" :key="m.id"
+              v-reveal="{ delay: (i % 6) * 70 }"
+              class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-md hover:border-slate-200 hover:-translate-y-0.5 transition-all"
               @click="$router.push(`/${slug}/partido/${m.id}`)">
               <!-- Badge de categoría -->
               <div v-if="m.categoryName" class="px-4 pt-2.5 pb-0 flex items-center gap-1.5">
@@ -199,7 +204,7 @@
         <!-- ════════════════════════════════════════════════════ -->
         <div v-if="tournamentMode === 'groups'" key="groups" class="relative max-w-5xl mx-auto px-4">
           <!-- Título -->
-          <div class="text-center mb-14">
+          <div v-reveal class="text-center mb-14">
             <p class="text-[10px] font-black uppercase tracking-[0.3em] mb-3"
               :style="{ color: tournament?.secondary_color || '#FFD700' }">Rendimiento General</p>
             <h2 class="text-3xl md:text-5xl font-black uppercase text-white tracking-wide">Mejores Equipos</h2>
@@ -214,7 +219,7 @@
           <!-- PODIO TOP 3 por puntos -->
           <div v-if="topTeams.length" class="flex items-end justify-center gap-3 md:gap-6 mb-14">
             <!-- 2° lugar -->
-            <div v-if="topTeams[1]" class="flex-1 max-w-[200px] flex flex-col items-center">
+            <div v-if="topTeams[1]" v-reveal="{ delay: 100 }" class="flex-1 max-w-[200px] flex flex-col items-center">
               <router-link :to="`/${slug}/equipo/${topTeams[1].team_id}`"
                 class="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-4 border-slate-500 bg-slate-700 flex items-center justify-center mb-3 shadow-xl hover:scale-105 transition-transform cursor-pointer">
                 <img v-if="topTeams[1].logo" :src="topTeams[1].logo" class="w-full h-full object-contain p-1.5" />
@@ -233,7 +238,7 @@
               </div>
             </div>
             <!-- 1° lugar -->
-            <div v-if="topTeams[0]" class="flex-1 max-w-[220px] flex flex-col items-center -mb-3">
+            <div v-if="topTeams[0]" v-reveal class="flex-1 max-w-[220px] flex flex-col items-center -mb-3">
               <div class="relative mb-3">
                 <div class="absolute -top-5 left-1/2 -translate-x-1/2">
                   <IconCrown class="w-6 h-6 text-yellow-400 drop-shadow" />
@@ -258,7 +263,7 @@
               </div>
             </div>
             <!-- 3° lugar -->
-            <div v-if="topTeams[2]" class="flex-1 max-w-[200px] flex flex-col items-center">
+            <div v-if="topTeams[2]" v-reveal="{ delay: 150 }" class="flex-1 max-w-[200px] flex flex-col items-center">
               <router-link :to="`/${slug}/equipo/${topTeams[2].team_id}`"
                 class="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-4 border-amber-700 bg-slate-800 flex items-center justify-center mb-3 shadow-xl hover:scale-105 transition-transform cursor-pointer">
                 <img v-if="topTeams[2].logo" :src="topTeams[2].logo" class="w-full h-full object-contain p-1.5" />
@@ -280,7 +285,7 @@
 
           <!-- TARJETAS DE LÍDERES ESTADÍSTICOS -->
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
-            <router-link v-if="leaderWins" :to="`/${slug}/equipo/${leaderWins.team_id}`"
+            <router-link v-if="leaderWins" v-reveal="{ delay: 0 }" :to="`/${slug}/equipo/${leaderWins.team_id}`"
               class="rounded-2xl p-4 border border-white/5 text-center block hover:border-white/20 hover:scale-[1.02] transition-all"
               style="background:#1e293b">
               <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Más Victorias</p>
@@ -293,7 +298,7 @@
               <p class="text-2xl font-black text-emerald-400 mt-2">{{ leaderWins.won }}</p>
               <p class="text-[9px] text-slate-500 uppercase tracking-wide">victorias</p>
             </router-link>
-            <router-link v-if="leaderGoals" :to="`/${slug}/equipo/${leaderGoals.team_id}`"
+            <router-link v-if="leaderGoals" v-reveal="{ delay: 60 }" :to="`/${slug}/equipo/${leaderGoals.team_id}`"
               class="rounded-2xl p-4 border border-white/5 text-center block hover:border-white/20 hover:scale-[1.02] transition-all"
               style="background:#1e293b">
               <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Máximo Goleador</p>
@@ -306,7 +311,7 @@
               <p class="text-2xl font-black text-sky-400 mt-2">{{ leaderGoals.goals_for }}</p>
               <p class="text-[9px] text-slate-500 uppercase tracking-wide">goles a favor</p>
             </router-link>
-            <router-link v-if="leaderDefense" :to="`/${slug}/equipo/${leaderDefense.team_id}`"
+            <router-link v-if="leaderDefense" v-reveal="{ delay: 120 }" :to="`/${slug}/equipo/${leaderDefense.team_id}`"
               class="rounded-2xl p-4 border border-white/5 text-center block hover:border-white/20 hover:scale-[1.02] transition-all"
               style="background:#1e293b">
               <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Mejor Defensa</p>
@@ -319,7 +324,7 @@
               <p class="text-2xl font-black text-violet-400 mt-2">{{ leaderDefense.goals_against }}</p>
               <p class="text-[9px] text-slate-500 uppercase tracking-wide">goles recibidos</p>
             </router-link>
-            <router-link v-if="leaderGD" :to="`/${slug}/equipo/${leaderGD.team_id}`"
+            <router-link v-if="leaderGD" v-reveal="{ delay: 180 }" :to="`/${slug}/equipo/${leaderGD.team_id}`"
               class="rounded-2xl p-4 border border-white/5 text-center block hover:border-white/20 hover:scale-[1.02] transition-all"
               style="background:#1e293b">
               <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Mejor Diferencia</p>
@@ -350,7 +355,7 @@
         <!-- ════════════════════════════════════════════════════ -->
         <div v-else-if="tournamentMode === 'playoffs'" key="playoffs" class="relative max-w-5xl mx-auto px-4">
           <!-- Título -->
-          <div class="text-center mb-12">
+          <div v-reveal class="text-center mb-12">
             <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-4 text-xs font-black uppercase tracking-widest border"
               style="background:rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.3); color:#f87171">
               <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
@@ -369,7 +374,8 @@
 
           <!-- UNA CARD POR CATEGORÍA -->
           <div class="space-y-6 mb-10">
-            <div v-for="cat in playoffCategories" :key="cat.categoryName"
+            <div v-for="(cat, i) in playoffCategories" :key="cat.categoryName"
+              v-reveal="{ delay: (i % 5) * 100 }"
               class="rounded-2xl border border-white/5 overflow-hidden" style="background:#1e293b">
 
               <!-- Header categoría con ronda actual -->
@@ -476,7 +482,7 @@
         <!-- ════════════════════════════════════════════════════ -->
         <div v-else key="finished" class="relative max-w-5xl mx-auto px-4">
           <!-- Título -->
-          <div class="text-center mb-12">
+          <div v-reveal class="text-center mb-12">
             <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-4 text-xs font-black uppercase tracking-widest border"
               style="background:rgba(234,179,8,0.15); border-color:rgba(234,179,8,0.3); color:#fbbf24">
               <IconTrophy class="w-3.5 h-3.5"/> Torneo Finalizado
@@ -494,7 +500,7 @@
 
           <!-- ── PODIO POR CADA CATEGORÍA ─────────────────────── -->
           <div class="space-y-10 mb-10">
-            <div v-for="cat in tournamentChampions" :key="cat.categoryName">
+            <div v-for="(cat, i) in tournamentChampions" :key="cat.categoryName" v-reveal="{ delay: (i % 5) * 100 }">
 
               <!-- Label de categoría -->
               <div class="flex items-center gap-3 mb-6">
@@ -609,7 +615,7 @@
     <!-- ══════════════════════════════════════════════════════════ -->
     <section v-if="news.length" class="py-16 md:py-24 bg-white">
       <div class="max-w-7xl mx-auto px-4">
-        <div class="text-center mb-12">
+        <div v-reveal class="text-center mb-12">
           <h2 class="text-3xl md:text-5xl font-black uppercase text-slate-900 tracking-wide">Últimas Noticias</h2>
           <div class="mt-3 flex items-center justify-center gap-3">
             <div class="h-px w-16 bg-slate-200"></div>
@@ -620,9 +626,10 @@
         </div>
 
         <div class="grid md:grid-cols-3 gap-6">
-          <router-link v-for="n in news.slice(0, 3)" :key="n.id"
+          <router-link v-for="(n, i) in news.slice(0, 3)" :key="n.id"
+            v-reveal="{ delay: i * 100 }"
             :to="`/${slug}/noticias`"
-            class="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-all overflow-hidden">
+            class="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all overflow-hidden">
             <!-- Imagen con fecha badge -->
             <div class="relative overflow-hidden">
               <img v-if="n.cover" :src="n.cover" class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -663,7 +670,7 @@
     <!-- ══════════════════════════════════════════════════════════ -->
     <section class="py-16 md:py-24" style="background:#F7F9FC">
       <div class="max-w-7xl mx-auto px-4">
-        <div class="text-center mb-10">
+        <div v-reveal class="text-center mb-10">
           <h2 class="text-3xl md:text-5xl font-black uppercase text-slate-900 tracking-wide">Galería</h2>
           <div class="mt-3 flex items-center justify-center gap-3">
             <div class="h-px w-16 bg-slate-200"></div>
@@ -674,7 +681,7 @@
         </div>
 
         <!-- Carrusel -->
-        <div v-if="allPhotos.length" class="relative"
+        <div v-if="allPhotos.length" v-reveal="{ delay: 100 }" class="relative"
           @mouseenter="pauseSlider = true"
           @mouseleave="pauseSlider = false">
           <div class="overflow-hidden rounded-2xl shadow-xl">
@@ -728,7 +735,7 @@
     <!-- ══════════════════════════════════════════════════════════ -->
     <section v-if="uniqueTeams.length" class="py-16 md:py-24" style="background:#0f172a">
       <div class="max-w-7xl mx-auto px-4">
-        <div class="text-center mb-12">
+        <div v-reveal class="text-center mb-12">
           <h2 class="text-3xl md:text-5xl font-black uppercase text-white tracking-wide">Equipos Participantes</h2>
           <div class="mt-3 flex items-center justify-center gap-3">
             <div class="h-px w-16 bg-white/10"></div>
@@ -741,7 +748,8 @@
         </div>
 
         <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6">
-          <router-link v-for="team in uniqueTeams" :key="team.id"
+          <router-link v-for="(team, i) in uniqueTeams" :key="team.id"
+            v-reveal="{ delay: (i % 8) * 60 }"
             :to="`/${slug}/equipo/${team.id}`"
             class="flex flex-col items-center gap-2 group cursor-pointer">
             <div class="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center text-white font-black text-lg md:text-xl shadow-lg group-hover:scale-110 transition-transform duration-200 overflow-hidden border-2 border-white/10"
@@ -764,7 +772,7 @@
       <div class="max-w-7xl mx-auto px-4">
 
         <!-- Título -->
-        <div class="text-center mb-12">
+        <div v-reveal class="text-center mb-12">
           <span class="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-full mb-4"
             :style="{ color: tournament?.primary_color || '#0ea5e9', background: (tournament?.primary_color || '#0ea5e9') + '18' }">
             <IconAward class="w-3.5 h-3.5" /> Premios y reconocimientos
@@ -788,8 +796,9 @@
           </p>
 
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            <div v-for="award in group" :key="award.id"
-              class="rounded-2xl border border-slate-100 bg-slate-50 p-5 flex flex-col items-center text-center gap-3 hover:shadow-md hover:border-slate-200 transition-all">
+            <div v-for="(award, i) in group" :key="award.id"
+              v-reveal="{ delay: (i % 10) * 60 }"
+              class="rounded-2xl border border-slate-100 bg-slate-50 p-5 flex flex-col items-center text-center gap-3 hover:shadow-md hover:border-slate-200 hover:-translate-y-0.5 transition-all">
 
               <!-- Ícono del tipo de premio -->
               <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
@@ -1301,5 +1310,18 @@ onUnmounted(() => {
 .section-fade-leave-to {
   opacity: 0;
   transform: translateY(-16px);
+}
+
+/* Entrada escalonada del Hero — visible desde el primer momento (above the fold) */
+@keyframes thHeroFadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.th-hero-anim {
+  opacity: 0;
+  animation: thHeroFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .th-hero-anim { animation: none; opacity: 1; }
 }
 </style>
