@@ -178,6 +178,17 @@ module.exports = function initSQLite(db, bcrypt) {
       inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) ON DELETE CASCADE,
       name TEXT NOT NULL, number INTEGER, position TEXT, birth_date TEXT
     );
+    CREATE TABLE IF NOT EXISTS inscription_responsables (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) ON DELETE CASCADE,
+      category_id    INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+      nombre         TEXT NOT NULL,
+      apellidos      TEXT NOT NULL,
+      curp           TEXT,
+      foto           TEXT,
+      orden          INTEGER DEFAULT 1,
+      created_at     TEXT DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS awards (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
