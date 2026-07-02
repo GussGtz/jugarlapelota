@@ -141,6 +141,10 @@
               <ImageUpload v-model="form.logo"   label="Logo del torneo" :height="130" />
               <ImageUpload v-model="form.banner" label="Banner / portada" :height="130" />
             </div>
+            <div class="mt-4">
+              <ImageUpload v-model="form.sponsorsBanner" label="Portada de patrocinadores (pestaña Media)" :height="130" />
+              <p class="text-xs text-slate-400 mt-1.5">Se muestra fija arriba del contenido en la pestaña "Media" del torneo. Ideal para una imagen con los logos de tus patrocinadores.</p>
+            </div>
           </div>
         </div><!-- /modal-body -->
         <div class="modal-footer">
@@ -168,7 +172,7 @@ const editing  = ref(null)
 const saving   = ref(false)
 
 const form = reactive({
-  name:'', slug:'', description:'', location:'', logo:'', banner:'',
+  name:'', slug:'', description:'', location:'', logo:'', banner:'', sponsorsBanner:'',
   primaryColor:'#00C2FF', secondaryColor:'#00FF95', startDate:'', endDate:'',
   modality: 'copa'
 })
@@ -265,13 +269,14 @@ function openForm(t = null) {
     Object.assign(form, {
       name: t.name, slug: t.slug, description: t.description || '',
       location: t.location || '', logo: t.logo || '', banner: t.banner || '',
+      sponsorsBanner: t.sponsors_banner || '',
       primaryColor: t.primary_color || '#00C2FF', secondaryColor: t.secondary_color || '#00FF95',
       startDate: t.start_date || '', endDate: t.end_date || '',
       modality: t.modality || 'copa'
     })
   } else {
     Object.assign(form, {
-      name:'', slug:'', description:'', location:'', logo:'', banner:'',
+      name:'', slug:'', description:'', location:'', logo:'', banner:'', sponsorsBanner:'',
       primaryColor:'#00C2FF', secondaryColor:'#00FF95', startDate:'', endDate:'',
       modality: 'copa'
     })

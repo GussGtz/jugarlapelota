@@ -23,6 +23,7 @@ module.exports = function initSQLite(db, bcrypt) {
   safe('ALTER TABLE awards ADD COLUMN auto_generated INTEGER DEFAULT 0')
   safe('ALTER TABLE matches ADD COLUMN home_is_tbd INTEGER DEFAULT 0')
   safe('ALTER TABLE matches ADD COLUMN away_is_tbd INTEGER DEFAULT 0')
+  safe('ALTER TABLE tournaments ADD COLUMN sponsors_banner TEXT')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS phase_groups (

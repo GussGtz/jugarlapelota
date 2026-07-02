@@ -166,6 +166,8 @@ const PG_MIGRATIONS = [
   `ALTER TABLE users   ADD COLUMN IF NOT EXISTS tournament_id BIGINT`,
   `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rules_pdf TEXT`,
   `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS modality TEXT DEFAULT 'copa'`,
+  // Portada de patrocinadores — imagen fija arriba del feed de la pestaña Media
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS sponsors_banner TEXT`,
   // CURP & auto-approve features
   `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS auto_approve_inscriptions INTEGER DEFAULT 0`,
   `ALTER TABLE categories ADD COLUMN IF NOT EXISTS min_birth_year INTEGER`,

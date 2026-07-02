@@ -10,6 +10,11 @@
       <!-- ── Feed ──────────────────────────────────────────────── -->
       <template v-else>
 
+        <!-- Portada de patrocinadores — fija arriba del contenido -->
+        <div v-if="tournament?.sponsors_banner" class="rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+          <img :src="tournament.sponsors_banner" alt="Patrocinadores" class="w-full h-auto object-cover" />
+        </div>
+
         <!-- Transmisiones en vivo — siempre primero -->
         <template v-if="liveStreams.length">
           <div class="flex items-center gap-2 pt-2 pb-1 px-1">
