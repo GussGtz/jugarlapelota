@@ -8,7 +8,7 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      injectRegister: false, // registro manual en main.js — necesitamos el hook onRegisteredSW para forzar chequeos de actualización
       includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon.png', 'icons/*.png'],
       manifest: {
         name: 'JugarLaPelota',

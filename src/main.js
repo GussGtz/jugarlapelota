@@ -6,6 +6,9 @@ import './styles/main.css'
 import { registerIcons } from '@/plugins/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useFollowingStore } from '@/stores/following'
+import { setupPWAUpdates } from '@/pwa'
+
+setupPWAUpdates()
 
 const app = createApp(App)
 const pinia = createPinia()
