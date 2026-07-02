@@ -85,3 +85,19 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 - La X de cerrar se movió a `absolute top-2 right-2` **sobre la esquina del propio video** (contenedor `inline-block` que se ajusta al tamaño real del video), en vez de flotar por encima fuera de su caja — así siempre queda visible y alcanzable sin importar el alto del video.
 
 **Validado con:** preview en navegador mobile (375px) — clic en "Instalar app" hace scroll correcto hasta el tutorial; clic en thumbnail abre modal compacto (no fullscreen) con la X visible en la esquina; clic en la X cierra correctamente. Sin errores de consola.
+
+### 2026-07-02 — Fix: los cambios de cada deploy no llegaban a las PWAs ya instaladas
+**Problema reportado:** al hacer push/deploy, quienes ya tenían la app instalada (PWA) no veían los cambios nuevos.
+
+**Causa raíz:** `vite-plugin-pwa` con `injectRegister: 'auto'` genera un `registerSW.js` que solo hace `navigator.serviceWorker.register(...)` una vez al cargar la página, sin ningún chequeo periódico de actualización. El navegador revisa por su cuenta si hay un Service Worker nuevo solo en navegaciones completas o cada ~24h — pero una PWA instalada que se reabre desde el ícono del home no siempre dispara eso. Aunque `registerType: 'autoUpdate'` hace que el SW nuevo se auto-active (`skipWaiting` + `clientsClaim`) en cuanto se detecta, si nunca se detecta pronto, el usuario sigue en la versión vieja indefinidamente.
+
+**Solución:**
+- [vite.config.js](vite.config.js): `injectRegister: false` (se apaga el registro automático por defecto).
+- Nuevo [src/pwa.js](src/pwa.js) — registro manual vía `virtual:pwa-register`, que:
+  - Revisa actualizaciones (`registration.update()`) cada vez que la app vuelve a primer plano (`visibilitychange`) — cubre el caso real de "reabrir la PWA desde el home" — y cada 30 min mientras sigue abierta en sesiones largas.
+  - Al detectar que un Service Worker nuevo tomó control (`controllerchange`), recarga la página automáticamente para que el build nuevo se use de inmediato, en vez de esperar a que el usuario cierre y reabra la app manualmente. Se ignora el primer `controllerchange` (activación inicial en visita nueva, no un update real) para no forzar un reload innecesario a usuarios nuevos.
+- Se llama `setupPWAUpdates()` desde [main.js](src/main.js) al arrancar.
+
+**Nota:** para probar esto localmente hace falta el build real (`npm run build` + `vite preview`), porque el plugin de PWA no genera Service Worker en modo dev. Se agregó una config `jlp-frontend-dist` en `.claude/launch.json` (no se commitea, está en `.gitignore`) para levantar `vite preview` en el puerto 5176 cuando se necesite probar esto de nuevo.
+
+**Validado con:** build de producción + `vite preview` — el Service Worker se registra, `registration.update()` no lanza errores, `navigator.serviceWorker.controller` queda activo. Sin errores de consola.
