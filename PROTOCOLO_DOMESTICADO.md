@@ -101,3 +101,18 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 **Nota:** para probar esto localmente hace falta el build real (`npm run build` + `vite preview`), porque el plugin de PWA no genera Service Worker en modo dev. Se agregó una config `jlp-frontend-dist` en `.claude/launch.json` (no se commitea, está en `.gitignore`) para levantar `vite preview` en el puerto 5176 cuando se necesite probar esto de nuevo.
 
 **Validado con:** build de producción + `vite preview` — el Service Worker se registra, `registration.update()` no lanza errores, `navigator.serviceWorker.controller` queda activo. Sin errores de consola.
+
+### 2026-07-02 — Feature: portada de patrocinadores en la pestaña Media
+**Pedido:** en la pestaña "Media" del torneo público, agregar una foto de portada fija arriba del contenido para mostrar patrocinadores, cargable desde el admin.
+
+**Contexto encontrado:** ya existían en el schema una tabla `sponsors` (por patrocinador individual: nombre/logo/url) y una tabla `banners` (genérica), pero **ninguna de las dos tenía rutas backend ni UI de admin implementadas** — quedaron como schema muerto. Dado que el pedido es una sola imagen fija (no un CRUD de patrocinadores individuales), se optó por el camino más simple y consistente con el patrón ya usado para `logo`/`banner` del torneo: una columna nueva.
+
+**Solución:**
+- Columna `sponsors_banner TEXT` en `tournaments` — [backend/config/db-schema.js](backend/config/db-schema.js) (PG_MIGRATIONS) y [backend/config/db-sqlite-init.js](backend/config/db-sqlite-init.js).
+- [backend/controllers/tournaments.controller.js](backend/controllers/tournaments.controller.js) `create`/`update` — acepta `sponsorsBanner` en el body (camelCase, mismo patrón que `primaryColor`/`startDate`), lo persiste en `sponsors_banner`. El `getBySlug`/`getAll` ya usan `SELECT *`, así que no necesitaron cambios.
+- [src/pages/admin/Tournaments.vue](src/pages/admin/Tournaments.vue) — nuevo `<ImageUpload v-model="form.sponsorsBanner">` en la sección "Imágenes" del form de torneo (mismo componente que ya usan logo/banner, sube a Cloudinary).
+- [src/pages/Media.vue](src/pages/Media.vue) — si `tournament.sponsors_banner` existe, se renderiza como imagen fija arriba del feed (antes de streams en vivo y noticias/fotos).
+
+**Nota de bug encontrado (no relacionado, no corregido):** al probar esto localmente contra SQLite se detectó que `GET /tournaments/:slug/players/phase-stats` (backend/routes/index.js:565) lanza 500 (`unrecognized token: ":"`) — sintaxis SQL específica de Postgres que no es compatible con SQLite. Solo afecta al dev local (producción usa Postgres). Se dejó un task flag (`task_428a9abc`) para corregirlo en otra sesión.
+
+**Validado con:** flujo completo end-to-end contra backend local (SQLite) — `PUT /tournaments/:id` con `sponsorsBanner` persiste y se lee correctamente vía API; en el navegador, la imagen se ve fija arriba del feed en `/COPACARIBE/media`; el campo aparece correctamente en el modal de edición del admin con su imagen y texto de ayuda. Sin errores de consola relacionados a este cambio.
