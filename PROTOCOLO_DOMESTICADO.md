@@ -61,3 +61,15 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 **Solución:** se fusionaron ambas secciones en un solo `<section>` con `grid lg:grid-cols-2` en [src/pages/Home.vue](src/pages/Home.vue) — en desktop quedan lado a lado, en mobile se apilan (tutorial arriba). [InstallTutorial.vue](src/components/InstallTutorial/InstallTutorial.vue) se refactorizó de `<section>` centrada a un `<div>` alineado a la izquierda para encajar como columna. Texto cambiado a: "Sin descargas pesadas ni tiendas de apps. Más rápido, más ligero y sin ocupar espacio en tu memoria."
 
 **Validado con:** preview en navegador en desktop (1280px, columnas lado a lado) y mobile (375px, apilado), sin errores de consola.
+
+### 2026-07-02 — Fix: centrado dentro de columnas + videos invisibles en móvil
+**Problema reportado:** (1) el contenido de ambas columnas quedaba "esquinado" (pegado a los bordes exteriores) en vez de centrado dentro de su propio espacio; (2) en modo móvil los videos tutoriales no se veían en absoluto.
+
+**Causa raíz de (2):** los `<video>` miniatura no tenían `poster`, solo `preload="metadata"`. Muchos navegadores móviles (Safari iOS, Chrome Android) no pintan ningún frame del video hasta que el usuario interactúa con él — el resultado es un recuadro negro/vacío hasta el primer play. En desktop (Chrome) sí se ve un frame porque ese navegador sí decodifica el primer fotograma solo con los metadatos.
+
+**Solución:**
+- Se generaron imágenes poster estáticas (`.jpg`, ~54KB c/u) con `qlmanage -t` (thumbnail nativo de macOS) a partir de los `.mp4`, convertidas con `sips`. Quedaron en [public/videos/instalar-android-poster.jpg](public/videos/instalar-android-poster.jpg) y [public/videos/instalar-apple-poster.jpg](public/videos/instalar-apple-poster.jpg), referenciadas vía el atributo `poster` en [InstallTutorial.vue](src/components/InstallTutorial/InstallTutorial.vue). Esto garantiza que el thumbnail se vea en cualquier navegador sin depender de que decodifique el video.
+- Se cambió `preload="metadata"` a `preload="none"` en los videos miniatura (ya no hace falta cargar nada del video hasta que el usuario haga clic, porque el poster cubre esa función).
+- Centrado: se agregó `text-center` + `mx-auto` en los elementos internos de cada columna (encabezado, párrafo con `max-w-sm mx-auto`, grid de videos/cards con `max-w-sm`/`max-w-md mx-auto`) tanto en `InstallTutorial.vue` como en la columna de "características" en [Home.vue](src/pages/Home.vue), en vez de dejarlos pegados al borde izquierdo/derecho de cada columna.
+
+**Validado con:** preview en navegador en desktop (1280px), tablet (768px) y mobile (375px) — contenido centrado dentro de cada columna en las tres resoluciones, videos con poster visible incluso sin reproducir, sin errores de consola.
