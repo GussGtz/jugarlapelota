@@ -78,7 +78,7 @@
           <InstallTutorial />
 
           <!-- Características / roles -->
-          <div>
+          <div class="text-center">
             <span class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
               Plataforma completa
             </span>
@@ -86,12 +86,12 @@
               Un torneo conectado
               <span class="text-primary"> para todos</span>
             </h2>
-            <p class="text-slate-500 mt-3 text-base max-w-md">
+            <p class="text-slate-500 mt-3 text-base max-w-sm mx-auto">
               Cada persona involucrada tiene su propio rol y experiencia dentro de la plataforma.
             </p>
 
             <!-- Cards -->
-            <div class="grid grid-cols-2 gap-5 mt-8">
+            <div class="grid grid-cols-2 gap-5 max-w-md mx-auto mt-8">
               <div v-for="role in roles" :key="role.title" class="role-card">
                 <!-- SVG ilustración -->
                 <div class="role-svg-wrap" :style="{ background: role.gradient }">

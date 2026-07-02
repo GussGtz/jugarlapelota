@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="text-center">
     <span class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
       Instala la app
     </span>
@@ -7,15 +7,15 @@
       Instálala en tu celular
       <span class="text-primary"> en 30 segundos</span>
     </h2>
-    <p class="text-slate-500 mt-3 text-base max-w-md">
+    <p class="text-slate-500 mt-3 text-base max-w-sm mx-auto">
       Sin descargas pesadas ni tiendas de apps. Más rápido, más ligero y sin ocupar espacio en tu memoria.
     </p>
 
-    <div class="grid grid-cols-2 gap-5 max-w-sm mt-8">
+    <div class="grid grid-cols-2 gap-5 max-w-sm mx-auto mt-8">
       <button v-for="t in tutorials" :key="t.key" @click="open(t)"
         class="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 aspect-[9/16] w-full">
-        <video :src="t.src" class="w-full h-full object-cover opacity-70 group-hover:opacity-50 transition-opacity"
-          muted playsinline preload="metadata"></video>
+        <video :src="t.src" :poster="t.poster" class="w-full h-full object-cover opacity-70 group-hover:opacity-50 transition-opacity"
+          muted playsinline preload="none"></video>
         <div class="absolute inset-0 flex flex-col items-center justify-center gap-3">
           <div class="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
             <IconPlay class="w-5 h-5 text-primary ml-0.5" />
@@ -45,8 +45,8 @@
 import { ref } from 'vue'
 
 const tutorials = [
-  { key: 'android', label: 'Android',  src: '/videos/instalar-android.mp4' },
-  { key: 'apple',   label: 'iPhone',   src: '/videos/instalar-apple.mp4' },
+  { key: 'android', label: 'Android', src: '/videos/instalar-android.mp4', poster: '/videos/instalar-android-poster.jpg' },
+  { key: 'apple',   label: 'iPhone',  src: '/videos/instalar-apple.mp4',   poster: '/videos/instalar-apple-poster.jpg' },
 ]
 
 const active = ref(null)
