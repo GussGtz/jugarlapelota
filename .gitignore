@@ -23,6 +23,9 @@ backend/data/uploads/
 *.mp4
 *.mov
 *.avi
+# Excepción: tutoriales de instalación PWA, livianos (~9MB c/u)
+!public/videos/instalar-android.mp4
+!public/videos/instalar-apple.mp4
 
 # Sistema
 .DS_Store

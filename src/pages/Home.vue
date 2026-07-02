@@ -69,6 +69,9 @@
       </div>
     </section>
 
+    <!-- ── Tutorial de instalación (PWA) ───────────────────── -->
+    <InstallTutorial />
+
     <!-- ── Para todos en el torneo ─────────────────────────── -->
     <section id="caracteristicas" class="bg-slate-50 py-16 md:py-24 border-t border-slate-100">
       <div class="max-w-7xl mx-auto px-4">
@@ -122,6 +125,7 @@ import HeroSection      from '@/components/Hero/HeroSection.vue'
 import MatchCard        from '@/components/MatchCard/MatchCard.vue'
 import FeatureSections  from '@/components/FeatureSections/FeatureSections.vue'
 import ContratarBanner  from '@/components/ContratarBanner/ContratarBanner.vue'
+import InstallTutorial  from '@/components/InstallTutorial/InstallTutorial.vue'
 
 const tournaments = useTournamentsStore()
 const liveMatches = ref([])
