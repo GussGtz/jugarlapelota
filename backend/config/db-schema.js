@@ -197,6 +197,19 @@ const PG_MIGRATIONS = [
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (endpoint, tournament_id)
   )`,
+  // Follows atados a la cuenta (user_id), no al dispositivo — persisten entre sesiones/dispositivos
+  `CREATE TABLE IF NOT EXISTS user_team_follows (
+    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    team_id    BIGINT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, team_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS user_tournament_follows (
+    user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tournament_id BIGINT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, tournament_id)
+  )`,
 ]
 
 module.exports = { PG_SCHEMA, PG_MIGRATIONS }

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/api'
+import { useAuthStore } from '@/stores/auth'
 
 export const useFollowingStore = defineStore('following', () => {
   const teamIds = ref(new Set(
@@ -36,15 +37,36 @@ export const useFollowingStore = defineStore('following', () => {
     } catch {}
   }
 
-  async function syncFromServer(endpoint) {
-    if (!endpoint) return
+  // El backend persiste por endpoint (dispositivo/push) y, si hay sesión, también
+  // por cuenta (user_id) — así el seguimiento sobrevive a cambios de dispositivo.
+  function _shouldSync(endpoint) {
+    return !!endpoint || useAuthStore().isLoggedIn
+  }
+
+  async function syncFromServer(endpoint = null) {
+    if (!_shouldSync(endpoint)) return
     try {
+      // Follows locales previos al login (anónimos) — se preservan subiéndolos a la cuenta
+      // en vez de perderlos al sobreescribir con lo que ya tenía el servidor.
+      const localTeamIds = [...teamIds.value]
+      const localTournamentIds = [...tournamentIds.value]
+
       const [teamsRes, tourRes] = await Promise.all([
         api.post('/follows', { endpoint }),
         api.post('/follows/tournaments', { endpoint }),
       ])
-      teamIds.value = new Set(teamsRes.data.map(Number))
-      tournamentIds.value = new Set(tourRes.data.map(Number))
+      const serverTeamIds = new Set(teamsRes.data.map(Number))
+      const serverTournamentIds = new Set(tourRes.data.map(Number))
+
+      const newTeamIds = localTeamIds.filter(id => !serverTeamIds.has(id))
+      const newTournamentIds = localTournamentIds.filter(id => !serverTournamentIds.has(id))
+      await Promise.all([
+        ...newTeamIds.map(id => api.post('/follows/add', { endpoint, teamId: id }).catch(() => {})),
+        ...newTournamentIds.map(id => api.post('/follows/tournament/add', { endpoint, tournamentId: id }).catch(() => {})),
+      ])
+
+      teamIds.value = new Set([...serverTeamIds, ...newTeamIds])
+      tournamentIds.value = new Set([...serverTournamentIds, ...newTournamentIds])
       _save()
     } catch {}
   }
@@ -53,13 +75,13 @@ export const useFollowingStore = defineStore('following', () => {
     const id = Number(teamId)
     if (teamIds.value.has(id)) return
     teamIds.value.add(id); _save()
-    if (endpoint) { try { await api.post('/follows/add', { endpoint, teamId: id }) } catch {} }
+    if (_shouldSync(endpoint)) { try { await api.post('/follows/add', { endpoint, teamId: id }) } catch {} }
   }
 
   async function unfollow(teamId, endpoint) {
     const id = Number(teamId)
     teamIds.value.delete(id); _save()
-    if (endpoint) { try { await api.post('/follows/remove', { endpoint, teamId: id }) } catch {} }
+    if (_shouldSync(endpoint)) { try { await api.post('/follows/remove', { endpoint, teamId: id }) } catch {} }
   }
 
   async function toggle(teamId, endpoint) {
@@ -71,13 +93,13 @@ export const useFollowingStore = defineStore('following', () => {
     const id = Number(tournamentId)
     if (tournamentIds.value.has(id)) return
     tournamentIds.value.add(id); _save()
-    if (endpoint) { try { await api.post('/follows/tournament/add', { endpoint, tournamentId: id }) } catch {} }
+    if (_shouldSync(endpoint)) { try { await api.post('/follows/tournament/add', { endpoint, tournamentId: id }) } catch {} }
   }
 
   async function unfollowTournament(tournamentId, endpoint) {
     const id = Number(tournamentId)
     tournamentIds.value.delete(id); _save()
-    if (endpoint) { try { await api.post('/follows/tournament/remove', { endpoint, tournamentId: id }) } catch {} }
+    if (_shouldSync(endpoint)) { try { await api.post('/follows/tournament/remove', { endpoint, tournamentId: id }) } catch {} }
   }
 
   async function toggleTournament(tournamentId, endpoint) {

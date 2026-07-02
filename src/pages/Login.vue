@@ -117,9 +117,7 @@ async function handleLogin() {
 async function handleGoogleCredential(response) {
   try {
     await auth.googleLogin(response.credential)
-    if (pushEndpoint.value) {
-      await following.syncFromServer(pushEndpoint.value)
-    }
+    await following.syncFromServer(pushEndpoint.value)
     router.push(redirectTo.value || '/')
   } catch {
     error.value = 'Error al iniciar sesión con Google'

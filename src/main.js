@@ -5,6 +5,7 @@ import App from './App.vue'
 import './styles/main.css'
 import { registerIcons } from '@/plugins/icons'
 import { useAuthStore } from '@/stores/auth'
+import { useFollowingStore } from '@/stores/following'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -14,4 +15,11 @@ registerIcons(app)
 app.mount('#app')
 
 // Verificar sesión al arrancar — limpia tokens inválidos automáticamente
-useAuthStore().verifySession()
+const auth = useAuthStore()
+auth.verifySession().then(() => {
+  // Si hay sesión válida, hidratar equipos/torneos seguidos desde la cuenta
+  // (persisten en BD por user_id, no solo en localStorage del dispositivo)
+  if (auth.isLoggedIn) {
+    useFollowingStore().syncFromServer(localStorage.getItem('jlp_push_endpoint'))
+  }
+})

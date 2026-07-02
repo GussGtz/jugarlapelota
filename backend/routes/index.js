@@ -2999,50 +2999,75 @@ router.post('/push/unsubscribe', async (req, res) => {
 })
 
 // ── Team follows ───────────────────────────────────────────────────────────
-router.post('/follows', async (req, res) => {
+// Persisten en dos capas: team_follows (por endpoint/dispositivo, usado para push)
+// y user_team_follows (por cuenta, cuando hay sesión) — así el seguimiento
+// sobrevive a cambios de dispositivo/navegador mientras el usuario esté logueado.
+router.post('/follows', optionalAuth, async (req, res) => {
   const { endpoint } = req.body
-  if (!endpoint) return res.json([])
-  const rows = (await query('SELECT team_id FROM team_follows WHERE endpoint=$1', [endpoint])).rows
-  res.json(rows.map(r => r.team_id))
+  const ids = new Set()
+  if (endpoint) {
+    const rows = (await query('SELECT team_id FROM team_follows WHERE endpoint=$1', [endpoint])).rows
+    rows.forEach(r => ids.add(r.team_id))
+  }
+  if (req.user?.id) {
+    const rows = (await query('SELECT team_id FROM user_team_follows WHERE user_id=$1', [req.user.id])).rows
+    rows.forEach(r => ids.add(r.team_id))
+  }
+  res.json([...ids])
 })
 
-router.post('/follows/add', async (req, res) => {
+router.post('/follows/add', optionalAuth, async (req, res) => {
   const { endpoint, teamId } = req.body
-  if (!endpoint || !teamId) return res.status(400).json({ error: 'Faltan datos' })
+  if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
+  if (!teamId) return res.status(400).json({ error: 'Faltan datos' })
   try {
-    await query('INSERT INTO team_follows (endpoint, team_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, teamId])
+    if (endpoint) await query('INSERT INTO team_follows (endpoint, team_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, teamId])
+    if (req.user?.id) await query('INSERT INTO user_team_follows (user_id, team_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.user.id, teamId])
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-router.post('/follows/remove', async (req, res) => {
+router.post('/follows/remove', optionalAuth, async (req, res) => {
   const { endpoint, teamId } = req.body
-  if (!endpoint || !teamId) return res.status(400).json({ error: 'Faltan datos' })
-  await query('DELETE FROM team_follows WHERE endpoint=$1 AND team_id=$2', [endpoint, teamId])
+  if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
+  if (!teamId) return res.status(400).json({ error: 'Faltan datos' })
+  if (endpoint) await query('DELETE FROM team_follows WHERE endpoint=$1 AND team_id=$2', [endpoint, teamId])
+  if (req.user?.id) await query('DELETE FROM user_team_follows WHERE user_id=$1 AND team_id=$2', [req.user.id, teamId])
   res.json({ ok: true })
 })
 
 // ── Tournament follows ─────────────────────────────────────────────────────
-router.post('/follows/tournaments', async (req, res) => {
+router.post('/follows/tournaments', optionalAuth, async (req, res) => {
   const { endpoint } = req.body
-  if (!endpoint) return res.json([])
-  const rows = (await query('SELECT tournament_id FROM tournament_follows WHERE endpoint=$1', [endpoint])).rows
-  res.json(rows.map(r => r.tournament_id))
+  const ids = new Set()
+  if (endpoint) {
+    const rows = (await query('SELECT tournament_id FROM tournament_follows WHERE endpoint=$1', [endpoint])).rows
+    rows.forEach(r => ids.add(r.tournament_id))
+  }
+  if (req.user?.id) {
+    const rows = (await query('SELECT tournament_id FROM user_tournament_follows WHERE user_id=$1', [req.user.id])).rows
+    rows.forEach(r => ids.add(r.tournament_id))
+  }
+  res.json([...ids])
 })
 
-router.post('/follows/tournament/add', async (req, res) => {
+router.post('/follows/tournament/add', optionalAuth, async (req, res) => {
   const { endpoint, tournamentId } = req.body
-  if (!endpoint || !tournamentId) return res.status(400).json({ error: 'Faltan datos' })
+  if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
+  if (!tournamentId) return res.status(400).json({ error: 'Faltan datos' })
   try {
-    await query('INSERT INTO tournament_follows (endpoint, tournament_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, tournamentId])
+    if (endpoint) await query('INSERT INTO tournament_follows (endpoint, tournament_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, tournamentId])
+    if (req.user?.id) await query('INSERT INTO user_tournament_follows (user_id, tournament_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.user.id, tournamentId])
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-router.post('/follows/tournament/remove', async (req, res) => {
+router.post('/follows/tournament/remove', optionalAuth, async (req, res) => {
   const { endpoint, tournamentId } = req.body
-  if (!endpoint || !tournamentId) return res.status(400).json({ error: 'Faltan datos' })
-  await query('DELETE FROM tournament_follows WHERE endpoint=$1 AND tournament_id=$2', [endpoint, tournamentId])
+  if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
+  if (!tournamentId) return res.status(400).json({ error: 'Faltan datos' })
+  if (endpoint) await query('DELETE FROM tournament_follows WHERE endpoint=$1 AND tournament_id=$2', [endpoint, tournamentId])
+  if (req.user?.id) await query('DELETE FROM user_tournament_follows WHERE user_id=$1 AND tournament_id=$2', [req.user.id, tournamentId])
   res.json({ ok: true })
 })
 
@@ -3062,24 +3087,32 @@ function sendPush(subs, payload) {
 
 async function sendPushToTeams(teamIds, payload) {
   if (!teamIds?.length) return
-  const ph = teamIds.map((_, i) => `$${i + 1}`).join(',')
+  const n = teamIds.length
+  const ph1 = teamIds.map((_, i) => `$${i + 1}`).join(',')
+  const ph2 = teamIds.map((_, i) => `$${n + i + 1}`).join(',')
+  // Alcanza tanto follows por dispositivo (endpoint) como por cuenta (user_id),
+  // así un usuario logueado recibe push en cualquier dispositivo donde tenga sesión activa.
   const endpoints = (await query(
     `SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
      FROM push_subscriptions ps
-     INNER JOIN team_follows tf ON tf.endpoint = ps.endpoint
-     WHERE tf.team_id IN (${ph})`, [...teamIds]
+     LEFT JOIN team_follows tf ON tf.endpoint = ps.endpoint AND tf.team_id IN (${ph1})
+     LEFT JOIN user_team_follows utf ON utf.user_id = ps.user_id AND utf.team_id IN (${ph2})
+     WHERE tf.team_id IS NOT NULL OR utf.team_id IS NOT NULL`, [...teamIds, ...teamIds]
   )).rows
   sendPush(endpoints, payload)
 }
 
 async function sendPushToTournaments(tournamentIds, payload) {
   if (!tournamentIds?.length) return
-  const ph = tournamentIds.map((_, i) => `$${i + 1}`).join(',')
+  const n = tournamentIds.length
+  const ph1 = tournamentIds.map((_, i) => `$${i + 1}`).join(',')
+  const ph2 = tournamentIds.map((_, i) => `$${n + i + 1}`).join(',')
   const endpoints = (await query(
     `SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
      FROM push_subscriptions ps
-     INNER JOIN tournament_follows tf ON tf.endpoint = ps.endpoint
-     WHERE tf.tournament_id IN (${ph})`, [...tournamentIds]
+     LEFT JOIN tournament_follows tf ON tf.endpoint = ps.endpoint AND tf.tournament_id IN (${ph1})
+     LEFT JOIN user_tournament_follows utf ON utf.user_id = ps.user_id AND utf.tournament_id IN (${ph2})
+     WHERE tf.tournament_id IS NOT NULL OR utf.tournament_id IS NOT NULL`, [...tournamentIds, ...tournamentIds]
   )).rows
   sendPush(endpoints, payload)
 }

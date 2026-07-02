@@ -39,6 +39,20 @@ module.exports = function initSQLite(db, bcrypt) {
       endpoint TEXT NOT NULL, team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
       created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (endpoint, team_id)
     );
+    CREATE TABLE IF NOT EXISTS tournament_follows (
+      endpoint TEXT NOT NULL, tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (endpoint, tournament_id)
+    );
+    CREATE TABLE IF NOT EXISTS user_team_follows (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (user_id, team_id)
+    );
+    CREATE TABLE IF NOT EXISTS user_tournament_follows (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (user_id, tournament_id)
+    );
     CREATE TABLE IF NOT EXISTS push_subscriptions (
       id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL UNIQUE,
       p256dh TEXT NOT NULL, auth TEXT NOT NULL, user_agent TEXT,
