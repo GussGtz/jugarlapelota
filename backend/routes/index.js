@@ -580,8 +580,10 @@ router.get('/tournaments/:slug/players/phase-stats', async (req, res) => {
   }
 
   const phaseIds = validPhases.map(p => p.id)
-  // Usar ANY($N) para el IN dinámico de PostgreSQL
-  const params = [phaseIds, t.id]
+  // IN (...) con placeholders dinámicos — portable entre Postgres y SQLite
+  // (ANY($N::bigint[]) es sintaxis de array exclusiva de Postgres, SQLite no la soporta)
+  const phasePlaceholders = phaseIds.map((_, i) => `$${i + 1}`).join(',')
+  const params = [...phaseIds, t.id]
   if (catId) params.push(catId)
   const catFilter = catId ? `AND t.category_id = $${params.length}` : ''
 
@@ -598,8 +600,8 @@ router.get('/tournaments/:slug/players/phase-stats', async (req, res) => {
     FROM players p
     JOIN teams t ON t.id = p.team_id
     LEFT JOIN match_events e ON e.player_id = p.id
-    LEFT JOIN matches m ON m.id = e.match_id AND m.phase_id = ANY($1::bigint[])
-    WHERE t.tournament_id = $2
+    LEFT JOIN matches m ON m.id = e.match_id AND m.phase_id IN (${phasePlaceholders})
+    WHERE t.tournament_id = $${phaseIds.length + 1}
     ${catFilter}
     GROUP BY p.id, p.name, p.photo, p.number, p.position, p.team_id, t.name, t.logo
     ORDER BY goals DESC, assists DESC, p.name ASC
