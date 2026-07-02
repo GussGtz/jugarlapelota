@@ -73,3 +73,15 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 - Centrado: se agregó `text-center` + `mx-auto` en los elementos internos de cada columna (encabezado, párrafo con `max-w-sm mx-auto`, grid de videos/cards con `max-w-sm`/`max-w-md mx-auto`) tanto en `InstallTutorial.vue` como en la columna de "características" en [Home.vue](src/pages/Home.vue), en vez de dejarlos pegados al borde izquierdo/derecho de cada columna.
 
 **Validado con:** preview en navegador en desktop (1280px), tablet (768px) y mobile (375px) — contenido centrado dentro de cada columna en las tres resoluciones, videos con poster visible incluso sin reproducir, sin errores de consola.
+
+### 2026-07-02 — Fix: botón Hero "Instalar app" + modal de video no invasivo en móvil
+**Pedido:** (1) cambiar el botón "Comenzar" del Hero (iba a `/login`) por "Instalar app" que haga scroll hasta el tutorial; (2) que el modal de video no ocupe toda la pantalla en móvil (dejar que el usuario lo amplíe con el botón nativo de fullscreen si quiere); (3) la X de cerrar no se podía usar en móvil.
+
+**Causa de (3):** la X estaba posicionada `absolute -top-11` (44px por encima del contenedor del video, fuera de él). Con el video sin acotar en altura (ocupaba casi toda la pantalla en móvil por el aspect-ratio portrait), ese offset quedaba fuera del viewport visible.
+
+**Solución:**
+- [HeroSection.vue](src/components/Hero/HeroSection.vue): el botón ahora es `@click="scrollToInstall"` → `document.getElementById('instalar-app')?.scrollIntoView(...)`. Se agregó `id="instalar-app"` (+ `scroll-mt-20` para no quedar tapado por el navbar fijo) al contenedor raíz de [InstallTutorial.vue](src/components/InstallTutorial/InstallTutorial.vue).
+- El video del modal ahora usa `max-h-[65vh] max-w-[80vw] sm:max-w-xs w-auto h-auto` en vez de `w-full` — queda acotado y se nota que es un overlay, no pantalla completa. El botón nativo de fullscreen de los controles del `<video>` sigue disponible para quien sí quiera ampliarlo.
+- La X de cerrar se movió a `absolute top-2 right-2` **sobre la esquina del propio video** (contenedor `inline-block` que se ajusta al tamaño real del video), en vez de flotar por encima fuera de su caja — así siempre queda visible y alcanzable sin importar el alto del video.
+
+**Validado con:** preview en navegador mobile (375px) — clic en "Instalar app" hace scroll correcto hasta el tutorial; clic en thumbnail abre modal compacto (no fullscreen) con la X visible en la esquina; clic en la X cierra correctamente. Sin errores de consola.
