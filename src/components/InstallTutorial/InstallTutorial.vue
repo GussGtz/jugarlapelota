@@ -1,19 +1,17 @@
 <template>
-  <section class="max-w-7xl mx-auto px-4 py-12">
-    <div class="text-center mb-8">
-      <span class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
-        Instala la app
-      </span>
-      <h2 class="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
-        Instálala en tu celular
-        <span class="text-primary"> en 30 segundos</span>
-      </h2>
-      <p class="text-slate-500 mt-3 text-base max-w-xl mx-auto">
-        Es una PWA: no está en la tienda de apps. Sigue el video según tu celular.
-      </p>
-    </div>
+  <div>
+    <span class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
+      Instala la app
+    </span>
+    <h2 class="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
+      Instálala en tu celular
+      <span class="text-primary"> en 30 segundos</span>
+    </h2>
+    <p class="text-slate-500 mt-3 text-base max-w-md">
+      Sin descargas pesadas ni tiendas de apps. Más rápido, más ligero y sin ocupar espacio en tu memoria.
+    </p>
 
-    <div class="grid grid-cols-2 gap-5 max-w-md mx-auto">
+    <div class="grid grid-cols-2 gap-5 max-w-sm mt-8">
       <button v-for="t in tutorials" :key="t.key" @click="open(t)"
         class="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 aspect-[9/16] w-full">
         <video :src="t.src" class="w-full h-full object-cover opacity-70 group-hover:opacity-50 transition-opacity"
@@ -40,7 +38,7 @@
         </div>
       </div>
     </Transition>
-  </section>
+  </div>
 </template>
 
 <script setup>

@@ -69,42 +69,44 @@
       </div>
     </section>
 
-    <!-- ── Tutorial de instalación (PWA) ───────────────────── -->
-    <InstallTutorial />
-
-    <!-- ── Para todos en el torneo ─────────────────────────── -->
+    <!-- ── Instala la app + Para todos en el torneo ────────── -->
     <section id="caracteristicas" class="bg-slate-50 py-16 md:py-24 border-t border-slate-100">
       <div class="max-w-7xl mx-auto px-4">
+        <div class="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
 
-        <!-- Header -->
-        <div class="text-center mb-12 md:mb-16">
-          <span class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
-            Plataforma completa
-          </span>
-          <h2 class="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
-            Un torneo conectado
-            <span class="text-primary"> para todos</span>
-          </h2>
-          <p class="text-slate-500 mt-3 text-base max-w-xl mx-auto">
-            Cada persona involucrada tiene su propio rol y experiencia dentro de la plataforma.
-          </p>
-        </div>
+          <!-- Tutorial de instalación (PWA) -->
+          <InstallTutorial />
 
-        <!-- Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-8">
-          <div v-for="role in roles" :key="role.title" class="role-card">
-            <!-- SVG ilustración -->
-            <div class="role-svg-wrap" :style="{ background: role.gradient }">
-              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"
-                class="w-16 h-16" :style="{ color: role.stroke }">
-                <g v-html="role.svg"></g>
-              </svg>
+          <!-- Características / roles -->
+          <div>
+            <span class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
+              Plataforma completa
+            </span>
+            <h2 class="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
+              Un torneo conectado
+              <span class="text-primary"> para todos</span>
+            </h2>
+            <p class="text-slate-500 mt-3 text-base max-w-md">
+              Cada persona involucrada tiene su propio rol y experiencia dentro de la plataforma.
+            </p>
+
+            <!-- Cards -->
+            <div class="grid grid-cols-2 gap-5 mt-8">
+              <div v-for="role in roles" :key="role.title" class="role-card">
+                <!-- SVG ilustración -->
+                <div class="role-svg-wrap" :style="{ background: role.gradient }">
+                  <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    class="w-16 h-16" :style="{ color: role.stroke }">
+                    <g v-html="role.svg"></g>
+                  </svg>
+                </div>
+                <h3 class="font-black text-slate-900 text-base md:text-lg mt-5 mb-2">{{ role.title }}</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">{{ role.desc }}</p>
+              </div>
             </div>
-            <h3 class="font-black text-slate-900 text-base md:text-lg mt-5 mb-2">{{ role.title }}</h3>
-            <p class="text-slate-500 text-sm leading-relaxed">{{ role.desc }}</p>
           </div>
-        </div>
 
+        </div>
       </div>
     </section>
 
