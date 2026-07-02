@@ -4,18 +4,18 @@
 
     <!-- Live matches -->
     <section v-if="liveMatches.length" class="max-w-7xl mx-auto px-4 py-12">
-      <div class="flex items-center gap-3 mb-6">
+      <div v-reveal class="flex items-center gap-3 mb-6">
         <span class="live-dot"></span>
         <h2 class="section-title">Partidos en Vivo</h2>
       </div>
       <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <MatchCard v-for="m in liveMatches" :key="m.id" :match="m" :tournament-slug="m.tournamentSlug" />
+        <MatchCard v-for="(m, i) in liveMatches" :key="m.id" v-reveal="{ delay: i * 80 }" :match="m" :tournament-slug="m.tournamentSlug" />
       </div>
     </section>
 
     <!-- Tournaments -->
     <section id="torneos" class="max-w-7xl mx-auto px-4 py-12">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div v-reveal class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h2 class="section-title">Torneos Activos</h2>
         <!-- Buscador -->
         <div class="relative w-full sm:w-64">
@@ -35,15 +35,18 @@
       <div v-else>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <router-link
-            v-for="t in visibleTournaments"
+            v-for="(t, i) in visibleTournaments"
             :key="t.id"
+            v-reveal="{ delay: i * 90 }"
             :to="`/${t.slug}`"
-            class="card group hover:scale-[1.02] transition-transform block"
+            class="card group hover:scale-[1.02] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 ease-out block"
             :style="{ borderColor: t.primaryColor || '' }"
           >
-            <img v-if="t.banner" :src="t.banner" class="w-full h-32 object-cover rounded-xl mb-4" />
-            <div v-else class="w-full h-32 bg-muted rounded-xl mb-4 flex items-center justify-center">
-              <IconTrophy class="w-10 h-10 text-gray-500" />
+            <div class="overflow-hidden rounded-xl mb-4">
+              <img v-if="t.banner" :src="t.banner" class="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-500" />
+              <div v-else class="w-full h-32 bg-muted flex items-center justify-center">
+                <IconTrophy class="w-10 h-10 text-gray-500" />
+              </div>
             </div>
             <div class="flex items-center gap-3">
               <img v-if="t.logo" :src="t.logo" class="w-10 h-10 object-contain" />
@@ -79,24 +82,24 @@
 
           <!-- Características / roles -->
           <div class="text-center">
-            <span class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
+            <span v-reveal class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
               Plataforma completa
             </span>
-            <h2 class="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
+            <h2 v-reveal="{ delay: 80 }" class="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
               Un torneo conectado
               <span class="text-primary"> para todos</span>
             </h2>
-            <p class="text-slate-500 mt-3 text-base max-w-sm mx-auto">
+            <p v-reveal="{ delay: 140 }" class="text-slate-500 mt-3 text-base max-w-sm mx-auto">
               Cada persona involucrada tiene su propio rol y experiencia dentro de la plataforma.
             </p>
 
             <!-- Cards -->
             <div class="grid grid-cols-2 gap-5 max-w-md mx-auto mt-8">
-              <div v-for="role in roles" :key="role.title" class="role-card">
+              <div v-for="(role, i) in roles" :key="role.title" v-reveal="{ delay: 220 + i * 100 }" class="role-card">
                 <!-- SVG ilustración -->
                 <div class="role-svg-wrap" :style="{ background: role.gradient }">
                   <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"
-                    class="w-16 h-16" :style="{ color: role.stroke }">
+                    class="w-16 h-16 role-svg" :style="{ color: role.stroke }">
                     <g v-html="role.svg"></g>
                   </svg>
                 </div>
@@ -273,5 +276,15 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.role-card:hover .role-svg-wrap {
+  transform: scale(1.08) rotate(-4deg);
+}
+.role-svg {
+  transition: transform 0.3s ease;
+}
+.role-card:hover .role-svg {
+  transform: scale(1.08);
 }
 </style>

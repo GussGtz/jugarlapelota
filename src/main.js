@@ -7,6 +7,7 @@ import { registerIcons } from '@/plugins/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useFollowingStore } from '@/stores/following'
 import { setupPWAUpdates } from '@/pwa'
+import { vReveal } from '@/directives/reveal'
 
 setupPWAUpdates()
 
@@ -15,6 +16,7 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 registerIcons(app)
+app.directive('reveal', vReveal)
 app.mount('#app')
 
 // Verificar sesión al arrancar — limpia tokens inválidos automáticamente

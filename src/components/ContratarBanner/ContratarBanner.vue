@@ -2,12 +2,12 @@
   <section class="cb-root">
     <div class="cb-overlay" />
     <div class="cb-content">
-      <div class="cb-text">
+      <div v-reveal class="cb-text">
         <p class="cb-eyebrow">¿Organizas un torneo?</p>
         <h2 class="cb-title">Contratar JugarLaPelota<br>para tu liga o torneo</h2>
         <p class="cb-sub">Sin compromiso · Sin métodos de pago · Respuesta en menos de 24 h</p>
       </div>
-      <router-link to="/contratar" class="cb-btn">
+      <router-link v-reveal="{ delay: 150 }" to="/contratar" class="cb-btn">
         Contratar →
       </router-link>
     </div>
@@ -40,8 +40,16 @@
   background: rgba(255,255,255,0.06);
   pointer-events: none;
 }
-.cb-root::before { width: 380px; height: 380px; top: -120px; right: -80px; }
-.cb-root::after  { width: 260px; height: 260px; bottom: -100px; left: -60px; }
+.cb-root::before { width: 380px; height: 380px; top: -120px; right: -80px; animation: cbDrift 9s ease-in-out infinite; }
+.cb-root::after  { width: 260px; height: 260px; bottom: -100px; left: -60px; animation: cbDrift 11s ease-in-out infinite reverse; }
+
+@keyframes cbDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-14px, 14px) scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cb-root::before, .cb-root::after { animation: none; }
+}
 
 .cb-content {
   position: relative;

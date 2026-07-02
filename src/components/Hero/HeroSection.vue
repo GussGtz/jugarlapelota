@@ -36,7 +36,7 @@
       <div class="z-10">
 
         <!-- Logo + badge live -->
-        <div class="flex items-center gap-4 mb-8">
+        <div class="flex items-center gap-4 mb-8 hero-anim" style="animation-delay: 0.05s">
           <img src="@/assets/images/LOGO.png" alt="JugarLaPelota"
             class="h-14 w-14 object-contain drop-shadow-xl" />
           <span class="hero-badge">
@@ -46,20 +46,20 @@
         </div>
 
         <!-- Headline -->
-        <h1 class="hero-h1">
+        <h1 class="hero-h1 hero-anim" style="animation-delay: 0.15s">
           Digitaliza tu Torneo<br>
           <span class="hero-h1-accent">y ahorra horas</span><br>
           de Gestión
         </h1>
 
         <!-- Sub-headline -->
-        <p class="hero-sub">
+        <p class="hero-sub hero-anim" style="animation-delay: 0.28s">
           Todo lo que necesitas para correr tu torneo, en un solo lugar:
         </p>
 
         <!-- Feature list -->
         <ul class="hero-features">
-          <li v-for="f in features" :key="f.text">
+          <li v-for="(f, i) in features" :key="f.text" class="hero-anim" :style="{ animationDelay: `${0.38 + i * 0.08}s` }">
             <span class="feature-check">✓</span>
             <span>
               <strong>{{ f.title }}</strong>
@@ -69,7 +69,7 @@
         </ul>
 
         <!-- CTAs -->
-        <div class="flex flex-wrap gap-4 mt-10">
+        <div class="flex flex-wrap gap-4 mt-10 hero-anim" style="animation-delay: 0.75s">
           <button type="button" @click="scrollToTournaments" class="hero-btn-primary">
             Ver torneos
           </button>
@@ -85,8 +85,8 @@
 
         <!-- Stat cards -->
         <div class="grid grid-cols-2 gap-4 w-full max-w-sm">
-          <div v-for="stat in stats" :key="stat.label"
-            class="stat-card">
+          <div v-for="(stat, i) in stats" :key="stat.label"
+            class="stat-card hero-anim" :style="{ animationDelay: `${0.4 + i * 0.1}s` }">
             <component :is="stat.icon" class="w-6 h-6 mb-2" :class="stat.color" />
             <p class="text-3xl font-black text-white leading-none">{{ stat.value }}</p>
             <p class="text-slate-400 text-xs mt-1">{{ stat.label }}</p>
@@ -94,7 +94,7 @@
         </div>
 
         <!-- Live badge flotante -->
-        <div class="live-float-card">
+        <div class="live-float-card hero-anim hero-float" style="animation-delay: 0.85s">
           <span class="live-dot-hero mr-2"></span>
           <span class="text-sm font-bold text-white">Marcadores en tiempo real</span>
         </div>
@@ -405,5 +405,25 @@ const stats = [
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
+}
+
+/* ── Entrada del Hero — contenido visible desde el primer momento, así que
+     anima al montar en vez de esperar scroll (ver directiva v-reveal para el resto) ── */
+@keyframes heroFadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero-anim {
+  opacity: 0;
+  animation: heroFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.hero-float { animation: heroFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards, heroFloat 3.5s ease-in-out 1.2s infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-anim, .hero-float { animation: none; opacity: 1; }
 }
 </style>

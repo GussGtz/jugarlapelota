@@ -224,6 +224,14 @@ onBeforeUnmount(() => observer?.disconnect())
   /* Bisel interior blanco — evita que el screenshot toque los bordes redondeados */
   padding: 3px;
   overflow: visible;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+.phone-frame:hover {
+  transform: translateY(-8px);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06) inset,
+    0 48px 88px rgba(0,0,0,0.3),
+    0 10px 24px rgba(0,0,0,0.16);
 }
 
 /* Notch superior */
