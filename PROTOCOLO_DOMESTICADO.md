@@ -152,3 +152,14 @@ Nota: `FeatureSections.vue` ya tenía su propio sistema de reveal con `Intersect
 - [ContratarBanner.vue](src/components/ContratarBanner/ContratarBanner.vue) — reveal en texto/CTA, círculos decorativos de fondo con drift continuo.
 
 **Validado con:** build de Vite exitoso, preview en desktop (1280px) y mobile (375px) — animaciones se disparan correctamente al hacer scroll, hover states funcionan, el modal de video sigue abriendo/cerrando bien con la nueva transición, sin errores de consola en ninguna resolución.
+
+### 2026-07-02 — Feature: animaciones en la página pública de cada torneo
+**Pedido:** extender las animaciones también al "apartado que ve el user de cada torneo" — es decir, [TournamentHome.vue](src/pages/TournamentHome.vue), la página pública que ve un aficionado al entrar a un torneo específico (no solo el Home general del sitio).
+
+**Alcance:** TournamentHome.vue tiene 7 secciones grandes (Hero, partidos en vivo/resultados/próximos, dinámica de grupos-eliminatorias-campeones, noticias, galería, equipos participantes, reconocimientos). Se reutilizó la misma directiva `v-reveal` creada en la entrada anterior para todas, más una entrada escalonada tipo "hero-anim" (clase local `th-hero-anim`, mismo patrón que `hero-anim` de `HeroSection.vue`) para el Hero del torneo, ya que es contenido visible desde el primer momento (above the fold) y no debe depender de scroll.
+
+**Detalle técnico importante:** al combinar `.th-hero-anim` (que define `animation: thHeroFadeUp ...`) con la clase `animate-bounce` de Tailwind (que define `animation: bounce ...`) en el mismo elemento, solo una de las dos reglas `animation` gana en cascada CSS — no se combinan automáticamente. Se solucionó separando en dos elementos anidados: el contenedor externo con `th-hero-anim` (fade+slide de entrada) y un `<div>` interno con `animate-bounce` (rebote continuo del ícono de scroll).
+
+**Stagger acotado con módulo:** en grids largos (equipos participantes, reconocimientos con muchas tarjetas) se usó `(i % N) * delay` en vez de `i * delay` sin acotar, para que el último elemento de una lista de 50 no tarde varios segundos en aparecer.
+
+**Validado con:** build de Vite exitoso, recorrido completo en preview desktop (1280px) y mobile (375px) haciendo scroll por las 7 secciones del torneo COPACARIBE (que está en modo "finalizado" con podio de campeones) — todas las animaciones se disparan correctamente, sin errores de consola.
