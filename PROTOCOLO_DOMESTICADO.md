@@ -116,3 +116,10 @@ Stack: Vue 3 + Vite + Tailwind + Pinia + Socket.io (frontend) / Node.js + Expres
 **Nota de bug encontrado (no relacionado, no corregido):** al probar esto localmente contra SQLite se detectó que `GET /tournaments/:slug/players/phase-stats` (backend/routes/index.js:565) lanza 500 (`unrecognized token: ":"`) — sintaxis SQL específica de Postgres que no es compatible con SQLite. Solo afecta al dev local (producción usa Postgres). Se dejó un task flag (`task_428a9abc`) para corregirlo en otra sesión.
 
 **Validado con:** flujo completo end-to-end contra backend local (SQLite) — `PUT /tournaments/:id` con `sponsorsBanner` persiste y se lee correctamente vía API; en el navegador, la imagen se ve fija arriba del feed en `/COPACARIBE/media`; el campo aparece correctamente en el modal de edición del admin con su imagen y texto de ayuda. Sin errores de consola relacionados a este cambio.
+
+### 2026-07-02 — Fix: `/players/phase-stats` roto en SQLite (bug del incidente anterior)
+**Causa raíz:** [backend/routes/index.js:601](backend/routes/index.js:601) usaba `m.phase_id = ANY($1::bigint[])` — sintaxis de arrays exclusiva de Postgres (cast `::bigint[]` + `ANY()`). SQLite no la entiende en absoluto, de ahí el error `unrecognized token: ":"` al correr el backend local en modo SQLite (sin `DATABASE_URL`). En producción (Postgres) nunca se notaba.
+
+**Solución:** se reemplazó por `IN (${placeholders dinámicos})` — mismo patrón portable ya usado en `sendPushToTeams`/`sendPushToTournaments` (ver entrada del 2026-07-02 sobre follows). Los placeholders del filtro de categoría (`catFilter`) se recalculan según la nueva cantidad de params.
+
+**Validado con:** backend local (SQLite) — `GET /tournaments/COPACARIBE/players/phase-stats` (con y sin `?cat=`) responde 200 con datos correctos en vez de 500. Páginas admin Dashboard y Jugadores cargan sin errores de consola.
