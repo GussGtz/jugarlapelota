@@ -73,9 +73,9 @@
           <button type="button" @click="scrollToTournaments" class="hero-btn-primary">
             Ver torneos
           </button>
-          <router-link to="/login" class="hero-btn-ghost">
-            Comenzar
-          </router-link>
+          <button type="button" @click="scrollToInstall" class="hero-btn-ghost">
+            Instalar app
+          </button>
         </div>
 
       </div>
@@ -114,6 +114,10 @@ import { Trophy, Radio, BarChart2, Smartphone } from 'lucide-vue-next'
 
 function scrollToTournaments() {
   document.getElementById('torneos')?.scrollIntoView({ behavior: 'smooth' })
+}
+
+function scrollToInstall() {
+  document.getElementById('instalar-app')?.scrollIntoView({ behavior: 'smooth' })
 }
 
 // Video de fondo — Streamable embed (autoplay, sin controles, sin sonido)

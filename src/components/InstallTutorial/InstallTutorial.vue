@@ -1,5 +1,5 @@
 <template>
-  <div class="text-center">
+  <div id="instalar-app" class="text-center scroll-mt-20">
     <span class="inline-block text-xs font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-4">
       Instala la app
     </span>
@@ -25,15 +25,17 @@
       </button>
     </div>
 
-    <!-- Modal -->
+    <!-- Modal — video acotado (no ocupa toda la pantalla); el usuario puede
+         ampliarlo con el botón de pantalla completa nativo de los controles -->
     <Transition name="fade">
       <div v-if="active" class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" @click.self="close">
-        <div class="relative w-full max-w-sm">
+        <div class="relative inline-block max-w-full max-h-full">
+          <video :src="active.src" class="block mx-auto max-h-[65vh] max-w-[80vw] sm:max-w-xs w-auto h-auto rounded-2xl shadow-2xl"
+            controls autoplay playsinline></video>
           <button @click="close"
-            class="absolute -top-11 right-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center">
-            <IconX class="w-5 h-5 text-white" />
+            class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/70 hover:bg-black/90 flex items-center justify-center shadow-lg">
+            <IconX class="w-4 h-4 text-white" />
           </button>
-          <video :src="active.src" class="w-full rounded-2xl shadow-2xl" controls autoplay playsinline></video>
           <p class="text-white text-center mt-4 font-semibold text-sm">{{ active.label }}</p>
         </div>
       </div>
