@@ -163,3 +163,21 @@ Nota: `FeatureSections.vue` ya tenía su propio sistema de reveal con `Intersect
 **Stagger acotado con módulo:** en grids largos (equipos participantes, reconocimientos con muchas tarjetas) se usó `(i % N) * delay` en vez de `i * delay` sin acotar, para que el último elemento de una lista de 50 no tarde varios segundos en aparecer.
 
 **Validado con:** build de Vite exitoso, recorrido completo en preview desktop (1280px) y mobile (375px) haciendo scroll por las 7 secciones del torneo COPACARIBE (que está en modo "finalizado" con podio de campeones) — todas las animaciones se disparan correctamente, sin errores de consola.
+
+### 2026-07-06 — Torneo demo "Copa Caribe Demo" en producción + 3 bugs de Postgres corregidos
+**Pedido:** crear en producción (mismo perfil admin, torneo separado del "Copa Caribe" real) un torneo de demostración con 7 categorías (las 6 del torneo real + Sub-17 extra), cada una en un estado distinto para mostrar toda la funcionalidad del proyecto en una demo en vivo: 2 finalizadas con campeón/goleador/mejor portero, una a la mitad de fase de grupos, dos con la eliminatoria en distintos puntos de avance, y una reservada "en cero" (solo equipos/jugadores registrados) para que el usuario genere las fases y arbitre un partido en vivo durante la demostración.
+
+**Cómo se hizo:** script Node (`/tmp/.../scratchpad/seed-demo.js`, no versionado — es una herramienta de un solo uso) que llama directo a los endpoints admin de la API (login, `/tournaments`, `/categories` + PUT límites de edad, `/teams`, `/players`, `/tournaments/:slug/auto-setup`, `/phases/:id/groups/generate`, `/matches/:id/start`+`/events`+`/status` para partidos con estadísticas reales, `/phases/:id/advance-to-knockout`). Probado primero exhaustivamente contra el backend local (SQLite) antes de tocar producción.
+
+**3 bugs reales de producción encontrados y corregidos** (todos con el mismo patrón: SQLite es permisivo, Postgres exige SQL estricto — por eso nunca aparecían en desarrollo local):
+1. `autoGenerateAwardsForPhase` — `SELECT t.id AS team_id ... GROUP BY p.id` (columna no agregada fuera del GROUP BY). Rompía con 500 real cualquier finalización de fase con goles registrados, en cualquier torneo de producción. Fix: agregar `t.id` al GROUP BY.
+2. Mismo `autoGenerateAwardsForPhase`, cálculo de "mejor portero" — `HAVING played > 0` referenciaba un alias del SELECT, inválido en Postgres (SQLite sí lo permite). Fix: `HAVING COUNT(m.id) > 0`.
+3. `autoGenerateKnockoutBracket` — calculaba standings de grupo con `team_id` como si fuera columna de `matches` (no existe); estaba silenciado por un try/catch envolvente así que nunca se veía como error, pero significaba que el bracket automático **nunca se generaba** por esa vía en ningún torneo real. Reemplazado por `getGroupStandings()`, la misma función que ya usa `/phases/:id/advance-to-knockout` correctamente. También se corrigió un GROUP BY incompleto análogo en `/admin/awards/scan-all`.
+
+Como también se encontraron ~20 columnas faltantes en el init de SQLite local (ver entrada de "Revisión completa del proyecto"), ya quedaron agregadas antes de esta sesión — sin eso, ni siquiera se hubiera podido probar localmente el flujo de categorías con límites de edad.
+
+**Otros 2 bugs (de mi script de seed, no del producto) encontrados y corregidos durante las pruebas:**
+- Nombres de jugador generados únicos por equipo en vez de por categoría completa → colisión 409 (el backend correctamente rechaza nombres duplicados dentro de la misma categoría).
+- Marcadores aleatorios de partidos de eliminación podían empatar → el sistema correctamente no avanza el bracket en un empate ("avance manual requerido"), así que se generó un `randScoreNoTie()` dedicado para semifinales/final/tercer lugar.
+
+**Resultado final verificado contra la API real:** 70 equipos (10 × 7 categorías), 700 jugadores, awards de campeón/goleador/portero en Sub-5 y Sub-7, Sub-9 con grupos a la mitad, Sub-11 con la Final pendiente sin jugar, Sub-13 y Sub-15 con eliminatoria generada y semifinales sin jugar (Sub-15 es la reservada para la demo en vivo), Sub-17 con equipos y jugadores registrados pero **cero fases/partidos** (para que el admin genere todo en vivo).
