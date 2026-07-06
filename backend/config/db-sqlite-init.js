@@ -24,6 +24,27 @@ module.exports = function initSQLite(db, bcrypt) {
   safe('ALTER TABLE matches ADD COLUMN home_is_tbd INTEGER DEFAULT 0')
   safe('ALTER TABLE matches ADD COLUMN away_is_tbd INTEGER DEFAULT 0')
   safe('ALTER TABLE tournaments ADD COLUMN sponsors_banner TEXT')
+  // Paridad con PG_MIGRATIONS (backend/config/db-schema.js) — columnas que faltaban en SQLite
+  safe('ALTER TABLE phases ADD COLUMN is_active INTEGER DEFAULT 0')
+  safe('ALTER TABLE matches ADD COLUMN match_notes TEXT')
+  safe('ALTER TABLE matches ADD COLUMN stream_id INTEGER REFERENCES streams(id) ON DELETE SET NULL')
+  safe('ALTER TABLE players ADD COLUMN minutes_played INTEGER DEFAULT 0')
+  safe('ALTER TABLE players ADD COLUMN matches_played INTEGER DEFAULT 0')
+  safe('ALTER TABLE inscriptions ADD COLUMN categories_json TEXT')
+  safe('ALTER TABLE inscriptions ADD COLUMN logo TEXT')
+  safe('ALTER TABLE tournaments ADD COLUMN rules_pdf TEXT')
+  safe('ALTER TABLE tournaments ADD COLUMN auto_approve_inscriptions INTEGER DEFAULT 0')
+  safe('ALTER TABLE categories ADD COLUMN min_birth_year INTEGER')
+  safe('ALTER TABLE categories ADD COLUMN max_birth_year INTEGER')
+  safe('ALTER TABLE categories ADD COLUMN min_birth_year_girls INTEGER')
+  safe('ALTER TABLE categories ADD COLUMN max_players_per_team INTEGER')
+  safe('ALTER TABLE inscription_players ADD COLUMN curp TEXT')
+  safe('ALTER TABLE inscription_players ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL')
+  safe('ALTER TABLE inscription_players ADD COLUMN photo TEXT')
+  safe('ALTER TABLE inscription_players ADD COLUMN documento_oficial TEXT')
+  safe('ALTER TABLE players ADD COLUMN curp TEXT')
+  safe('ALTER TABLE players ADD COLUMN documento_oficial TEXT')
+  safe('ALTER TABLE inscriptions ADD COLUMN registration_token TEXT')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS phase_groups (

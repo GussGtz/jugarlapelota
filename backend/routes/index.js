@@ -1115,19 +1115,8 @@ async function autoGenerateKnockoutBracket(groupsPhase, io) {
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi]
       const advanceCount = g.advance_count || 2
-      // Standings del grupo ordenados: pts DESC, gd DESC, gf DESC
-      const standings = (await query(`
-        SELECT team_id,
-          SUM(CASE WHEN home_team=team_id THEN home_score ELSE away_score END) AS gf,
-          SUM(CASE WHEN home_team=team_id THEN away_score ELSE home_score END) AS ga,
-          SUM(CASE WHEN (home_team=team_id AND home_score>away_score) OR (away_team=team_id AND away_score>home_score) THEN 3
-                   WHEN home_score=away_score THEN 1 ELSE 0 END) AS pts
-        FROM matches
-        WHERE phase_id=$1 AND group_id=$2 AND status='finished'
-          AND (home_team=team_id OR away_team=team_id)
-        GROUP BY team_id
-        ORDER BY pts DESC, (gf-ga) DESC, gf DESC
-      `, [groupsPhase.id, g.id])).rows
+      // Standings del grupo (misma lógica que /phases/:id/advance-to-knockout usa)
+      const standings = await getGroupStandings(g.id)
 
       // Si no hay standings, usar teams del grupo
       const groupTeams = standings.length > 0 ? standings :
@@ -1220,7 +1209,7 @@ async function autoGenerateAwardsForPhase(phaseId) {
         JOIN players p ON e.player_id = p.id
         JOIN teams t ON p.team_id = t.id
         WHERE m.phase_id = $1 AND e.type = 'goal'
-        GROUP BY p.id ORDER BY goals DESC LIMIT 1
+        GROUP BY p.id, t.id ORDER BY goals DESC LIMIT 1
       `, [phaseId]))
       if (topScorer) {
         await ins(phase.tournament_id, cat, phaseId, 'top_scorer',
@@ -1238,7 +1227,7 @@ async function autoGenerateAwardsForPhase(phaseId) {
         JOIN players p ON e.player_id = p.id
         JOIN teams t ON p.team_id = t.id
         WHERE m.phase_id = $1 AND e.type = 'assist'
-        GROUP BY p.id ORDER BY assists DESC LIMIT 1
+        GROUP BY p.id, t.id ORDER BY assists DESC LIMIT 1
       `, [phaseId]))
       if (topAssist && topAssist.assists > 0) {
         await ins(phase.tournament_id, cat, phaseId, 'mvp',
@@ -1296,7 +1285,7 @@ async function autoGenerateAwardsForPhase(phaseId) {
         JOIN players p ON e.player_id=p.id
         JOIN teams t ON p.team_id=t.id
         WHERE m.phase_id=$1 AND e.type='goal'
-        GROUP BY p.id ORDER BY goals DESC LIMIT 1
+        GROUP BY p.id, t.id ORDER BY goals DESC LIMIT 1
       `, [phaseId]))
       if (topKnockout && topKnockout.goals > 0) {
         await ins(phase.tournament_id, cat, phaseId, 'top_scorer',
