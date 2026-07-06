@@ -1246,7 +1246,7 @@ async function autoGenerateAwardsForPhase(phaseId) {
         JOIN matches m ON (m.home_team=t.id OR m.away_team=t.id)
         WHERE m.phase_id=$1 AND m.status='finished'
         GROUP BY t.id
-        HAVING played > 0
+        HAVING COUNT(m.id) > 0
         ORDER BY goals_against ASC, played DESC LIMIT 1
       `, [phaseId]))
       if (bestKeeper) {
@@ -1970,7 +1970,7 @@ router.post('/admin/awards/scan-all', authMiddleware, adminOnly, async (req, res
     JOIN matches m ON m.phase_id = ph.id
     JOIN teams t ON m.home_team = t.id AND t.category_id IS NOT NULL
     WHERE a.auto_generated = 1 AND a.category_id IS NULL
-    GROUP BY a.id
+    GROUP BY a.id, m.phase_id, t.category_id
   `, [])).rows
   for (const row of nullCatAwards) {
     await query('UPDATE awards SET category_id=$1 WHERE id=$2', [row.category_id, row.id])
