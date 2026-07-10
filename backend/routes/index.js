@@ -106,9 +106,15 @@ router.get('/documents/proxy', async (req, res) => {
   try {
     const upstream = await fetch(url)
     if (!upstream.ok) return res.status(upstream.status).json({ error: 'No se pudo obtener el archivo' })
-    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream')
+    const buffer = Buffer.from(await upstream.arrayBuffer())
+    // Los uploads 'raw' de Cloudinary no conservan extensión en la URL (a diferencia
+    // de 'image'), y siempre se sirven como application/octet-stream sin importar el
+    // tipo real — ni la URL ni el content-type upstream son confiables. Se detecta
+    // el tipo real leyendo los primeros bytes del archivo (firma %PDF-).
+    const isPdf = buffer.subarray(0, 5).toString('latin1') === '%PDF-'
+    res.setHeader('Content-Type', isPdf ? 'application/pdf' : (upstream.headers.get('content-type') || 'application/octet-stream'))
     res.setHeader('Content-Disposition', 'inline')
-    res.send(Buffer.from(await upstream.arrayBuffer()))
+    res.send(buffer)
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

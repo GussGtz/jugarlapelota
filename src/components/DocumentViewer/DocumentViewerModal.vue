@@ -29,10 +29,14 @@ const props = defineProps({
 })
 defineEmits(['close'])
 
-const isImage = computed(() => !/\.pdf(\?|#|$)/i.test(props.url || ''))
-// Cloudinary sirve los PDF (resource_type raw) siempre como descarga forzada
-// (Content-Disposition: attachment) — se pasan por nuestro propio proxy, que
-// los reenvía con Content-Disposition: inline para mostrarlos en el iframe.
+// Los documentos se suben como 'raw' (PDF) o 'image' (foto) — Cloudinary no
+// conserva la extensión en las URLs 'raw', así que no se puede detectar por
+// extensión. El segmento /raw/upload/ vs /image/upload/ de la URL sí es
+// confiable, porque viene directo del resource_type usado al subir.
+const isImage = computed(() => !/\/raw\/upload\//i.test(props.url || ''))
+// Cloudinary sirve los 'raw' siempre como descarga forzada (Content-Disposition:
+// attachment) — se pasan por nuestro propio proxy, que los reenvía con
+// Content-Disposition: inline para mostrarlos en el iframe.
 const pdfSrc = computed(() =>
   props.url ? `${api.defaults.baseURL}/documents/proxy?url=${encodeURIComponent(props.url)}` : ''
 )
