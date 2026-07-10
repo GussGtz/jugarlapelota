@@ -93,6 +93,16 @@ router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (
   }
 })
 
+// TEMPORAL — diagnóstico del 401 "deny or ACL failure" en PDFs. Borrar tras diagnosticar.
+router.get('/_debug/cloudinary/:publicId', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const info = await cloudinary.api.resource(req.params.publicId, { resource_type: 'image' })
+    res.json(info)
+  } catch (e) {
+    res.status(500).json({ error: e.message, http_code: e.http_code })
+  }
+})
+
 // Upload público (inscripciones)
 router.post('/upload/public', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Archivo no válido' })
