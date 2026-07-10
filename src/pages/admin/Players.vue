@@ -66,10 +66,10 @@
             <IconCircle class="w-3.5 h-3.5"/>{{ p.goals }}
           </div>
           <div class="flex gap-1.5 shrink-0">
-            <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
+            <button v-if="p.documento_oficial" type="button" @click="viewingDoc = p"
               class="text-primary px-2 py-1.5 border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors">
               <IconIdCard class="w-4 h-4"/>
-            </a>
+            </button>
             <span v-else class="text-red-400 px-2 py-1.5 border border-red-200 rounded-lg" title="Sin documento">
               <IconAlertCircle class="w-4 h-4"/>
             </span>
@@ -119,10 +119,10 @@
               <td class="py-3 px-4 text-center text-yellow-400">{{ p.yellow_cards }}</td>
               <td class="py-3 px-4 text-center text-red-400">{{ p.red_cards }}</td>
               <td class="py-3 px-4 text-center">
-                <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
+                <button v-if="p.documento_oficial" type="button" @click="viewingDoc = p"
                   class="inline-flex items-center gap-1 text-xs text-primary font-semibold border border-primary/30 px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
                   <IconIdCard class="w-3.5 h-3.5"/> Ver
-                </a>
+                </button>
                 <span v-else class="text-[11px] text-red-400 font-semibold flex items-center justify-center gap-1">
                   <IconAlertCircle class="w-3.5 h-3.5"/> Falta
                 </span>
@@ -350,6 +350,13 @@
         </div>
       </div>
     </div>
+
+    <!-- Visor de documento oficial (imagen o PDF) -->
+    <DocumentViewerModal
+      :url="viewingDoc?.documento_oficial"
+      :title="viewingDoc ? `Documento — ${viewingDoc.name}` : ''"
+      @close="viewingDoc = null"
+    />
   </div>
 </template>
 
@@ -357,6 +364,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import api from '@/api'
 import { useAutoRefresh } from '@/composables/useAutoRefresh'
+import DocumentViewerModal from '@/components/DocumentViewer/DocumentViewerModal.vue'
 import { Target, Zap, AlertCircle as AlertCircleIcon } from 'lucide-vue-next'
 
 const activeTab = ref('players')
@@ -374,6 +382,7 @@ const checking       = ref(false)
 const showForm       = ref(false)
 const editing        = ref(null)
 const dupWarning     = ref(null)
+const viewingDoc     = ref(null)
 const filterTournament = ref(null)
 const filterCategory   = ref(null)
 const filterTeam       = ref(null)
