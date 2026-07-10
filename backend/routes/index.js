@@ -98,7 +98,8 @@ router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (
 router.get('/_debug/cloudinary', authMiddleware, adminOnly, async (req, res) => {
   try {
     const info = await cloudinary.api.resource(req.query.id, { resource_type: 'image' })
-    res.json(info)
+    const signedUrl = cloudinary.url(req.query.id, { resource_type: 'image', type: 'upload', format: 'pdf', sign_url: true, secure: true })
+    res.json({ ...info, signedUrl })
   } catch (e) {
     res.status(500).json({ error: e.message, http_code: e.http_code })
   }
