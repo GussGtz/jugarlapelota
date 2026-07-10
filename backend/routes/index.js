@@ -94,9 +94,10 @@ router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (
 })
 
 // TEMPORAL — diagnóstico del 401 "deny or ACL failure" en PDFs. Borrar tras diagnosticar.
-router.get('/_debug/cloudinary/:publicId', authMiddleware, adminOnly, async (req, res) => {
+// public_id via query string (?id=) porque contiene "/" (carpeta) y rompe rutas Express con :param.
+router.get('/_debug/cloudinary', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const info = await cloudinary.api.resource(req.params.publicId, { resource_type: 'image' })
+    const info = await cloudinary.api.resource(req.query.id, { resource_type: 'image' })
     res.json(info)
   } catch (e) {
     res.status(500).json({ error: e.message, http_code: e.http_code })
