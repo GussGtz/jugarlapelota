@@ -70,7 +70,10 @@ async function uploadToCloudinary(buffer, mimetype) {
   return new Promise((resolve, reject) => {
     const isVideo = mimetype.startsWith('video/')
     const isPdf   = mimetype === 'application/pdf'
-    const resourceType = isVideo ? 'video' : isPdf ? 'raw' : 'image'
+    // PDFs se suben como 'image' (no 'raw'): Cloudinary sirve los recursos 'raw'
+    // siempre con Content-Disposition: attachment (fuerza descarga, sin excepción).
+    // Como 'image', Cloudinary entrega el PDF completo inline, mostrable en <iframe>.
+    const resourceType = isVideo ? 'video' : 'image'
     const opts = { folder: 'jugarlapelota', resource_type: resourceType }
     if (!isPdf && !isVideo) { opts.quality = 'auto'; opts.fetch_format = 'auto' }
     cloudinary.uploader.upload_stream(opts,
