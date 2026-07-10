@@ -181,3 +181,12 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 - Marcadores aleatorios de partidos de eliminación podían empatar → el sistema correctamente no avanza el bracket en un empate ("avance manual requerido"), así que se generó un `randScoreNoTie()` dedicado para semifinales/final/tercer lugar.
 
 **Resultado final verificado contra la API real:** 70 equipos (10 × 7 categorías), 700 jugadores, awards de campeón/goleador/portero en Sub-5 y Sub-7, Sub-9 con grupos a la mitad, Sub-11 con la Final pendiente sin jugar, Sub-13 y Sub-15 con eliminatoria generada y semifinales sin jugar (Sub-15 es la reservada para la demo en vivo), Sub-17 con equipos y jugadores registrados pero **cero fases/partidos** (para que el admin genere todo en vivo).
+
+### 2026-07-10 — Feature: visor de documento del jugador en modal (admin)
+**Pedido:** en "Jugadores y Responsables" (admin), el botón "Ver" de la columna Doc. abría/descargaba el documento oficial del jugador dejando que el navegador decidiera qué hacer. Se pidió que en su lugar abra en una pestaña/modal responsivo dentro de la app, que muestre cualquier tipo de archivo, cerrable con una X.
+
+**Solución:** nuevo componente reutilizable [DocumentViewerModal.vue](src/components/DocumentViewer/DocumentViewerModal.vue) — reutiliza el sistema de modales ya existente del admin (`.modal-overlay`/`.modal-sheet-lg`/`.modal-header`/`.modal-body`, bottom-sheet en mobile / centrado en desktop). Detecta el tipo de archivo por extensión: `.pdf` → `<iframe>`, cualquier otra cosa (imágenes) → `<img>` con `object-contain`. En [Players.vue](src/pages/admin/Players.vue) se reemplazaron los dos `<a target="_blank">` (tabla desktop y cards mobile) por botones que abren el modal con `viewingDoc = p`.
+
+**Campo relevante:** `documento_oficial` acepta `image/*,application/pdf` según el input de carga en `InscriptionPlayers.vue` — de ahí la necesidad de soportar ambos tipos en el visor.
+
+**Validado con:** preview en navegador contra backend local — probado con una imagen real (Cloudinary demo) y un PDF real (Cloudinary demo, `sample.pdf`). Un primer intento con un PDF de prueba de w3.org falló por `X-Frame-Options` (ese dominio bloquea el embebido en iframe en cualquier sitio) — no era un bug del componente, solo mala elección de URL de prueba; con un PDF real de Cloudinary (que no envía esos headers) el iframe cargó correctamente. Modal abre y cierra bien con la X en ambos casos, sin errores de consola.
