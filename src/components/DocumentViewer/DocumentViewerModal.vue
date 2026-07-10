@@ -12,7 +12,7 @@
         </div>
         <div class="modal-body !p-0 bg-slate-100 flex items-center justify-center">
           <img v-if="isImage" :src="url" class="max-w-full max-h-full w-full object-contain" style="height: 75vh" />
-          <iframe v-else :src="url" class="w-full border-0" style="height: 75vh" />
+          <iframe v-else :src="pdfSrc" class="w-full border-0" style="height: 75vh" />
         </div>
       </div>
     </div>
@@ -21,6 +21,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import api from '@/api'
 
 const props = defineProps({
   url:   { type: String, default: '' },
@@ -29,6 +30,12 @@ const props = defineProps({
 defineEmits(['close'])
 
 const isImage = computed(() => !/\.pdf(\?|#|$)/i.test(props.url || ''))
+// Cloudinary sirve los PDF (resource_type raw) siempre como descarga forzada
+// (Content-Disposition: attachment) — se pasan por nuestro propio proxy, que
+// los reenvía con Content-Disposition: inline para mostrarlos en el iframe.
+const pdfSrc = computed(() =>
+  props.url ? `${api.defaults.baseURL}/documents/proxy?url=${encodeURIComponent(props.url)}` : ''
+)
 </script>
 
 <style scoped>

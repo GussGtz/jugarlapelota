@@ -70,10 +70,11 @@ async function uploadToCloudinary(buffer, mimetype) {
   return new Promise((resolve, reject) => {
     const isVideo = mimetype.startsWith('video/')
     const isPdf   = mimetype === 'application/pdf'
-    // PDFs se suben como 'image' (no 'raw'): Cloudinary sirve los recursos 'raw'
-    // siempre con Content-Disposition: attachment (fuerza descarga, sin excepción).
-    // Como 'image', Cloudinary entrega el PDF completo inline, mostrable en <iframe>.
-    const resourceType = isVideo ? 'video' : 'image'
+    // PDFs se suben como 'raw'. La entrega de PDF vía resource_type 'image' está
+    // bloqueada por el plan de la cuenta de Cloudinary (401 "deny or ACL failure",
+    // persiste incluso con URLs firmadas) — para verlos inline se usa el proxy
+    // GET /documents/proxy en vez de depender de que Cloudinary lo sirva directo.
+    const resourceType = isVideo ? 'video' : isPdf ? 'raw' : 'image'
     const opts = { folder: 'jugarlapelota', resource_type: resourceType }
     if (!isPdf && !isVideo) { opts.quality = 'auto'; opts.fetch_format = 'auto' }
     cloudinary.uploader.upload_stream(opts,
@@ -93,15 +94,23 @@ router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (
   }
 })
 
-// TEMPORAL — diagnóstico del 401 "deny or ACL failure" en PDFs. Borrar tras diagnosticar.
-// public_id via query string (?id=) porque contiene "/" (carpeta) y rompe rutas Express con :param.
-router.get('/_debug/cloudinary', authMiddleware, adminOnly, async (req, res) => {
+// Proxy para mostrar documentos (PDF) inline en el visor del admin — Cloudinary
+// sirve 'raw' siempre como attachment (fuerza descarga) y la entrega de PDF vía
+// 'image' está bloqueada por el plan de la cuenta, así que el propio backend
+// descarga el archivo y lo reenvía con su propio Content-Disposition: inline.
+router.get('/documents/proxy', async (req, res) => {
+  const { url } = req.query
+  if (!url || !/^https:\/\/res\.cloudinary\.com\//.test(url)) {
+    return res.status(400).json({ error: 'URL inválida' })
+  }
   try {
-    const info = await cloudinary.api.resource(req.query.id, { resource_type: 'image' })
-    const signedUrl = cloudinary.url(req.query.id, { resource_type: 'image', type: 'upload', format: 'pdf', sign_url: true, secure: true })
-    res.json({ ...info, signedUrl })
+    const upstream = await fetch(url)
+    if (!upstream.ok) return res.status(upstream.status).json({ error: 'No se pudo obtener el archivo' })
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream')
+    res.setHeader('Content-Disposition', 'inline')
+    res.send(Buffer.from(await upstream.arrayBuffer()))
   } catch (e) {
-    res.status(500).json({ error: e.message, http_code: e.http_code })
+    res.status(500).json({ error: e.message })
   }
 })
 
