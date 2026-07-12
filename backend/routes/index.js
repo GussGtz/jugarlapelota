@@ -1796,9 +1796,14 @@ router.post('/inscriptions/:id/players', async (req, res) => {
         }
       }
 
-      // Duplicate CURP in same inscription + same category (DB + current batch)
+      // Duplicate CURP en el mismo equipo/categoría — se compara contra el roster
+      // real (players), no contra el historial de inscription_players: así, si el
+      // admin borró al jugador, la CURP queda libre de inmediato para re-registrar
+      // (inscription_players puede seguir teniendo filas viejas con esa CURP, pero
+      // son solo historial y no deben bloquear nada).
       const dupSameCat = await queryOne(
-        'SELECT id FROM inscription_players WHERE inscription_id=$1 AND category_id=$2 AND UPPER(curp)=$3',
+        `SELECT p.id FROM players p JOIN teams t ON p.team_id=t.id
+         WHERE t.inscription_id=$1 AND t.category_id=$2 AND UPPER(p.curp)=$3`,
         [insc.id, categoryId, curp]
       )
       if (dupSameCat) {
@@ -1810,24 +1815,27 @@ router.post('/inscriptions/:id/players', async (req, res) => {
         continue
       }
 
-      // Duplicate CURP in DIFFERENT team (same tournament) — cachirul check
+      // Duplicate CURP en OTRO equipo del mismo torneo — cachirul check, mismo
+      // criterio: solo cuenta si el jugador sigue vivo en el roster de ese equipo.
       const dupOtherTeam = await queryOne(
-        `SELECT ip.id,i.team_name FROM inscription_players ip
-         JOIN inscriptions i ON ip.inscription_id=i.id
-         WHERE i.tournament_id=$1 AND ip.inscription_id<>$2 AND UPPER(ip.curp)=$3 AND i.status='approved'`,
+        `SELECT t.name AS "teamName" FROM players p
+         JOIN teams t ON p.team_id=t.id
+         WHERE t.tournament_id=$1 AND t.inscription_id<>$2 AND UPPER(p.curp)=$3`,
         [insc.tournament_id, insc.id, curp]
       )
       if (dupOtherTeam) {
-        errors.push(`${name}: CURP ${curp} ya está registrada en el equipo "${dupOtherTeam.team_name}"`)
+        errors.push(`${name}: CURP ${curp} ya está registrada en el equipo "${dupOtherTeam.teamName}"`)
         continue
       }
     }
 
-    // Duplicate jersey number in same inscription + category
+    // Duplicate jersey number en el mismo equipo/categoría — mismo criterio contra
+    // el roster real (players)
     const num = p.number ? parseInt(p.number) : null
     if (num) {
       const dupNum = await queryOne(
-        'SELECT id FROM inscription_players WHERE inscription_id=$1 AND category_id=$2 AND number=$3',
+        `SELECT p.id FROM players p JOIN teams t ON p.team_id=t.id
+         WHERE t.inscription_id=$1 AND t.category_id=$2 AND p.number=$3`,
         [insc.id, categoryId, num]
       )
       if (dupNum) {
@@ -1870,6 +1878,91 @@ router.post('/inscriptions/:id/players', async (req, res) => {
   }
 
   res.status(201).json({ inserted, errors: errors.length ? errors : undefined })
+})
+
+// Editar un jugador ya registrado desde el link público del delegado (o admin) —
+// antes solo se podía dar de alta, no corregir CURP/documento/datos después.
+router.put('/inscriptions/:id/players/:playerId', async (req, res) => {
+  const insc = await queryOne('SELECT * FROM inscriptions WHERE id=$1', [req.params.id])
+  if (!insc) return res.status(404).json({ error: 'Inscripción no encontrada' })
+  if (insc.status !== 'approved') return res.status(403).json({ error: 'La inscripción debe estar aprobada' })
+  const authHeader = req.headers.authorization
+  const isAdmin = authHeader && (() => { try { const { role } = require('jsonwebtoken').verify(authHeader.replace('Bearer ',''), process.env.JWT_SECRET||'secret'); return role==='admin'||role==='superadmin' } catch{return false} })()
+  if (!isAdmin) {
+    const token = req.body.token || req.query.token
+    if (!token || token !== insc.registration_token) return res.status(403).json({ error: 'Enlace de registro inválido o expirado' })
+  }
+  const existing = await queryOne('SELECT * FROM inscription_players WHERE id=$1 AND inscription_id=$2', [req.params.playerId, insc.id])
+  if (!existing) return res.status(404).json({ error: 'Jugador no encontrado' })
+
+  const name = req.body.name?.trim()
+  if (!name) return res.status(400).json({ error: 'El nombre es obligatorio' })
+  const curp = req.body.curp?.trim().toUpperCase() || null
+  const number = req.body.number ? parseInt(req.body.number) : null
+  const position = req.body.position || null
+  const photo = req.body.photo || null
+  const documento_oficial = req.body.documento_oficial || null
+
+  // Ubicar primero el equipo y el jugador real correspondiente a esta fila —
+  // hace falta su id para poder excluirlo de los checks de duplicado (si no, el
+  // propio jugador se marcaría como "duplicado de sí mismo" al comparar CURPs).
+  const team = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2', [insc.id, existing.category_id])
+  const currentPlayer = team
+    ? (existing.curp
+        ? await queryOne('SELECT id FROM players WHERE team_id=$1 AND UPPER(curp)=$2', [team.id, existing.curp.toUpperCase()])
+        : await queryOne('SELECT id FROM players WHERE team_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2))', [team.id, existing.name]))
+    : null
+
+  if (curp) {
+    const curpData = parseCURP(curp)
+    if (!curpData) return res.status(400).json({ error: 'CURP inválida (formato incorrecto)' })
+    const category = await queryOne('SELECT * FROM categories WHERE id=$1', [existing.category_id])
+    if (category) {
+      const ageCheck = validateCURPAge(curpData, category)
+      if (!ageCheck.valid) return res.status(400).json({ error: ageCheck.reason })
+    }
+    // Comparado contra el roster real (players), no contra inscription_players —
+    // mismo criterio que el alta: solo bloquea si hay OTRO jugador vivo con esa CURP.
+    const dupSameCat = await queryOne(
+      `SELECT p.id FROM players p JOIN teams t2 ON p.team_id=t2.id
+       WHERE t2.inscription_id=$1 AND t2.category_id=$2 AND UPPER(p.curp)=$3 AND p.id IS DISTINCT FROM $4`,
+      [insc.id, existing.category_id, curp, currentPlayer?.id || null]
+    )
+    if (dupSameCat) return res.status(409).json({ error: `CURP ${curp} ya está registrada en esta categoría` })
+    const dupOtherTeam = await queryOne(
+      `SELECT t2.name AS "teamName" FROM players p JOIN teams t2 ON p.team_id=t2.id
+       WHERE t2.tournament_id=$1 AND t2.inscription_id<>$2 AND UPPER(p.curp)=$3`,
+      [insc.tournament_id, insc.id, curp]
+    )
+    if (dupOtherTeam) return res.status(409).json({ error: `CURP ${curp} ya está registrada en el equipo "${dupOtherTeam.teamName}"` })
+  }
+  if (number) {
+    const dupNum = await queryOne(
+      `SELECT p.id FROM players p JOIN teams t2 ON p.team_id=t2.id
+       WHERE t2.inscription_id=$1 AND t2.category_id=$2 AND p.number=$3 AND p.id IS DISTINCT FROM $4`,
+      [insc.id, existing.category_id, number, currentPlayer?.id || null]
+    )
+    if (dupNum) return res.status(409).json({ error: `El número #${number} ya está registrado en esta categoría` })
+  }
+
+  await query(
+    'UPDATE inscription_players SET name=$1,number=$2,position=$3,curp=$4,photo=$5,documento_oficial=$6 WHERE id=$7',
+    [name, number, position, curp, photo, documento_oficial, existing.id]
+  )
+
+  // Reflejar el cambio también en el roster real (players), igual que hace el alta
+  if (team) {
+    if (currentPlayer) {
+      await query('UPDATE players SET name=$1,number=$2,position=$3,curp=$4,photo=$5,documento_oficial=$6 WHERE id=$7',
+        [name, number, position, curp, photo, documento_oficial, currentPlayer.id])
+    } else {
+      // El jugador fue borrado del roster (o nunca se creó) — se repone al editar
+      await query('INSERT INTO players (team_id,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [team.id, name, number, position, curp, photo, documento_oficial])
+    }
+  }
+
+  res.json(await queryOne('SELECT * FROM inscription_players WHERE id=$1', [existing.id]))
 })
 
 // Consultar responsables de una inscripción (admin)

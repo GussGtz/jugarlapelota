@@ -214,24 +214,108 @@
             <!-- Players already registered -->
             <div v-if="playersForCat(cat.id).length" class="space-y-2">
               <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Registrados</p>
-              <div v-for="p in playersForCat(cat.id)" :key="p.id"
-                class="flex items-center gap-3 px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-sm">
-                <img v-if="p.photo" :src="p.photo" class="w-9 h-9 rounded-lg object-cover shrink-0 border border-emerald-200"/>
-                <div v-else class="w-9 h-9 rounded-lg bg-emerald-100 border border-emerald-200 shrink-0 flex items-center justify-center text-emerald-400 text-xs">✓</div>
-                <div class="flex-1 min-w-0">
-                  <p class="font-semibold text-slate-900 truncate">{{ p.name }}</p>
-                  <p class="text-[10px] text-slate-400">
-                    <span v-if="p.number">#{{ p.number }}</span>
-                    <span v-if="p.position"> · {{ p.position }}</span>
-                    <span v-if="p.curp" class="font-mono ml-1">{{ p.curp }}</span>
-                  </p>
+              <div v-for="p in playersForCat(cat.id)" :key="p.id">
+                <!-- Vista normal -->
+                <div v-if="editingPlayerId !== p.id"
+                  class="flex items-center gap-3 px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-sm">
+                  <img v-if="p.photo" :src="p.photo" class="w-9 h-9 rounded-lg object-cover shrink-0 border border-emerald-200"/>
+                  <div v-else class="w-9 h-9 rounded-lg bg-emerald-100 border border-emerald-200 shrink-0 flex items-center justify-center text-emerald-400 text-xs">✓</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-slate-900 truncate">{{ p.name }}</p>
+                    <p class="text-[10px] text-slate-400">
+                      <span v-if="p.number">#{{ p.number }}</span>
+                      <span v-if="p.position"> · {{ p.position }}</span>
+                      <span v-if="p.curp" class="font-mono ml-1">{{ p.curp }}</span>
+                    </p>
+                  </div>
+                  <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
+                    class="shrink-0 flex items-center gap-1 text-[10px] text-primary font-semibold border border-primary/30 px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
+                    <IconIdCard class="w-3 h-3" /> Doc
+                  </a>
+                  <div v-else class="shrink-0 text-[10px] text-red-400 font-semibold flex items-center gap-1">
+                    <IconAlertCircle class="w-3 h-3" /> Sin doc
+                  </div>
+                  <button type="button" @click="startEditPlayer(p)"
+                    class="shrink-0 text-[10px] text-slate-500 font-semibold border border-slate-200 px-2 py-1 rounded-lg hover:bg-white transition-colors">
+                    Editar
+                  </button>
                 </div>
-                <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
-                  class="shrink-0 flex items-center gap-1 text-[10px] text-primary font-semibold border border-primary/30 px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
-                  <IconIdCard class="w-3 h-3" /> Doc
-                </a>
-                <div v-else class="shrink-0 text-[10px] text-red-400 font-semibold flex items-center gap-1">
-                  <IconAlertCircle class="w-3 h-3" /> Sin doc
+
+                <!-- Formulario de edición -->
+                <div v-else class="border border-primary/30 rounded-xl p-3 space-y-2 bg-primary/5">
+                  <div class="grid grid-cols-12 gap-2 items-start">
+                    <div class="col-span-2 flex flex-col items-center gap-1">
+                      <div class="relative w-14 h-14 rounded-xl border-2 border-dashed border-muted bg-white overflow-hidden flex items-center justify-center cursor-pointer group"
+                        @click="editPhotoInputEl?.click()">
+                        <img v-if="editForm.photo" :src="editForm.photo" class="w-full h-full object-cover"/>
+                        <IconUser v-else class="w-6 h-6 text-slate-300 group-hover:text-primary transition-colors"/>
+                        <div v-if="editForm.photoLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
+                          <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      </div>
+                      <input :ref="setEditPhotoInput" type="file" accept="image/*" class="hidden" @change="onEditPhotoChange"/>
+                    </div>
+                    <div class="col-span-4">
+                      <label class="text-[10px] text-slate-400 mb-0.5 block">Nombre *</label>
+                      <input v-model="editForm.name" type="text"
+                        class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary transition-all"/>
+                    </div>
+                    <div class="col-span-2">
+                      <label class="text-[10px] text-slate-400 mb-0.5 block">#</label>
+                      <input v-model.number="editForm.number" type="number" min="1" max="99"
+                        class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary transition-all"/>
+                    </div>
+                    <div class="col-span-4">
+                      <label class="text-[10px] text-slate-400 mb-0.5 block">Posición</label>
+                      <select v-model="editForm.position"
+                        class="w-full bg-white border border-muted rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary transition-all">
+                        <option value="">—</option>
+                        <option>Portero</option>
+                        <option>Defensa</option>
+                        <option>Mediocampista</option>
+                        <option>Delantero</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="text-[10px] text-slate-400 mb-0.5 block">CURP <span class="text-red-400 font-semibold">*</span></label>
+                    <div class="relative">
+                      <input v-model="editForm.curp" type="text" maxlength="18" placeholder="XXXX000000HXXXXX00"
+                        :class="['w-full bg-white border rounded-xl px-3 py-2 text-sm font-mono text-slate-900 focus:outline-none focus:border-primary transition-all uppercase',
+                          curpStatus(editForm) === 'valid' ? 'border-emerald-400' : curpStatus(editForm) === 'invalid' ? 'border-red-400' : 'border-muted']"
+                        @input="editForm.curp = editForm.curp.toUpperCase()"/>
+                      <span v-if="editForm.curp?.length === 18" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold"
+                        :class="curpStatus(editForm) === 'valid' ? 'text-emerald-500' : 'text-red-500'">
+                        {{ curpStatus(editForm) === 'valid' ? '✓' : '✗' }}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="text-[10px] text-slate-400 mb-0.5 block">Documento oficial</label>
+                    <div class="flex items-center gap-3">
+                      <div class="relative w-16 h-12 rounded-lg border-2 border-dashed border-muted bg-white overflow-hidden flex items-center justify-center shrink-0 cursor-pointer group"
+                        @click="editDocInputEl?.click()">
+                        <img v-if="editForm.documento_oficial" :src="editForm.documento_oficial" class="w-full h-full object-cover"/>
+                        <IconIdCard v-else class="w-6 h-6 text-slate-300 group-hover:text-primary transition-colors"/>
+                        <div v-if="editForm.docLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
+                          <div class="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      </div>
+                      <input :ref="setEditDocInput" type="file" accept="image/*,application/pdf" class="hidden" @change="onEditDocChange"/>
+                      <button type="button" @click="editDocInputEl?.click()"
+                        class="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-white transition-colors">
+                        {{ editForm.documento_oficial ? 'Cambiar documento' : 'Subir documento' }}
+                      </button>
+                    </div>
+                  </div>
+                  <p v-if="editError" class="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">{{ editError }}</p>
+                  <div class="flex gap-2 pt-1">
+                    <button type="button" @click="saveEditPlayer(cat.id)" :disabled="savingEdit || curpStatus(editForm) !== 'valid'"
+                      class="btn-primary text-xs flex-1 disabled:opacity-50">
+                      {{ savingEdit ? 'Guardando...' : 'Guardar cambios' }}
+                    </button>
+                    <button type="button" @click="cancelEditPlayer" class="btn-ghost text-xs px-3">Cancelar</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -425,6 +509,66 @@ const editingResp       = reactive({}) // categoryId → bool (mostrar form de e
 
 const registeredPlayers     = ref([])
 const registeredResponsables = ref([])
+
+// ── Edición de un jugador ya registrado ────────────────────────────────────────
+const editingPlayerId = ref(null)
+const editForm    = reactive({ name: '', number: '', position: '', curp: '', photo: '', documento_oficial: '', photoLoading: false, docLoading: false })
+const editError   = ref('')
+const savingEdit   = ref(false)
+// Refs de input file por función (no por string) porque el elemento vive dentro
+// de un v-for — con ref="nombre" ahí adentro Vue lo colecciona como array.
+let editPhotoInputEl = null
+let editDocInputEl   = null
+function setEditPhotoInput(el) { editPhotoInputEl = el }
+function setEditDocInput(el)   { editDocInputEl = el }
+
+function startEditPlayer(p) {
+  editingPlayerId.value = p.id
+  editError.value = ''
+  Object.assign(editForm, {
+    name: p.name || '', number: p.number || '', position: p.position || '',
+    curp: p.curp || '', photo: p.photo || '', documento_oficial: p.documento_oficial || '',
+    photoLoading: false, docLoading: false
+  })
+}
+function cancelEditPlayer() { editingPlayerId.value = null }
+
+async function onEditPhotoChange(e) {
+  const file = e.target.files?.[0]; if (!file) return
+  if (file.size > 5 * 1024 * 1024) { alert('La foto no debe superar 5 MB.'); e.target.value = ''; return }
+  editForm.photoLoading = true
+  try { editForm.photo = await uploadImagePublic(file) }
+  catch { alert('Error al subir la foto') }
+  finally { editForm.photoLoading = false; e.target.value = '' }
+}
+
+async function onEditDocChange(e) {
+  const file = e.target.files?.[0]; if (!file) return
+  if (file.size > 25 * 1024 * 1024) { alert('El documento no debe superar 25 MB.'); e.target.value = ''; return }
+  editForm.docLoading = true
+  try { editForm.documento_oficial = await uploadImagePublic(file) }
+  catch (err) { alert(err.message || 'Error al subir el documento') }
+  finally { editForm.docLoading = false; e.target.value = '' }
+}
+
+async function saveEditPlayer(catId) {
+  editError.value = ''
+  savingEdit.value = true
+  try {
+    const { data } = await api.put(`/inscriptions/${inscriptionId}/players/${editingPlayerId.value}`, {
+      token: regToken,
+      name: editForm.name.trim(), number: editForm.number, position: editForm.position,
+      curp: editForm.curp, photo: editForm.photo, documento_oficial: editForm.documento_oficial
+    })
+    const idx = registeredPlayers.value.findIndex(p => p.id === editingPlayerId.value)
+    if (idx !== -1) registeredPlayers.value[idx] = { ...registeredPlayers.value[idx], ...data }
+    editingPlayerId.value = null
+  } catch (e) {
+    editError.value = e.response?.data?.error || 'Error al guardar los cambios'
+  } finally {
+    savingEdit.value = false
+  }
+}
 
 function playersForCat(catId) {
   return registeredPlayers.value.filter(p => String(p.category_id) === String(catId))
