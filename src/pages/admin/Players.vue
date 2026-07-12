@@ -289,6 +289,45 @@
               </select>
             </div>
             <div class="col-span-2">
+              <label class="text-xs text-slate-700 mb-1 block">CURP <span class="text-slate-300 font-normal">(18 caracteres)</span></label>
+              <div class="relative">
+                <input v-model="form.curp" type="text" maxlength="18" placeholder="XXXX000000HXXXXX00"
+                  class="w-full bg-white border rounded-xl px-4 py-2.5 text-slate-900 text-sm font-mono focus:outline-none transition-colors uppercase"
+                  :class="curpStatus === 'valid' ? 'border-emerald-400' : curpStatus === 'invalid' ? 'border-red-400' : 'border-muted focus:border-primary'"
+                  @input="form.curp = form.curp.toUpperCase()"/>
+                <span v-if="form.curp?.length === 18" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold"
+                  :class="curpStatus === 'valid' ? 'text-emerald-500' : 'text-red-500'">
+                  {{ curpStatus === 'valid' ? '✓' : '✗' }}
+                </span>
+              </div>
+            </div>
+            <div class="col-span-2">
+              <label class="text-xs text-slate-700 mb-2 block">Documento oficial <span class="text-slate-300 font-normal">— credencial, INE u oficial (imagen o PDF)</span></label>
+              <div class="flex items-center gap-3">
+                <div class="relative w-16 h-12 rounded-lg border-2 border-dashed border-muted bg-slate-50 overflow-hidden flex items-center justify-center shrink-0 cursor-pointer group"
+                  @click="$refs.docInput.click()">
+                  <img v-if="isDocImage" :src="form.documento_oficial" class="w-full h-full object-cover"/>
+                  <IconIdCard v-else class="w-6 h-6" :class="form.documento_oficial ? 'text-primary' : 'text-slate-300 group-hover:text-primary'"/>
+                  <div v-if="docUploading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
+                    <div class="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                </div>
+                <input ref="docInput" type="file" accept="image/*,application/pdf" class="hidden" @change="onDocSelected"/>
+                <div class="flex-1">
+                  <button type="button" @click="$refs.docInput.click()" :disabled="docUploading"
+                    class="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/5 transition-colors disabled:opacity-50">
+                    {{ form.documento_oficial ? 'Cambiar documento' : 'Subir documento' }}
+                  </button>
+                  <p class="text-[10px] text-slate-400 mt-1">JPG, PNG o PDF · máx 25 MB</p>
+                  <button v-if="form.documento_oficial" type="button" @click="form.documento_oficial = ''"
+                    class="text-[10px] text-red-400 hover:text-red-600 mt-0.5">Quitar</button>
+                </div>
+              </div>
+              <p v-if="docError" class="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+                <IconAlertCircle class="w-3.5 h-3.5"/> {{ docError }}
+              </p>
+            </div>
+            <div class="col-span-2">
               <label class="text-xs text-slate-700 mb-2 block">Foto del jugador</label>
               <div v-if="form.photo" class="relative mb-3 flex justify-center">
                 <div class="relative w-28 h-28">
@@ -424,9 +463,43 @@ const photoError     = ref('')
 
 const form = reactive({
   tournamentId: null, categoryId: null, teamId: null,
-  name: '', number: '', position: 'Delantero', photo: '',
+  name: '', number: '', position: 'Delantero', photo: '', curp: '', documento_oficial: '',
   goals: 0, assists: 0, yellow_cards: 0, red_cards: 0
 })
+
+// ── CURP (misma validación que el formulario público de inscripción) ────────
+function parseCURP(curp) {
+  if (!curp || curp.length !== 18) return null
+  const c = curp.trim().toUpperCase()
+  if (!/^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]$/.test(c)) return null
+  const mm = parseInt(c.slice(6, 8)), dd = parseInt(c.slice(8, 10))
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null
+  return true
+}
+const curpStatus = computed(() => {
+  const curp = form.curp?.trim()
+  if (!curp || curp.length < 18) return 'empty'
+  return parseCURP(curp) ? 'valid' : 'invalid'
+})
+
+// ── Documento oficial (imagen o PDF) ─────────────────────────────────────────
+const docUploading = ref(false)
+const docError     = ref('')
+const isDocImage   = computed(() => !!form.documento_oficial && !/\/raw\/upload\//i.test(form.documento_oficial))
+
+async function onDocSelected(e) {
+  const file = e.target.files?.[0]; e.target.value = ''
+  if (!file) return
+  if (!/^image\/|^application\/pdf$/.test(file.type)) { docError.value = 'Solo se permiten imágenes o PDF'; return }
+  if (file.size > 25 * 1024 * 1024) { docError.value = 'El documento no debe superar 25 MB'; return }
+  docError.value = ''; docUploading.value = true
+  try {
+    const fd = new FormData(); fd.append('file', file)
+    const { data } = await api.post('/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    form.documento_oficial = data.url
+  } catch { docError.value = 'Error al subir el documento.' }
+  finally { docUploading.value = false }
+}
 
 const statFields = [
   { key: 'goals',        label: 'Goles',        color: 'text-green-600',  icon: Target },
@@ -545,16 +618,19 @@ async function openForm(player = null) {
       tournamentId: t?.id, categoryId: player.category_id || null,
       teamId: player.team_id, name: player.name, number: player.number || '',
       position: player.position || 'Delantero', photo: player.photo || '',
+      curp: player.curp || '', documento_oficial: player.documento_oficial || '',
       goals: player.goals || 0, assists: player.assists || 0,
       yellow_cards: player.yellow_cards || 0, red_cards: player.red_cards || 0
     })
+    docError.value = ''
     await onFormTournamentChange()
     form.categoryId = player.category_id || null
     await onFormCategoryChange()
     form.teamId = player.team_id
   } else {
     const t = filterTournament.value || tournaments.value[0]
-    Object.assign(form, { tournamentId: t?.id, categoryId: filterCategory.value?.id || null, teamId: null, name: '', number: '', position: 'Delantero', photo: '' })
+    Object.assign(form, { tournamentId: t?.id, categoryId: filterCategory.value?.id || null, teamId: null, name: '', number: '', position: 'Delantero', photo: '', curp: '', documento_oficial: '' })
+    docError.value = ''
     await onFormTournamentChange()
     if (filterCategory.value) { form.categoryId = filterCategory.value.id; await onFormCategoryChange() }
   }

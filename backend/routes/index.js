@@ -666,7 +666,7 @@ async function checkPlayerDuplicate(teamId, name, excludePlayerId = null) {
 }
 
 router.post('/players', authMiddleware, adminOnly, async (req, res) => {
-  const { teamId, name, photo, number, position } = req.body
+  const { teamId, name, photo, number, position, curp, documento_oficial } = req.body
   if (!teamId || !name) return res.status(400).json({ error: 'Nombre y equipo son requeridos' })
   const teamTournament = (await queryOne('SELECT tournament_id FROM teams WHERE id=$1', [teamId]))
   if (!teamTournament) return res.status(404).json({ error: 'Equipo no encontrado' })
@@ -680,12 +680,13 @@ router.post('/players', authMiddleware, adminOnly, async (req, res) => {
     })
   }
 
-  const r = await query('INSERT INTO players (team_id,name,photo,number,position) VALUES ($1,$2,$3,$4,$5) RETURNING id', [teamId, name.trim(), photo || null, number || null, position || null])
+  const r = await query('INSERT INTO players (team_id,name,photo,number,position,curp,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+    [teamId, name.trim(), photo || null, number || null, position || null, curp?.trim().toUpperCase() || null, documento_oficial || null])
   res.status(201).json((await queryOne('SELECT * FROM players WHERE id=$1', [r.lastInsertRowid])))
 })
 
 router.put('/players/:id', authMiddleware, adminOnly, async (req, res) => {
-  const { name, photo, number, position, goals, assists, yellow_cards, red_cards, teamId, minutes_played, matches_played } = req.body
+  const { name, photo, number, position, goals, assists, yellow_cards, red_cards, teamId, minutes_played, matches_played, curp, documento_oficial } = req.body
   const pid = parseInt(req.params.id)
 
   const dup = await checkPlayerDuplicate(teamId, name, pid)
@@ -697,8 +698,9 @@ router.put('/players/:id', authMiddleware, adminOnly, async (req, res) => {
   }
 
   await query(`UPDATE players SET name=$1,photo=$2,number=$3,position=$4,goals=$5,assists=$6,
-    yellow_cards=$7,red_cards=$8,team_id=$9,minutes_played=$10,matches_played=$11 WHERE id=$12`, [name.trim(), photo, number, position, goals||0, assists||0, yellow_cards||0,
-         red_cards||0, teamId, minutes_played||0, matches_played||0, pid])
+    yellow_cards=$7,red_cards=$8,team_id=$9,minutes_played=$10,matches_played=$11,curp=$12,documento_oficial=$13 WHERE id=$14`,
+    [name.trim(), photo, number, position, goals||0, assists||0, yellow_cards||0,
+     red_cards||0, teamId, minutes_played||0, matches_played||0, curp?.trim().toUpperCase() || null, documento_oficial || null, pid])
   res.json((await queryOne('SELECT * FROM players WHERE id=$1', [pid])))
 })
 
@@ -709,10 +711,17 @@ router.post('/players/check-duplicate', authMiddleware, adminOnly, async (req, r
   res.json({ duplicate: dup || null })
 })
 router.delete('/players/:id', authMiddleware, adminOnly, async (req, res) => {
-  const p = await queryOne('SELECT t.tournament_id FROM players pl JOIN teams t ON pl.team_id=t.id WHERE pl.id=$1', [req.params.id])
+  const p = await queryOne('SELECT pl.curp, t.tournament_id, t.inscription_id FROM players pl JOIN teams t ON pl.team_id=t.id WHERE pl.id=$1', [req.params.id])
   if (!p) return res.status(404).json({ error: 'Jugador no encontrado' })
   if (!await checkOwnerByTournamentId(req, res, p.tournament_id)) return
-  await query('DELETE FROM players WHERE id=$1', [req.params.id]); res.status(204).end()
+  await query('DELETE FROM players WHERE id=$1', [req.params.id])
+  // Sin esto, el registro que originó a este jugador queda huérfano en
+  // inscription_players y el link público de registro sigue rechazando la misma
+  // CURP como "ya registrada" aunque el jugador ya no exista en el roster.
+  if (p.curp && p.inscription_id) {
+    await query('DELETE FROM inscription_players WHERE inscription_id=$1 AND UPPER(curp)=$2', [p.inscription_id, p.curp.toUpperCase()])
+  }
+  res.status(204).end()
 })
 
 // ── Matches ───────────────────────────────────────────────────────────────
