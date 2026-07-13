@@ -274,4 +274,14 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 - Torneos de modalidad "liga" pura (sin fase de eliminatoria) no generan un award de "campeón" — el sistema de premios automáticos solo asigna `best_team` en fases de tipo `knockout`; determinar un campeón de liga por posición en la tabla es una función distinta que no existía antes y no se agregó aquí.
 - Posible push duplicado para un usuario que sigue tanto el equipo como el torneo de un mismo partido (recibe el aviso de "resultado final" dos veces, una por cada follow) — comportamiento preexistente, de bajo impacto, no se tocó en esta pasada.
 
+### 2026-07-13 — UI: separar CURP y estadísticas en "Jugadores y Responsables"
+**Pedido:** en la tabla de la pestaña "Jugadores" del admin, mostrar la CURP en vez de goles/asistencias/tarjetas, y mover esas estadísticas a una pestaña nueva llamada "Rendimiento". El PDF exportado también debe mostrar CURP en vez de las estadísticas.
+
+**Cambios en [Players.vue](src/pages/admin/Players.vue):**
+- Nueva pestaña **"Rendimiento"** (entre "Jugadores" y "Responsables") con su propia vista (cards en mobile, tabla en desktop) mostrando Goles/Asistencias/T. Amarillas/T. Rojas por jugador, reutilizando los mismos filtros de torneo/categoría/equipo y el botón "Editar" (abre el mismo modal, que ya tenía la sección de estadísticas manuales).
+- La tabla de la pestaña "Jugadores" ahora muestra una columna **CURP** en vez de las 4 columnas de estadísticas (mobile: la CURP se agregó como línea bajo el nombre del jugador, reemplazando el badge de goles).
+- `exportPDF()`: la columna final del PDF ahora es CURP en vez de G/A/TA/TR.
+
+**Validado con:** build de producción limpio y recorrido en el navegador contra el backend local — la pestaña "Jugadores" muestra CURP (o "—" si no tiene), la pestaña "Rendimiento" muestra las estadísticas correctamente con el filtro de equipo funcionando igual que antes, sin errores de consola.
+
 **Validado con:** backend local (SQLite) — se replicó el escenario exacto reportado insertando directamente en la base una inscripción+equipo+`inscription_players` huérfana (sin jugador vivo correspondiente), y se confirmó contra los endpoints reales: (1) `POST /inscriptions/:id/players` con la misma CURP ya NO se rechaza — se registra con éxito; (2) `PUT /inscriptions/:id/players/:playerId` edita correctamente nombre/CURP/documento y el cambio se refleja tanto en `inscription_players` como en `players`; (3) ciclo completo `DELETE /players/:id` (admin) → `POST /inscriptions/:id/players` (delegado, misma CURP) confirmado sin bloqueo. Build de producción limpio. No se pudo probar la subida real de un documento en el formulario de edición del delegado por las mismas credenciales placeholder de Cloudinary en local ya mencionadas antes — el endpoint de upload en sí no se tocó.

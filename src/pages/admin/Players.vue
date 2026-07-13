@@ -19,6 +19,11 @@
         :class="activeTab === 'players' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'">
         <span class="flex items-center gap-2"><IconShirt class="w-4 h-4"/> Jugadores</span>
       </button>
+      <button @click="activeTab = 'rendimiento'"
+        class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+        :class="activeTab === 'rendimiento' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'">
+        <span class="flex items-center gap-2"><IconBarChart2 class="w-4 h-4"/> Rendimiento</span>
+      </button>
       <button @click="activeTab = 'responsables'; loadResponsables()"
         class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
         :class="activeTab === 'responsables' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'">
@@ -32,12 +37,12 @@
         class="bg-white border border-muted rounded-xl px-4 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary">
         <option v-for="t in tournaments" :key="t.slug" :value="t">{{ t.name }}</option>
       </select>
-      <select v-model="filterCategory" @change="activeTab === 'players' ? loadPlayers() : loadResponsables()"
+      <select v-model="filterCategory" @change="activeTab === 'responsables' ? loadResponsables() : loadPlayers()"
         class="bg-white border border-muted rounded-xl px-4 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary">
         <option :value="null">Todas las categorías</option>
         <option v-for="c in categories" :key="c.id" :value="c">{{ c.name }}</option>
       </select>
-      <select v-if="activeTab === 'players'" v-model="filterTeam"
+      <select v-if="activeTab === 'players' || activeTab === 'rendimiento'" v-model="filterTeam"
         class="bg-white border border-muted rounded-xl px-4 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary">
         <option :value="null">Todos los equipos</option>
         <option v-for="t in filteredTeams" :key="t.id" :value="t.id">{{ t.name }}</option>
@@ -61,9 +66,7 @@
           <div class="flex-1 min-w-0">
             <p class="font-bold text-slate-900 text-sm truncate">{{ p.name }}</p>
             <p class="text-xs text-slate-400 truncate">{{ p.teamName }} · {{ p.position }}</p>
-          </div>
-          <div class="flex items-center gap-1 shrink-0 text-xs font-bold text-accent">
-            <IconCircle class="w-3.5 h-3.5"/>{{ p.goals }}
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">{{ p.curp || '—' }}</p>
           </div>
           <div class="flex gap-1.5 shrink-0">
             <button v-if="p.documento_oficial" type="button" @click="viewingDoc = p"
@@ -91,10 +94,7 @@
               <th class="py-3 px-4 text-left">Categoría</th>
               <th class="py-3 px-4 text-center">#</th>
               <th class="py-3 px-4 text-left">Pos.</th>
-              <th class="py-3 px-4 text-center text-accent"><IconCircle class="w-4 h-4 inline"/></th>
-              <th class="py-3 px-4 text-center text-primary">A</th>
-              <th class="py-3 px-4 text-center text-yellow-400"><IconSquare class="w-4 h-4 inline fill-yellow-400 text-yellow-400"/></th>
-              <th class="py-3 px-4 text-center text-red-400"><IconSquare class="w-4 h-4 inline fill-red-500 text-red-500"/></th>
+              <th class="py-3 px-4 text-left">CURP</th>
               <th class="py-3 px-4 text-center">Doc.</th>
               <th class="py-3 px-4 text-right">Acciones</th>
             </tr>
@@ -114,10 +114,7 @@
               <td class="py-3 px-4 text-slate-400 text-xs">{{ p.categoryName }}</td>
               <td class="py-3 px-4 text-center text-slate-500">{{ p.number }}</td>
               <td class="py-3 px-4 text-slate-500">{{ p.position }}</td>
-              <td class="py-3 px-4 text-center font-bold text-accent">{{ p.goals }}</td>
-              <td class="py-3 px-4 text-center text-primary">{{ p.assists }}</td>
-              <td class="py-3 px-4 text-center text-yellow-400">{{ p.yellow_cards }}</td>
-              <td class="py-3 px-4 text-center text-red-400">{{ p.red_cards }}</td>
+              <td class="py-3 px-4 font-mono text-xs text-slate-500">{{ p.curp || '—' }}</td>
               <td class="py-3 px-4 text-center">
                 <button v-if="p.documento_oficial" type="button" @click="viewingDoc = p"
                   class="inline-flex items-center gap-1 text-xs text-primary font-semibold border border-primary/30 px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
@@ -134,6 +131,75 @@
                     <IconTrash2 class="w-4 h-4"/>
                   </button>
                 </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- ══ TAB: RENDIMIENTO ══ -->
+    <template v-if="activeTab === 'rendimiento'">
+      <div v-if="loading" class="flex justify-center py-8">
+        <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+      <p v-else-if="!displayed.length" class="text-center text-slate-500 py-8">Sin jugadores.</p>
+
+      <!-- Mobile: cards -->
+      <div v-else class="md:hidden space-y-2">
+        <div v-for="p in displayed" :key="p.id" class="card !p-3 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
+            <img v-if="p.photo" :src="p.photo" class="w-full h-full object-cover"/>
+            <IconUser v-else class="w-5 h-5 text-slate-400"/>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-slate-900 text-sm truncate">{{ p.name }}</p>
+            <p class="text-xs text-slate-400 truncate">{{ p.teamName }} · {{ p.position }}</p>
+          </div>
+          <div class="flex items-center gap-2.5 shrink-0 text-xs font-bold">
+            <span class="flex items-center gap-1 text-accent"><IconCircle class="w-3.5 h-3.5"/>{{ p.goals }}</span>
+            <span class="flex items-center gap-1 text-primary"><IconZap class="w-3.5 h-3.5"/>{{ p.assists }}</span>
+            <span class="flex items-center gap-1 text-yellow-500"><IconSquare class="w-3.5 h-3.5 fill-yellow-400"/>{{ p.yellow_cards }}</span>
+            <span class="flex items-center gap-1 text-red-500"><IconSquare class="w-3.5 h-3.5 fill-red-500"/>{{ p.red_cards }}</span>
+          </div>
+          <button @click="openForm(p)" class="text-xs text-slate-500 px-2.5 py-1.5 border border-muted rounded-lg hover:text-slate-900 transition-colors shrink-0">Editar</button>
+        </div>
+      </div>
+
+      <!-- Desktop: tabla -->
+      <div v-if="!loading && displayed.length" class="hidden md:block rounded-2xl border border-muted overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-100 text-slate-500 uppercase text-xs tracking-wider">
+            <tr>
+              <th class="py-3 px-4 text-left">Jugador</th>
+              <th class="py-3 px-4 text-left">Equipo</th>
+              <th class="py-3 px-4 text-left">Categoría</th>
+              <th class="py-3 px-4 text-center text-accent"><IconCircle class="w-4 h-4 inline"/></th>
+              <th class="py-3 px-4 text-center text-primary">A</th>
+              <th class="py-3 px-4 text-center text-yellow-400"><IconSquare class="w-4 h-4 inline fill-yellow-400 text-yellow-400"/></th>
+              <th class="py-3 px-4 text-center text-red-400"><IconSquare class="w-4 h-4 inline fill-red-500 text-red-500"/></th>
+              <th class="py-3 px-4 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in displayed" :key="p.id" class="border-t border-slate-200 hover:bg-slate-50 transition-colors">
+              <td class="py-3 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <img v-if="p.photo" :src="p.photo" class="w-full h-full object-cover rounded-full"/>
+                    <IconUser v-else class="w-4 h-4"/>
+                  </div>
+                  <span class="font-semibold text-slate-900">{{ p.name }}</span>
+                </div>
+              </td>
+              <td class="py-3 px-4 text-slate-500">{{ p.teamName }}</td>
+              <td class="py-3 px-4 text-slate-400 text-xs">{{ p.categoryName }}</td>
+              <td class="py-3 px-4 text-center font-bold text-accent">{{ p.goals }}</td>
+              <td class="py-3 px-4 text-center text-primary">{{ p.assists }}</td>
+              <td class="py-3 px-4 text-center text-yellow-400">{{ p.yellow_cards }}</td>
+              <td class="py-3 px-4 text-center text-red-400">{{ p.red_cards }}</td>
+              <td class="py-3 px-4 text-right">
+                <button @click="openForm(p)" class="text-xs text-slate-500 hover:text-slate-900 px-2 py-1 border border-muted rounded-lg">Editar</button>
               </td>
             </tr>
           </tbody>
@@ -664,21 +730,19 @@ function exportPDF() {
     <tr class="${i % 2 === 0 ? 'even' : ''}">
       <td>${p.number ?? '—'}</td><td class="name">${p.name}</td><td>${p.position || '—'}</td>
       <td>${p.teamName || '—'}</td><td>${p.categoryName || '—'}</td>
-      <td class="stat">${p.goals ?? 0}</td><td class="stat">${p.assists ?? 0}</td>
-      <td class="stat">${p.yellow_cards ?? 0}</td><td class="stat">${p.red_cards ?? 0}</td>
+      <td class="curp">${p.curp || '—'}</td>
     </tr>`).join('')
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>Jugadores — ${t}</title>
 <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1e293b;padding:24px;}
 h1{font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px;}.meta{font-size:10px;color:#64748b;margin-bottom:16px;}
 table{width:100%;border-collapse:collapse;}thead{background:#0f172a;color:white;}
 th{padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;}
-td{padding:7px 10px;border-bottom:1px solid #e2e8f0;}td.name{font-weight:600;}td.stat,th.stat{text-align:center;font-weight:700;}
+td{padding:7px 10px;border-bottom:1px solid #e2e8f0;}td.name{font-weight:600;}td.curp{font-family:'Courier New',monospace;letter-spacing:0.5px;}
 tr.even{background:#f8fafc;}.footer{margin-top:20px;font-size:9px;color:#94a3b8;text-align:right;}
 @media print{body{padding:12px;}}</style></head>
 <body><h1>Lista de Jugadores — ${t}</h1>
 <div class="meta">Categoría: <strong>${cat}</strong> &nbsp;|&nbsp; Equipo: <strong>${team}</strong> &nbsp;|&nbsp; Total: <strong>${displayed.value.length} jugadores</strong></div>
-<table><thead><tr><th>#</th><th>Nombre</th><th>Posición</th><th>Equipo</th><th>Categoría</th>
-<th class="stat">G</th><th class="stat">A</th><th class="stat">TA</th><th class="stat">TR</th></tr></thead>
+<table><thead><tr><th>#</th><th>Nombre</th><th>Posición</th><th>Equipo</th><th>Categoría</th><th>CURP</th></tr></thead>
 <tbody>${rows}</tbody></table>
 <div class="footer">Generado el ${new Date().toLocaleDateString('es-MX',{dateStyle:'long'})} — JugarLaPelota</div>
 </body></html>`
