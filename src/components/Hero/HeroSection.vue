@@ -104,7 +104,7 @@
 </template>
 
 <script setup>
-import { Trophy, Radio, BarChart2, Bell } from 'lucide-vue-next'
+import { Smile, Radio, BarChart2, Clock } from 'lucide-vue-next'
 
 function scrollToTournaments() {
   document.getElementById('torneos')?.scrollIntoView({ behavior: 'smooth' })
@@ -124,10 +124,10 @@ const features = [
 ]
 
 const stats = [
-  { icon: Trophy,    value: '100%', label: 'Digital',                 color: 'text-primary' },
-  { icon: Radio,     value: 'Live', label: 'Marcadores en tiempo real', color: 'text-red-400' },
-  { icon: BarChart2, value: 'Auto', label: 'Estadísticas',             color: 'text-accent' },
-  { icon: Bell,      value: 'Push', label: 'Notificaciones',          color: 'text-amber-400' },
+  { icon: Smile,     value: 'Fácil',  label: 'Interfaz intuitiva',        color: 'text-primary' },
+  { icon: Radio,     value: 'Live',   label: 'Marcadores en tiempo real', color: 'text-red-400' },
+  { icon: BarChart2, value: 'Auto',   label: 'Estadísticas',              color: 'text-accent' },
+  { icon: Clock,     value: 'Ahorra', label: 'Horas de gestión',          color: 'text-amber-400' },
 ]
 </script>
 
