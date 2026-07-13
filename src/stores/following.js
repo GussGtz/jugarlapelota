@@ -15,6 +15,15 @@ export const useFollowingStore = defineStore('following', () => {
   const count           = computed(() => teamIds.value.size + tournamentIds.value.size)
   const teamCount       = computed(() => teamIds.value.size)
   const tournamentCount = computed(() => tournamentIds.value.size)
+  // Texto combinado para mostrar en UI — antes cada consumidor mostraba solo
+  // "Siguiendo N equipos" usando el conteo combinado, lo cual era incorrecto
+  // en cuanto el usuario seguía también algún torneo.
+  const summaryText = computed(() => {
+    const parts = []
+    if (teamCount.value)       parts.push(`${teamCount.value} equipo${teamCount.value !== 1 ? 's' : ''}`)
+    if (tournamentCount.value) parts.push(`${tournamentCount.value} torneo${tournamentCount.value !== 1 ? 's' : ''}`)
+    return parts.join(' y ')
+  })
 
   function isFollowing(id)           { return teamIds.value.has(Number(id)) }
   function isFollowingTournament(id) { return tournamentIds.value.has(Number(id)) }
@@ -108,7 +117,7 @@ export const useFollowingStore = defineStore('following', () => {
   }
 
   return {
-    teamIds, tournamentIds, list, count, teamCount, tournamentCount,
+    teamIds, tournamentIds, list, count, teamCount, tournamentCount, summaryText,
     isFollowing, isFollowingTournament,
     purgeStale, syncFromServer,
     follow, unfollow, toggle,

@@ -9,6 +9,14 @@ const pushSub        = ref(null)
 const pushEndpoint   = ref(localStorage.getItem('jlp_push_endpoint') || null)
 const pushError      = ref('')
 
+// El permiso de notificaciones del navegador, una vez concedido, no se puede
+// revocar por JS — "Desactivar notificaciones" solo borra la suscripción de
+// nuestro lado (push_subscriptions + endpoint local), pero Notification.permission
+// sigue reportando 'granted' para siempre. Sin este flag, recargar la página
+// después de desactivar hacía que el estado volviera a "activo" (leyendo el
+// permiso crudo del navegador) aunque ya no hubiera ninguna suscripción real.
+const PUSH_DISABLED_KEY = 'jlp_push_disabled'
+
 // iOS (cualquier navegador — Chrome/Firefox en iOS usan WebKit por debajo y
 // tienen la misma limitación) nunca dispara beforeinstallprompt, así que ahí
 // hay que mostrar instrucciones manuales en vez de un botón de instalación.
@@ -34,7 +42,7 @@ function urlBase64ToUint8Array(base64String) {
 export function usePWA() {
   onMounted(() => {
     pushSupported.value = 'serviceWorker' in navigator && 'PushManager' in window
-    pushGranted.value   = Notification.permission === 'granted'
+    pushGranted.value   = Notification.permission === 'granted' && localStorage.getItem(PUSH_DISABLED_KEY) !== 'true'
   })
 
   async function promptInstall() {
@@ -56,6 +64,7 @@ export function usePWA() {
       }
       if (permission !== 'granted') return false
       pushGranted.value = true
+      localStorage.removeItem(PUSH_DISABLED_KEY)
 
       // Obtener SW registrado
       const reg = await navigator.serviceWorker.ready
@@ -102,12 +111,19 @@ export function usePWA() {
 
   async function unsubscribePush() {
     const endpoint = pushSub.value?.endpoint || pushEndpoint.value
-    if (!endpoint) return
-    try { await api.post('/push/unsubscribe', { endpoint }) } catch {}
-    if (pushSub.value) { try { await pushSub.value.unsubscribe() } catch {} pushSub.value = null }
+    // El reseteo de estado local debe pasar SIEMPRE, incluso sin endpoint
+    // (p.ej. tras un reload donde pushSub/pushEndpoint ya estaban en null pero
+    // pushGranted seguía en true por el permiso crudo del navegador) — si no,
+    // el botón "Desactivar" se queda sin efecto visible y parece no funcionar.
+    if (endpoint) {
+      try { await api.post('/push/unsubscribe', { endpoint }) } catch {}
+    }
+    if (pushSub.value) { try { await pushSub.value.unsubscribe() } catch {} }
+    pushSub.value      = null
     pushGranted.value  = false
     pushEndpoint.value = null
     localStorage.removeItem('jlp_push_endpoint')
+    localStorage.setItem(PUSH_DISABLED_KEY, 'true')
   }
 
   return {

@@ -93,7 +93,7 @@
                 <div v-if="following.count" class="px-4 py-2.5 border-b border-muted">
                   <p class="text-xs text-slate-500 flex items-center gap-1.5">
                     <IconHeart class="w-3.5 h-3.5 text-red-400" />
-                    Siguiendo {{ following.count }} {{ following.count === 1 ? 'equipo' : 'equipos' }}
+                    Siguiendo {{ following.summaryText }}
                   </p>
                 </div>
                 <button @click="handleLogout"
