@@ -92,12 +92,6 @@
             <p class="text-slate-400 text-xs mt-1">{{ stat.label }}</p>
           </div>
         </div>
-
-        <!-- Live badge flotante -->
-        <div class="live-float-card hero-anim hero-float" style="animation-delay: 0.85s">
-          <span class="live-dot-hero mr-2"></span>
-          <span class="text-sm font-bold text-white">Marcadores en tiempo real</span>
-        </div>
       </div>
     </div>
 
@@ -110,7 +104,7 @@
 </template>
 
 <script setup>
-import { Trophy, Radio, BarChart2, Smartphone } from 'lucide-vue-next'
+import { Trophy, Radio, BarChart2, Bell } from 'lucide-vue-next'
 
 function scrollToTournaments() {
   document.getElementById('torneos')?.scrollIntoView({ behavior: 'smooth' })
@@ -131,10 +125,10 @@ const features = [
 ]
 
 const stats = [
-  { icon: Trophy,     value: '100%', label: 'Digital',       color: 'text-primary' },
-  { icon: Radio,      value: 'Live', label: 'Tiempo real',   color: 'text-red-400' },
-  { icon: BarChart2,  value: 'Auto', label: 'Estadísticas',  color: 'text-accent' },
-  { icon: Smartphone, value: 'App',  label: 'Instalable',    color: 'text-violet-400' },
+  { icon: Trophy,    value: '100%', label: 'Digital',                 color: 'text-primary' },
+  { icon: Radio,     value: 'Live', label: 'Marcadores en tiempo real', color: 'text-red-400' },
+  { icon: BarChart2, value: 'Auto', label: 'Estadísticas',             color: 'text-accent' },
+  { icon: Bell,      value: 'Push', label: 'Notificaciones',          color: 'text-amber-400' },
 ]
 </script>
 
@@ -388,17 +382,6 @@ const stats = [
 }
 .stat-card:hover { background: rgba(255,255,255,0.1); }
 
-/* ── Live float card ── */
-.live-float-card {
-  display: inline-flex;
-  align-items: center;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 999px;
-  padding: 10px 20px;
-  backdrop-filter: blur(12px);
-}
-
 /* ── Scroll hint ── */
 .hero-scroll-hint {
   position: absolute;
@@ -417,13 +400,8 @@ const stats = [
   opacity: 0;
   animation: heroFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-@keyframes heroFloat {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-6px); }
-}
-.hero-float { animation: heroFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards, heroFloat 3.5s ease-in-out 1.2s infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-anim, .hero-float { animation: none; opacity: 1; }
+  .hero-anim { animation: none; opacity: 1; }
 }
 </style>
