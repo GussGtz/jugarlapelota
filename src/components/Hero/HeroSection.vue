@@ -73,7 +73,7 @@
           <button type="button" @click="scrollToTournaments" class="hero-btn-primary">
             Ver torneos
           </button>
-          <button type="button" @click="scrollToInstall" class="hero-btn-ghost">
+          <button type="button" @click="handleInstallClick" class="hero-btn-ghost">
             Instalar app
           </button>
         </div>
@@ -100,11 +100,20 @@
       <IconChevronDown class="w-5 h-5 text-white/40 animate-bounce" />
     </div>
 
+    <IOSInstallModal :show="showIOSModal" @close="showIOSModal = false"
+      @watch-video="showIOSModal = false; scrollToInstall()" />
+
   </section>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { Smile, Radio, BarChart2, Clock } from 'lucide-vue-next'
+import { usePWA } from '@/composables/usePWA'
+import IOSInstallModal from '@/components/InstallPWA/IOSInstallModal.vue'
+
+const { installPrompt, isInstalled, isIOS, promptInstall } = usePWA()
+const showIOSModal = ref(false)
 
 function scrollToTournaments() {
   document.getElementById('torneos')?.scrollIntoView({ behavior: 'smooth' })
@@ -112,6 +121,22 @@ function scrollToTournaments() {
 
 function scrollToInstall() {
   document.getElementById('instalar-app')?.scrollIntoView({ behavior: 'smooth' })
+}
+
+// Un solo botón para 3 escenarios: Android/Chrome/Edge/desktop soportado →
+// prompt nativo de instalación en un toque; iOS (Safari o cualquier navegador,
+// todos corren sobre WebKit y comparten la misma limitación) → instrucciones
+// visuales, ya que Apple no expone ninguna API para instalar desde JS;
+// cualquier otro caso (ya instalada, navegador sin soporte) → cae al video
+// tutorial existente en #instalar-app.
+async function handleInstallClick() {
+  if (installPrompt.value) {
+    await promptInstall()
+  } else if (isIOS && !isInstalled.value) {
+    showIOSModal.value = true
+  } else {
+    scrollToInstall()
+  }
 }
 
 // Video de fondo — Streamable embed (autoplay, sin controles, sin sonido)

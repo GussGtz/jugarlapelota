@@ -9,6 +9,11 @@ const pushSub        = ref(null)
 const pushEndpoint   = ref(localStorage.getItem('jlp_push_endpoint') || null)
 const pushError      = ref('')
 
+// iOS (cualquier navegador — Chrome/Firefox en iOS usan WebKit por debajo y
+// tienen la misma limitación) nunca dispara beforeinstallprompt, así que ahí
+// hay que mostrar instrucciones manuales en vez de un botón de instalación.
+const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
+
 // Detect install state
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -16,7 +21,7 @@ if (typeof window !== 'undefined') {
     installPrompt.value = e
   })
   window.addEventListener('appinstalled', () => { isInstalled.value = true })
-  if (window.matchMedia('(display-mode: standalone)').matches) isInstalled.value = true
+  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) isInstalled.value = true
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -106,7 +111,7 @@ export function usePWA() {
   }
 
   return {
-    installPrompt, isInstalled, pushSupported, pushGranted, pushSub, pushEndpoint, pushError,
+    installPrompt, isInstalled, isIOS, pushSupported, pushGranted, pushSub, pushEndpoint, pushError,
     promptInstall, subscribePush, unsubscribePush
   }
 }
