@@ -1375,6 +1375,38 @@ async function autoGenerateAwardsForPhase(phaseId) {
       }
     }
 
+    // Campeón de liga: en una fase 'league' (sin eliminatoria posterior) el 1er
+    // lugar de la tabla de posiciones final ES el campeón del torneo/categoría.
+    // No aplica a 'groups' — esa fase avanza a una eliminatoria, el campeón real
+    // se decide ahí (ver rama 'knockout' de abajo).
+    if (phase.type === 'league' && !existingTypes.has('best_team')) {
+      const leader = (await queryOne(`
+        SELECT team_id, points, (goals_for - goals_against) AS diff, goals_for
+        FROM standings WHERE phase_id=$1 AND group_id IS NULL
+        ORDER BY points DESC, diff DESC, goals_for DESC LIMIT 1
+      `, [phaseId]))
+      if (leader) {
+        await ins(phase.tournament_id, cat, phaseId, 'best_team', null, leader.team_id, `Campeón de ${phase.name} (${leader.points} pts)`)
+        const champion = await queryOne('SELECT name FROM teams WHERE id=$1', [leader.team_id])
+        if (champion) {
+          const tournament = await queryOne('SELECT slug FROM tournaments WHERE id=$1', [phase.tournament_id])
+          const category   = cat ? await queryOne('SELECT name FROM categories WHERE id=$1', [cat]) : null
+          const catLabel   = category ? ` en ${category.name}` : ''
+          const tourUrl    = tournament ? `/${tournament.slug}` : undefined
+          global.sendPushToTeams?.([leader.team_id], {
+            type: 'team:champion', title: '🏆 ¡Campeón!',
+            body: `${champion.name} es el campeón de la liga${catLabel}`,
+            url: tourUrl, tag: `champion-${phaseId}`
+          })
+          global.sendPushToTournaments?.([phase.tournament_id], {
+            type: 'tournament:champion', title: '🏆 Ya tenemos campeón',
+            body: `${champion.name} es el campeón de la liga${catLabel}`,
+            url: tourUrl, tag: `tourchampion-${phaseId}`
+          })
+        }
+      }
+    }
+
   } else if (phase.type === 'knockout') {
     // Campeón
     if (!existingTypes.has('best_team')) {
