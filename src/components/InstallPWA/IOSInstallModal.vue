@@ -4,7 +4,9 @@
       <div class="modal-sheet">
         <div class="modal-handle"/>
         <div class="modal-header">
-          <h3 class="font-bold text-slate-900 text-base">📲 Instala la aplicación</h3>
+          <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+            <IconSmartphone class="w-5 h-5 text-primary"/> Instala la aplicación
+          </h3>
           <button @click="$emit('close')" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
         </div>
         <div class="modal-body space-y-5">
@@ -44,7 +46,7 @@
 </template>
 
 <script setup>
-import { X as IconX, Share as IconShare, SquarePlus as IconSquarePlus } from 'lucide-vue-next'
+import { X as IconX, Share as IconShare, SquarePlus as IconSquarePlus, Smartphone as IconSmartphone } from 'lucide-vue-next'
 
 defineProps({ show: { type: Boolean, default: false } })
 defineEmits(['close', 'watch-video'])
