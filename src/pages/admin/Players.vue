@@ -728,6 +728,9 @@ function exportPDF() {
     : 'Todos los equipos'
   const rows = displayed.value.map((p, i) => `
     <tr class="${i % 2 === 0 ? 'even' : ''}">
+      <td class="photo-cell">${p.photo
+        ? `<img src="${p.photo}" class="photo"/>`
+        : `<span class="photo-placeholder">${(p.name || '?').trim().charAt(0).toUpperCase()}</span>`}</td>
       <td>${p.number ?? '—'}</td><td class="name">${p.name}</td><td>${p.position || '—'}</td>
       <td>${p.teamName || '—'}</td><td>${p.categoryName || '—'}</td>
       <td class="curp">${p.curp || '—'}</td>
@@ -737,18 +740,34 @@ function exportPDF() {
 h1{font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px;}.meta{font-size:10px;color:#64748b;margin-bottom:16px;}
 table{width:100%;border-collapse:collapse;}thead{background:#0f172a;color:white;}
 th{padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;}
-td{padding:7px 10px;border-bottom:1px solid #e2e8f0;}td.name{font-weight:600;}td.curp{font-family:'Courier New',monospace;letter-spacing:0.5px;}
+td{padding:7px 10px;border-bottom:1px solid #e2e8f0;vertical-align:middle;}td.name{font-weight:600;}td.curp{font-family:'Courier New',monospace;letter-spacing:0.5px;}
+td.photo-cell{width:38px;}.photo{width:26px;height:26px;border-radius:50%;object-fit:cover;display:block;}
+.photo-placeholder{width:26px;height:26px;border-radius:50%;background:#e2e8f0;color:#64748b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;}
 tr.even{background:#f8fafc;}.footer{margin-top:20px;font-size:9px;color:#94a3b8;text-align:right;}
 @media print{body{padding:12px;}}</style></head>
 <body><h1>Lista de Jugadores — ${t}</h1>
 <div class="meta">Categoría: <strong>${cat}</strong> &nbsp;|&nbsp; Equipo: <strong>${team}</strong> &nbsp;|&nbsp; Total: <strong>${displayed.value.length} jugadores</strong></div>
-<table><thead><tr><th>#</th><th>Nombre</th><th>Posición</th><th>Equipo</th><th>Categoría</th><th>CURP</th></tr></thead>
+<table><thead><tr><th>Foto</th><th>#</th><th>Nombre</th><th>Posición</th><th>Equipo</th><th>Categoría</th><th>CURP</th></tr></thead>
 <tbody>${rows}</tbody></table>
 <div class="footer">Generado el ${new Date().toLocaleDateString('es-MX',{dateStyle:'long'})} — JugarLaPelota</div>
 </body></html>`
   const win = window.open('', '_blank', 'width=900,height=700')
   win.document.write(html); win.document.close(); win.focus()
-  setTimeout(() => win.print(), 400)
+
+  // Esperar a que las fotos (URLs remotas de Cloudinary) carguen antes de
+  // imprimir — si no, salían en blanco por la carrera entre el print() y la
+  // descarga de las imágenes.
+  let printed = false
+  const doPrint = () => { if (printed) return; printed = true; win.print() }
+  const imgs = Array.from(win.document.images)
+  if (imgs.length) {
+    let pending = imgs.length
+    const settle = () => { if (--pending <= 0) doPrint() }
+    imgs.forEach(img => img.complete ? settle() : img.addEventListener('load', settle) || img.addEventListener('error', settle))
+    setTimeout(doPrint, 3000)
+  } else {
+    setTimeout(doPrint, 400)
+  }
 }
 
 async function deletePlayer(id) {
