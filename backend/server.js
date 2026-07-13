@@ -51,6 +51,14 @@ async function start() {
     socket.on('disconnect', () => {})
   })
 
+  // ── Recordatorio de próximos partidos a seguidores de equipo ────────────
+  // routes/index.js expone la función en global.checkUpcomingMatchReminders
+  // (no hay infraestructura de cron en el proyecto — un setInterval basta,
+  // igual que el keep-alive de abajo)
+  setInterval(() => {
+    global.checkUpcomingMatchReminders?.().catch(e => console.error('[match-reminders]', e.message))
+  }, 15 * 60 * 1000)
+
   // ── Keep-alive: evita que Neon y Render duerman ─────────────────────────
   if (IS_PG) {
     // Ping a Neon cada 4 min para mantener la conexión activa

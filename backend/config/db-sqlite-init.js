@@ -28,6 +28,7 @@ module.exports = function initSQLite(db, bcrypt) {
   safe('ALTER TABLE phases ADD COLUMN is_active INTEGER DEFAULT 0')
   safe('ALTER TABLE matches ADD COLUMN match_notes TEXT')
   safe('ALTER TABLE matches ADD COLUMN stream_id INTEGER REFERENCES streams(id) ON DELETE SET NULL')
+  safe('ALTER TABLE matches ADD COLUMN reminder_sent INTEGER DEFAULT 0')
   safe('ALTER TABLE players ADD COLUMN minutes_played INTEGER DEFAULT 0')
   safe('ALTER TABLE players ADD COLUMN matches_played INTEGER DEFAULT 0')
   safe('ALTER TABLE inscriptions ADD COLUMN categories_json TEXT')

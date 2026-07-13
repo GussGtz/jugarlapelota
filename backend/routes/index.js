@@ -786,8 +786,9 @@ router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, r
   const { homeScore, awayScore, finish } = req.body
   const existing = await queryOne('SELECT status FROM matches WHERE id=$1', [req.params.id])
   const alreadyFinished = existing?.status === 'finished'
+  const justFinished = !!finish && !alreadyFinished
 
-  if (finish && !alreadyFinished) {
+  if (justFinished) {
     // Primer cierre: marcar como finalizado con timestamp
     await query('UPDATE matches SET home_score=$1,away_score=$2,status=$3,finished_at=$4 WHERE id=$5',
       [homeScore, awayScore, 'finished', new Date().toISOString(), req.params.id])
@@ -796,7 +797,7 @@ router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, r
     await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [homeScore, awayScore, req.params.id])
   }
 
-  const m = await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id])
+  const m = await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName",t.slug AS "tournamentSlug" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id JOIN tournaments t ON m.tournament_id=t.id WHERE m.id=$1`, [req.params.id])
 
   // Recalcular tabla y bracket si el partido está o queda finalizado
   if (m.status === 'finished') {
@@ -805,6 +806,10 @@ router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, r
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
   }
+  // Este endpoint es el que realmente usan árbitros y admin para cerrar un
+  // partido (a diferencia de PATCH /matches/:id/status, que casi no se usa) —
+  // antes no mandaba ningún push de "resultado final" a los seguidores.
+  if (justFinished) global.sendMatchFinishedPush?.(m)
   req.io?.emit('match:update', m)
   res.json(m)
 })
@@ -817,14 +822,10 @@ router.patch('/matches/:id/status', authMiddleware, adminOnly, async (req, res) 
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
-    const finishedPayload = { type: 'match:finished', title: '⚽ Resultado final', body: `${m.homeTeam} ${m.home_score} - ${m.away_score} ${m.awayTeam}`, url: `/${m.tournamentSlug}/partidos`, tag: `match-${m.id}` }
-    global.sendPushToTeams?.([m.home_team, m.away_team], finishedPayload)
-    global.sendPushToTournaments?.([m.tournament_id], finishedPayload)
+    global.sendMatchFinishedPush?.(m)
   }
   if (status === 'live') {
-    const livePayload = { type: 'match:live', title: '🔴 Partido en vivo', body: `${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url: `/${m.tournamentSlug}/partidos`, tag: `match-${m.id}` }
-    global.sendPushToTeams?.([m.home_team, m.away_team], livePayload)
-    global.sendPushToTournaments?.([m.tournament_id], livePayload)
+    global.sendMatchLivePush?.(m)
   }
   req.io?.emit(status === 'live' ? 'match:live' : 'match:update', m)
   res.json(m)
@@ -968,9 +969,7 @@ router.patch('/matches/:id/start', authMiddleware, refereeOrAdmin, async (req, r
   await query("UPDATE matches SET status='live', started_at=$1, referee_id=COALESCE(referee_id,$2) WHERE id=$3", [now, refereeId, req.params.id])
   const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",t.slug AS "tournamentSlug" FROM matches m
     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id JOIN tournaments t ON m.tournament_id=t.id WHERE m.id=$1`, [req.params.id]))
-  const startPayload = { type:'match:live', title:'🔴 ¡Partido en vivo!', body:`${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url:`/${m.tournamentSlug}/partidos`, tag:`match-${m.id}` }
-  global.sendPushToTeams?.([m.home_team, m.away_team], startPayload)
-  global.sendPushToTournaments?.([m.tournament_id], startPayload)
+  global.sendMatchLivePush?.(m)
   req.io?.emit('match:live', m)
   res.json(m)
 })
@@ -988,6 +987,31 @@ async function advanceBracketWinner(matchId, io) {
     : match.away_score > match.home_score ? match.away_team
     : null
   if (!winnerId) return { draw: true, message: 'Empate — avance manual requerido' }
+  const loserId = winnerId === match.home_team ? match.away_team : match.home_team
+
+  const tournament = await queryOne('SELECT slug FROM tournaments WHERE id=$1', [match.tournament_id])
+  const category   = match.category_id ? await queryOne('SELECT name FROM categories WHERE id=$1', [match.category_id]) : null
+  const catLabel   = category ? ` en ${category.name}` : ''
+  const tourUrl    = tournament ? `/${tournament.slug}` : undefined
+
+  const currRound = (await queryOne('SELECT * FROM rounds WHERE id=$1', [match.round_id]))
+
+  // El partido de Tercer Lugar no avanza a ninguna ronda — antes de este fix,
+  // como su round tiene un order_index menor al de la Final, la búsqueda de
+  // "siguiente ronda" de más abajo encontraba la Final y el código llegaba a
+  // sobreescribir home_team/away_team del partido de la Final con el ganador
+  // del Tercer Lugar. Se corta acá antes de llegar a esa lógica.
+  if (/^tercer lugar$/i.test(currRound.name)) {
+    const winnerTeam = await queryOne('SELECT * FROM teams WHERE id=$1', [winnerId])
+    if (winnerTeam) {
+      global.sendPushToTeams?.([winnerId], {
+        type: 'team:third_place', title: '🥉 Tercer lugar',
+        body: `${winnerTeam.name} obtuvo el tercer lugar${catLabel}`,
+        url: tourUrl, tag: `third-${match.phase_id}`
+      })
+    }
+    return { thirdPlace: winnerTeam?.name }
+  }
 
   // Position of this match within its round (0-indexed by id order)
   const siblings = (await query('SELECT id FROM matches WHERE round_id=$1 ORDER BY id ASC', [match.round_id])).rows
@@ -995,7 +1019,6 @@ async function advanceBracketWinner(matchId, io) {
   const nextSlot = Math.floor(myIndex / 2)
   const isHome   = myIndex % 2 === 0  // even → home, odd → away
 
-  const currRound = (await queryOne('SELECT * FROM rounds WHERE id=$1', [match.round_id]))
   const nextRound = (await queryOne("SELECT * FROM rounds WHERE phase_id=$1 AND order_index>$2 AND name != 'Tercer Lugar' ORDER BY order_index ASC LIMIT 1", [match.phase_id, currRound.order_index]))
 
   // Cuando este partido alimenta la Final, verificar si todas las semis terminaron
@@ -1042,8 +1065,26 @@ async function advanceBracketWinner(matchId, io) {
   if (!nextRound) {
     // Final — emit champion
     const champion = (await queryOne('SELECT * FROM teams WHERE id=$1', [winnerId]))
+    const runnerUp  = (await queryOne('SELECT * FROM teams WHERE id=$1', [loserId]))
     io?.to(`tournament:${match.tournament_id}`).emit('bracket:champion', {
       team: champion, phaseId: match.phase_id, phaseName: phase.name
+    })
+    global.sendPushToTeams?.([winnerId], {
+      type: 'team:champion', title: '🏆 ¡Campeón!',
+      body: `${champion.name} es el campeón${catLabel}`,
+      url: tourUrl, tag: `champion-${match.phase_id}`
+    })
+    if (runnerUp) {
+      global.sendPushToTeams?.([loserId], {
+        type: 'team:runner_up', title: '🥈 Subcampeón',
+        body: `${runnerUp.name} terminó en segundo lugar${catLabel}`,
+        url: tourUrl, tag: `runnerup-${match.phase_id}`
+      })
+    }
+    global.sendPushToTournaments?.([match.tournament_id], {
+      type: 'tournament:champion', title: '🏆 Ya tenemos campeón',
+      body: `${champion.name} es el campeón${catLabel}`,
+      url: tourUrl, tag: `tourchampion-${match.phase_id}`
     })
     return { champion: champion.name }
   }
@@ -1075,6 +1116,23 @@ async function advanceBracketWinner(matchId, io) {
   io?.to(`tournament:${match.tournament_id}`).emit('bracket:advance', {
     phaseId: match.phase_id, updatedMatch: targetMatch, winnerId
   })
+
+  const winnerTeam = await queryOne('SELECT name FROM teams WHERE id=$1', [winnerId])
+  const loserTeam  = await queryOne('SELECT name FROM teams WHERE id=$1', [loserId])
+  if (winnerTeam) {
+    global.sendPushToTeams?.([winnerId], {
+      type: 'team:advanced', title: '🎉 ¡Avanzaste de ronda!',
+      body: `${winnerTeam.name} avanza a ${nextRound.name}${catLabel}`,
+      url: tourUrl, tag: `advance-${targetMatch.id}`
+    })
+  }
+  if (loserTeam) {
+    global.sendPushToTeams?.([loserId], {
+      type: 'team:eliminated', title: 'Quedaste eliminado',
+      body: `${loserTeam.name} fue eliminado del torneo${catLabel}`,
+      url: tourUrl, tag: `eliminated-${match.id}`
+    })
+  }
 
   // Check if whole round is done → emit round_complete
   const allDone = (await queryOne("SELECT COUNT(*) as c FROM matches WHERE round_id=$1 AND status!='finished'", [match.round_id])).c === 0
@@ -1114,6 +1172,13 @@ async function checkPhaseCompletion(phaseId, io) {
     // Si es fase de grupos → generar bracket de eliminatoria automáticamente
     if (phase.type === 'groups') {
       await autoGenerateKnockoutBracket(phase, io)
+      const tournament = await queryOne('SELECT slug FROM tournaments WHERE id=$1', [phase.tournament_id])
+      const category   = phase.category_id ? await queryOne('SELECT name FROM categories WHERE id=$1', [phase.category_id]) : null
+      global.sendPushToTournaments?.([phase.tournament_id], {
+        type: 'phase:knockout_started', title: '🏁 Comienza la eliminatoria',
+        body: `La fase de grupos terminó${category ? ` en ${category.name}` : ''} — arranca la eliminatoria`,
+        url: tournament ? `/${tournament.slug}` : undefined, tag: `knockout-start-${phaseId}`
+      })
     }
 
     io?.to(`tournament:${phase.tournament_id}`).emit('phase:complete', {
@@ -1213,6 +1278,20 @@ async function autoGenerateKnockoutBracket(groupsPhase, io) {
   }
 }
 
+// ── Push de un premio automático a los seguidores del equipo del premiado ──
+async function notifyAward(tournamentId, teamId, playerId, emoji, label, detail) {
+  if (!teamId) return
+  const tournament = await queryOne('SELECT slug FROM tournaments WHERE id=$1', [tournamentId])
+  const teamName   = (await queryOne('SELECT name FROM teams WHERE id=$1', [teamId]))?.name || 'Tu equipo'
+  const playerName = playerId ? (await queryOne('SELECT name FROM players WHERE id=$1', [playerId]))?.name : null
+  const who = playerName ? `${playerName} (${teamName})` : teamName
+  global.sendPushToTeams?.([teamId], {
+    type: `award:${label}`, title: `${emoji} ${label}`, body: `${who} — ${detail}`,
+    url: tournament ? `/${tournament.slug}/premios` : undefined,
+    tag: `award-${label}-${tournamentId}-${teamId}`
+  })
+}
+
 // ── Auto-generate awards when a phase completes ───────────────────────────
 async function autoGenerateAwardsForPhase(phaseId) {
   const phase = (await queryOne('SELECT * FROM phases WHERE id=$1', [phaseId]))
@@ -1251,9 +1330,9 @@ async function autoGenerateAwardsForPhase(phaseId) {
         GROUP BY p.id, t.id ORDER BY goals DESC LIMIT 1
       `, [phaseId]))
       if (topScorer) {
-        await ins(phase.tournament_id, cat, phaseId, 'top_scorer',
-          topScorer.player_id, topScorer.team_id,
-          `${topScorer.goals} gol${topScorer.goals !== 1 ? 'es' : ''} en la fase`)
+        const detail = `${topScorer.goals} gol${topScorer.goals !== 1 ? 'es' : ''} en la fase`
+        await ins(phase.tournament_id, cat, phaseId, 'top_scorer', topScorer.player_id, topScorer.team_id, detail)
+        await notifyAward(phase.tournament_id, topScorer.team_id, topScorer.player_id, '⚽', 'Goleador', detail)
       }
     }
 
@@ -1269,9 +1348,9 @@ async function autoGenerateAwardsForPhase(phaseId) {
         GROUP BY p.id, t.id ORDER BY assists DESC LIMIT 1
       `, [phaseId]))
       if (topAssist && topAssist.assists > 0) {
-        await ins(phase.tournament_id, cat, phaseId, 'mvp',
-          topAssist.player_id, topAssist.team_id,
-          `${topAssist.assists} asistencia${topAssist.assists !== 1 ? 's' : ''} en la fase`)
+        const detail = `${topAssist.assists} asistencia${topAssist.assists !== 1 ? 's' : ''} en la fase`
+        await ins(phase.tournament_id, cat, phaseId, 'mvp', topAssist.player_id, topAssist.team_id, detail)
+        await notifyAward(phase.tournament_id, topAssist.team_id, topAssist.player_id, '🎯', 'Máximo asistidor', detail)
       }
     }
 
@@ -1290,9 +1369,9 @@ async function autoGenerateAwardsForPhase(phaseId) {
       `, [phaseId]))
       if (bestKeeper) {
         const keeper = (await queryOne("SELECT id FROM players WHERE team_id=$1 AND LOWER(COALESCE(position,'')) LIKE '%port%' LIMIT 1", [bestKeeper.team_id]))
-        await ins(phase.tournament_id, cat, phaseId, 'best_keeper',
-          keeper?.id || null, bestKeeper.team_id,
-          `${bestKeeper.goals_against} goles recibidos · ${bestKeeper.played} PJ`)
+        const detail = `${bestKeeper.goals_against} goles recibidos · ${bestKeeper.played} PJ`
+        await ins(phase.tournament_id, cat, phaseId, 'best_keeper', keeper?.id || null, bestKeeper.team_id, detail)
+        await notifyAward(phase.tournament_id, bestKeeper.team_id, keeper?.id, '🧤', 'Mejor portero', detail)
       }
     }
 
@@ -1310,6 +1389,8 @@ async function autoGenerateAwardsForPhase(phaseId) {
           if (championId) {
             await ins(phase.tournament_id, cat, phaseId, 'best_team',
               null, championId, `Campeón de ${phase.name}`)
+            // Sin push aquí — advanceBracketWinner ya notificó "🏆 ¡Campeón!"
+            // al terminar el partido de la Final, antes de llegar a esta función.
           }
         }
       }
@@ -1327,9 +1408,9 @@ async function autoGenerateAwardsForPhase(phaseId) {
         GROUP BY p.id, t.id ORDER BY goals DESC LIMIT 1
       `, [phaseId]))
       if (topKnockout && topKnockout.goals > 0) {
-        await ins(phase.tournament_id, cat, phaseId, 'top_scorer',
-          topKnockout.player_id, topKnockout.team_id,
-          `${topKnockout.goals} gol${topKnockout.goals !== 1 ? 'es' : ''} en la eliminatoria`)
+        const detail = `${topKnockout.goals} gol${topKnockout.goals !== 1 ? 'es' : ''} en la eliminatoria`
+        await ins(phase.tournament_id, cat, phaseId, 'top_scorer', topKnockout.player_id, topKnockout.team_id, detail)
+        await notifyAward(phase.tournament_id, topKnockout.team_id, topKnockout.player_id, '⚽', 'Goleador de la eliminatoria', detail)
       }
     }
   }
@@ -3245,9 +3326,60 @@ async function sendPushToAll(payload) {
   sendPush(subs, payload)
 }
 
-global.sendPushToAll         = sendPushToAll
-global.sendPushToTeams       = sendPushToTeams
-global.sendPushToTournaments = sendPushToTournaments
+// m debe traer: id, home_team, away_team, homeTeam, awayTeam, home_score, away_score,
+// tournament_id, tournamentSlug
+function sendMatchFinishedPush(m) {
+  const payload = { type: 'match:finished', title: '⚽ Resultado final', body: `${m.homeTeam} ${m.home_score} - ${m.away_score} ${m.awayTeam}`, url: `/${m.tournamentSlug}/partidos`, tag: `match-${m.id}` }
+  global.sendPushToTeams?.([m.home_team, m.away_team], payload)
+  global.sendPushToTournaments?.([m.tournament_id], payload)
+}
+function sendMatchLivePush(m) {
+  const payload = { type: 'match:live', title: '🔴 Partido en vivo', body: `${m.homeTeam} vs ${m.awayTeam} ha comenzado`, url: `/${m.tournamentSlug}/partidos`, tag: `match-${m.id}` }
+  global.sendPushToTeams?.([m.home_team, m.away_team], payload)
+  global.sendPushToTournaments?.([m.tournament_id], payload)
+}
+
+// ── Recordatorio de próximo partido para seguidores de un equipo ────────────
+// No hay infraestructura de cron en el proyecto — se llama periódicamente
+// desde un setInterval en server.js (cada 15 min), igual que los keep-alive.
+async function checkUpcomingMatchReminders() {
+  const pending = (await query(
+    `SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam", t.slug AS "tournamentSlug"
+     FROM matches m
+     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
+     JOIN tournaments t ON m.tournament_id=t.id
+     WHERE m.status='scheduled' AND (m.reminder_sent IS NULL OR m.reminder_sent=0)
+       AND m.date IS NOT NULL AND m.date<>''`
+  )).rows
+
+  const now = Date.now()
+  for (const m of pending) {
+    const kickoff = new Date(m.date).getTime()
+    if (isNaN(kickoff)) { await query('UPDATE matches SET reminder_sent=1 WHERE id=$1', [m.id]); continue }
+    const diffMs = kickoff - now
+    // Nunca se jugó ni se marcó live/finished y ya pasó de sobra — dejar de vigilarlo
+    if (diffMs < -6 * 60 * 60 * 1000) { await query('UPDATE matches SET reminder_sent=1 WHERE id=$1', [m.id]); continue }
+    // Ventana de aviso: dentro de las próximas 2 horas (el job corre cada 15 min,
+    // así que cada partido cae en esta ventana en cuanto se acerca su hora)
+    if (diffMs > 0 && diffMs <= 2 * 60 * 60 * 1000) {
+      const timeStr = new Date(m.date).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' })
+      const payload = {
+        type: 'match:reminder', title: '⏰ Tu equipo juega pronto',
+        body: `${m.homeTeam} vs ${m.awayTeam} — hoy a las ${timeStr}`,
+        url: `/${m.tournamentSlug}/partidos`, tag: `reminder-${m.id}`
+      }
+      await global.sendPushToTeams?.([m.home_team, m.away_team], payload)
+      await query('UPDATE matches SET reminder_sent=1 WHERE id=$1', [m.id])
+    }
+  }
+}
+
+global.sendPushToAll              = sendPushToAll
+global.sendPushToTeams            = sendPushToTeams
+global.sendPushToTournaments      = sendPushToTournaments
+global.sendMatchFinishedPush      = sendMatchFinishedPush
+global.sendMatchLivePush          = sendMatchLivePush
+global.checkUpcomingMatchReminders = checkUpcomingMatchReminders
 
 // ══════════════════════════════════════════════════════════
 //  SOLICITUDES DE ADMIN
