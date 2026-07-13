@@ -121,7 +121,6 @@ const features = [
   { title: 'Inscripciones en línea',    desc: 'Los equipos se registran solos, tú solo apruebas' },
   { title: 'Marcadores en tiempo real', desc: 'Tus seguidores ven los goles al instante' },
   { title: 'Estadísticas automáticas',  desc: 'Posiciones y tarjetas se actualizan solas' },
-  { title: 'App en tu bolsillo',        desc: 'Instálala en Android e iPhone sin App Store' },
 ]
 
 const stats = [
