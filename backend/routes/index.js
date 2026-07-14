@@ -1699,7 +1699,11 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
   if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' })
   // Resolver y validar categorías — obligatorias y deben pertenecer a este torneo
   if (!categoryIds?.length) return res.status(400).json({ error: 'Debes seleccionar al menos una categoría' })
-  const catRows = (await query(`SELECT id,name FROM categories WHERE id=ANY($1::bigint[]) AND tournament_id=$2`, [categoryIds, tournament.id])).rows
+  // IN (...) con placeholders dinámicos — ANY($N::bigint[]) es sintaxis de
+  // array exclusiva de Postgres, SQLite no la soporta (rompía el registro
+  // público completo en desarrollo local, incluyendo esta ruta de alta).
+  const catPh1 = categoryIds.map((_, i) => `$${i + 1}`).join(',')
+  const catRows = (await query(`SELECT id,name FROM categories WHERE id IN (${catPh1}) AND tournament_id=$${categoryIds.length + 1}`, [...categoryIds, tournament.id])).rows
   const categories = catRows.map(c => ({ id: c.id, name: c.name }))
   if (!categories.length) return res.status(400).json({ error: 'Las categorías seleccionadas no son válidas para este torneo' })
   const firstCatId = categories[0]?.id || null
@@ -1791,7 +1795,8 @@ async function createTeamsFromInscription(insc) {
   }
   // Filtrar solo categorías que todavía existen en la BD (evita FK error si borraron la categoría)
   const catIds = cats.map(c => c.id)
-  const existingCats = (await query('SELECT id FROM categories WHERE id=ANY($1::bigint[])', [catIds])).rows.map(r => String(r.id))
+  const catPh2 = catIds.map((_, i) => `$${i + 1}`).join(',')
+  const existingCats = (await query(`SELECT id FROM categories WHERE id IN (${catPh2})`, catIds)).rows.map(r => String(r.id))
   const validCats = cats.filter(c => existingCats.includes(String(c.id)))
   if (!validCats.length) {
     console.warn(`[createTeams] Inscripción ${insc.id}: ninguna categoría del JSON existe ya en BD`)
@@ -1824,7 +1829,8 @@ router.get('/inscriptions/:id/register', async (req, res) => {
   // Load full category data (with age config)
   if (categories.length) {
     const ids = categories.map(c => c.id)
-    const catRows = (await query('SELECT * FROM categories WHERE id=ANY($1::bigint[]) ORDER BY id', [ids])).rows
+    const catPh3 = ids.map((_, i) => `$${i + 1}`).join(',')
+    const catRows = (await query(`SELECT * FROM categories WHERE id IN (${catPh3}) ORDER BY id`, ids)).rows
     categories = catRows
   }
   const players       = (await query('SELECT ip.*,c.name AS "categoryName" FROM inscription_players ip LEFT JOIN categories c ON ip.category_id=c.id WHERE ip.inscription_id=$1 ORDER BY ip.category_id,ip.id', [insc.id])).rows

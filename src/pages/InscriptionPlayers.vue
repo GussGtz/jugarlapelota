@@ -439,6 +439,12 @@
                 class="w-full py-6 border-2 border-dashed border-muted rounded-xl text-slate-400 hover:border-primary/40 hover:text-primary transition-all text-sm">
                 + Agregar jugador en {{ cat.name }}
               </button>
+              <!-- Botón para encadenar otro jugador justo debajo del actual, sin
+                   tener que subir hasta el botón de la cabecera de la sección -->
+              <button v-else @click="addPlayerRow(cat.id)"
+                class="w-full py-3 border-2 border-dashed border-primary/30 rounded-xl text-primary hover:bg-primary/5 transition-all text-sm font-semibold">
+                + Agregar otro jugador
+              </button>
             </div>
 
             <!-- Errors -->
