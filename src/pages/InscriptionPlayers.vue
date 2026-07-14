@@ -458,13 +458,17 @@
             <!-- Save players -->
             <button v-if="newPlayers[cat.id]?.some(p => p.name.trim())"
               @click="savePlayers(cat)"
-              :disabled="saving[cat.id] || newPlayers[cat.id]?.some(p => p.name.trim() && curpStatus(p) !== 'valid')"
+              :disabled="saving[cat.id] || !newPlayers[cat.id]?.some(p => p.name.trim() && curpStatus(p) === 'valid')"
               class="btn-primary w-full disabled:opacity-50">
               <span class="flex items-center justify-center gap-2">
                 <IconLoader2 v-if="saving[cat.id]" class="w-4 h-4 animate-spin"/>
                 {{ saving[cat.id] ? 'Guardando...' : `Guardar jugadores en ${cat.name}` }}
               </span>
             </button>
+            <p v-if="newPlayers[cat.id]?.some(p => p.name.trim() && curpStatus(p) !== 'valid')"
+              class="text-[11px] text-slate-400 text-center -mt-1">
+              Se guardarán solo los jugadores con nombre y CURP válidos — completa el resto para incluirlos.
+            </p>
           </div>
         </div>
 
@@ -742,7 +746,10 @@ async function saveResponsables(cat) {
 }
 
 async function savePlayers(cat) {
-  const players = (newPlayers[cat.id] || []).filter(p => p.name.trim())
+  // Solo se envían las filas listas (nombre + CURP válida) — así una fila que
+  // todavía se está llenando (p.ej. nombre puesto pero CURP a medias) no
+  // bloquea guardar las demás que ya están completas.
+  const players = (newPlayers[cat.id] || []).filter(p => p.name.trim() && curpStatus(p) === 'valid')
   if (!players.length) return
 
   // Validación rápida de duplicados en el mismo envío
