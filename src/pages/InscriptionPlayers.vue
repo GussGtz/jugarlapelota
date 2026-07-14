@@ -114,7 +114,7 @@
                         <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     </div>
-                    <input :ref="el => setRespPhotoRef(el, cat.id, idx)" type="file" accept="image/*" class="hidden"
+                    <input :ref="el => setRespPhotoRef(el, cat.id, idx)" type="file" accept="image/*,.heic,.heif" class="hidden"
                       @change="e => onRespPhotoChange(e, cat.id, idx)"/>
                     <button type="button" @click="triggerRespPhoto(cat.id, idx)"
                       class="text-[10px] text-primary hover:underline font-semibold">
@@ -253,7 +253,7 @@
                           <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>
                       </div>
-                      <input :ref="setEditPhotoInput" type="file" accept="image/*" class="hidden" @change="onEditPhotoChange"/>
+                      <input :ref="setEditPhotoInput" type="file" accept="image/*,.heic,.heif" class="hidden" @change="onEditPhotoChange"/>
                     </div>
                     <div class="col-span-4">
                       <label class="text-[10px] text-slate-400 mb-0.5 block">Nombre *</label>
@@ -301,7 +301,7 @@
                           <div class="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>
                       </div>
-                      <input :ref="setEditDocInput" type="file" accept="image/*,application/pdf" class="hidden" @change="onEditDocChange"/>
+                      <input :ref="setEditDocInput" type="file" accept="image/*,.heic,.heif,application/pdf" class="hidden" @change="onEditDocChange"/>
                       <button type="button" @click="editDocInputEl?.click()"
                         class="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-white transition-colors">
                         {{ editForm.documento_oficial ? 'Cambiar documento' : 'Subir documento' }}
@@ -337,9 +337,9 @@
                         <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     </div>
-                    <input :ref="el => setPhotoRef(el, cat.id, idx, 'file')" type="file" accept="image/*" class="hidden"
+                    <input :ref="el => setPhotoRef(el, cat.id, idx, 'file')" type="file" accept="image/*,.heic,.heif" class="hidden"
                       @change="e => onPhotoChange(e, cat.id, idx)"/>
-                    <input :ref="el => setPhotoRef(el, cat.id, idx, 'cam')" type="file" accept="image/*" capture="user" class="hidden"
+                    <input :ref="el => setPhotoRef(el, cat.id, idx, 'cam')" type="file" accept="image/*,.heic,.heif" capture="user" class="hidden"
                       @change="e => onPhotoChange(e, cat.id, idx)"/>
                     <div class="flex gap-1">
                       <button type="button" @click.stop="triggerFileInput(cat.id, idx)"
@@ -415,7 +415,7 @@
                         <div class="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     </div>
-                    <input :ref="el => setDocRef(el, cat.id, idx)" type="file" accept="image/*,application/pdf" class="hidden"
+                    <input :ref="el => setDocRef(el, cat.id, idx)" type="file" accept="image/*,.heic,.heif,application/pdf" class="hidden"
                       @change="e => onDocChange(e, cat.id, idx)"/>
                     <div class="flex-1">
                       <button type="button" @click="triggerDocInput(cat.id, idx)"

@@ -61,13 +61,14 @@
     </button>
 
     <!-- Input oculto -->
-    <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onFileChange" />
+    <input ref="fileInput" type="file" accept="image/*,.heic,.heif" class="hidden" @change="onFileChange" />
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import api from '@/api'
+import { isImageFile } from '@/utils/upload'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -83,7 +84,7 @@ const error     = ref('')
 
 async function uploadFile(file) {
   if (!file) return
-  if (!file.type.startsWith('image/')) { error.value = 'Solo se permiten imágenes'; return }
+  if (!isImageFile(file)) { error.value = 'Solo se permiten imágenes'; return }
   if (file.size > 5 * 1024 * 1024)    { error.value = 'La imagen no debe superar 5 MB'; return }
 
   error.value     = ''

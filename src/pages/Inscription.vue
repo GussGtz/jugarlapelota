@@ -148,7 +148,7 @@
                     <IconShirt v-else class="w-7 h-7 text-slate-300"/>
                   </div>
                   <div class="flex-1">
-                    <input ref="logoInput" type="file" accept="image/*" class="hidden" @change="onLogoChange"/>
+                    <input ref="logoInput" type="file" accept="image/*,.heic,.heif" class="hidden" @change="onLogoChange"/>
                     <button type="button" @click="logoInput.click()"
                       class="text-sm font-semibold text-primary border border-primary/30 px-4 py-2 rounded-xl hover:bg-primary/5 transition-colors">
                       {{ form.logo ? 'Cambiar logo' : 'Subir logo' }}

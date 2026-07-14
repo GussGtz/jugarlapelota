@@ -60,7 +60,12 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB
   fileFilter: (_req, file, cb) => {
-    const allowed = ['.jpg','.jpeg','.png','.webp','.gif','.svg','.mp4','.mov','.pdf']
+    // .heic/.heif (formato nativo de fotos de iPhone) faltaban aquí — por eso
+    // se rechazaban credenciales/actas/cartas tomadas directo del celular al
+    // registrar jugadores. Cloudinary sí sabe procesar HEIC (lo convierte a
+    // JPEG/WebP en la entrega gracias a fetch_format:'auto' en uploadToCloudinary),
+    // el problema era este filtro cortándolo antes de siquiera intentarlo.
+    const allowed = ['.jpg','.jpeg','.png','.webp','.gif','.svg','.bmp','.tiff','.tif','.heic','.heif','.mp4','.mov','.pdf']
     cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()))
   }
 })

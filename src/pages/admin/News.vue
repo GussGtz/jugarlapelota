@@ -42,7 +42,7 @@
         </div>
         <div>
           <label class="text-xs text-slate-700 mb-1.5 block font-semibold">Imagen de portada</label>
-          <input ref="coverInput" type="file" accept="image/*" class="hidden" @change="onCoverChange"/>
+          <input ref="coverInput" type="file" accept="image/*,.heic,.heif" class="hidden" @change="onCoverChange"/>
           <div v-if="!form.cover"
             @click="coverInput.click()"
             @dragover.prevent @drop.prevent="onCoverDrop"
@@ -76,7 +76,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/api'
-import { uploadImage } from '@/utils/upload'
+import { uploadImage, isImageFile } from '@/utils/upload'
 import RichEditor from '@/components/RichEditor/RichEditor.vue'
 
 const news       = ref([])
@@ -95,7 +95,7 @@ async function onCoverChange(e) {
   uploading.value = false; e.target.value = ''
 }
 async function onCoverDrop(e) {
-  const file = e.dataTransfer.files[0]; if (!file || !file.type.startsWith('image/')) return
+  const file = e.dataTransfer.files[0]; if (!file || !isImageFile(file)) return
   uploading.value = true
   try { form.cover = await uploadImage(file) } catch { alert('Error al subir imagen') }
   uploading.value = false

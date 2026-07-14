@@ -378,7 +378,7 @@
                     <div class="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 </div>
-                <input ref="docInput" type="file" accept="image/*,application/pdf" class="hidden" @change="onDocSelected"/>
+                <input ref="docInput" type="file" accept="image/*,.heic,.heif,application/pdf" class="hidden" @change="onDocSelected"/>
                 <div class="flex-1">
                   <button type="button" @click="$refs.docInput.click()" :disabled="docUploading"
                     class="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/5 transition-colors disabled:opacity-50">
@@ -420,8 +420,8 @@
               <p v-if="photoError" class="text-xs text-red-500 mt-1.5 flex items-center gap-1">
                 <IconAlertCircle class="w-3.5 h-3.5"/> {{ photoError }}
               </p>
-              <input ref="cameraInput"  type="file" accept="image/*" capture="user" class="hidden" @change="onPhotoSelected"/>
-              <input ref="galleryInput" type="file" accept="image/*" class="hidden" @change="onPhotoSelected"/>
+              <input ref="cameraInput"  type="file" accept="image/*,.heic,.heif" capture="user" class="hidden" @change="onPhotoSelected"/>
+              <input ref="galleryInput" type="file" accept="image/*,.heic,.heif" class="hidden" @change="onPhotoSelected"/>
             </div>
           </div>
           <div v-if="editing" class="border-t border-muted pt-4 space-y-3">
@@ -470,6 +470,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import api from '@/api'
 import { useAutoRefresh } from '@/composables/useAutoRefresh'
 import DocumentViewerModal from '@/components/DocumentViewer/DocumentViewerModal.vue'
+import { isImageFile } from '@/utils/upload'
 import { Target, Zap, AlertCircle as AlertCircleIcon } from 'lucide-vue-next'
 
 const activeTab = ref('players')
@@ -556,7 +557,8 @@ const isDocImage   = computed(() => !!form.documento_oficial && !/\/raw\/upload\
 async function onDocSelected(e) {
   const file = e.target.files?.[0]; e.target.value = ''
   if (!file) return
-  if (!/^image\/|^application\/pdf$/.test(file.type)) { docError.value = 'Solo se permiten imágenes o PDF'; return }
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+  if (!isPdf && !isImageFile(file)) { docError.value = 'Solo se permiten imágenes o PDF'; return }
   if (file.size > 25 * 1024 * 1024) { docError.value = 'El documento no debe superar 25 MB'; return }
   docError.value = ''; docUploading.value = true
   try {
@@ -577,7 +579,7 @@ const statFields = [
 async function onPhotoSelected(e) {
   const file = e.target.files?.[0]; e.target.value = ''
   if (!file) return
-  if (!file.type.startsWith('image/')) { photoError.value = 'Solo se permiten imágenes'; return }
+  if (!isImageFile(file)) { photoError.value = 'Solo se permiten imágenes'; return }
   if (file.size > 5 * 1024 * 1024)    { photoError.value = 'La imagen no debe superar 5 MB'; return }
   photoError.value = ''; photoUploading.value = true
   try {

@@ -67,7 +67,7 @@
         <!-- Upload area -->
         <div>
           <label class="text-xs text-slate-700 mb-1.5 block font-semibold">Imagen *</label>
-          <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="onFilesChange"/>
+          <input ref="fileInput" type="file" accept="image/*,.heic,.heif" multiple class="hidden" @change="onFilesChange"/>
           <div v-if="!imageForm.previews.length"
             @click="fileInput.click()"
             @dragover.prevent @drop.prevent="onDrop"
@@ -108,7 +108,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/api'
-import { uploadImage } from '@/utils/upload'
+import { uploadImage, isImageFile } from '@/utils/upload'
 const galleries          = ref([])
 const tournaments        = ref([])
 const selectedTournament  = ref(null)
@@ -132,7 +132,7 @@ async function onFilesChange(e) {
 }
 async function onDrop(e) {
   for (const file of e.dataTransfer.files) {
-    if (!file.type.startsWith('image/')) continue
+    if (!isImageFile(file)) continue
     imageForm.previews.push({ url: URL.createObjectURL(file), name: file.name, file })
   }
 }
