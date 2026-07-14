@@ -51,6 +51,27 @@ async function exec(sql) {
   else { _db.exec(sql) }
 }
 
+// ── Detección de choques de constraint UNIQUE (Postgres y SQLite) ──────────────
+// Sirve para distinguir un "ya existe" (condición de carrera: dos requests
+// pasaron el SELECT-check antes de que cualquiera insertara) de un error real
+// de servidor. Postgres usa el código SQLSTATE 23505; better-sqlite3 expone
+// SQLITE_CONSTRAINT_UNIQUE (o, en versiones más viejas, sólo el mensaje).
+function isUniqueViolation(e) {
+  if (!e) return false
+  if (e.code === '23505') return true
+  if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' || e.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') return true
+  if (typeof e.message === 'string' && /unique constraint/i.test(e.message)) return true
+  return false
+}
+
+// Adivina qué columna disparó el choque (para dar un mensaje de error más
+// específico) mirando el nombre del índice (Postgres: e.constraint) o el
+// texto "tabla.columna" que SQLite incluye en el mensaje.
+function uniqueViolationColumn(e, candidates) {
+  const haystack = `${e.constraint || ''} ${e.message || ''}`.toLowerCase()
+  return candidates.find(c => haystack.includes(c.toLowerCase())) || null
+}
+
 // ── Inicializar ───────────────────────────────────────────────────────────────
 async function init() {
   if (IS_PG) {
@@ -87,6 +108,10 @@ async function init() {
       )
       console.log('✅ Admin creado: admin@jugarlapelota.com / Admin1234!')
     }
+
+    // Índices únicos de saneamiento (protegen contra condiciones de carrera en
+    // registro de jugadores/equipos) — se revisan en cada arranque, ver db-unique-guards.js
+    await require('./db-unique-guards').applyUniqueGuards({ query, exec })
   } else {
     const Database = require('better-sqlite3')
     const path = require('path'), fs = require('fs')
@@ -96,6 +121,8 @@ async function init() {
     _db.pragma('journal_mode = WAL')
     _db.pragma('foreign_keys = ON')
     require('./db-sqlite-init')(_db, bcrypt)
+
+    await require('./db-unique-guards').applyUniqueGuards({ query, exec })
   }
 }
 
@@ -154,4 +181,4 @@ async function recalculateAllStandings(tournamentId) {
   for (const {category_id,phase_id,group_id} of gc) await recalculateStandings(tournamentId,category_id,phase_id,group_id)
 }
 
-module.exports = { query, queryOne, exec, init, IS_PG, recalculateStandings, recalculateAllStandings }
+module.exports = { query, queryOne, exec, init, IS_PG, recalculateStandings, recalculateAllStandings, isUniqueViolation, uniqueViolationColumn }

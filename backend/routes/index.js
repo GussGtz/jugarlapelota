@@ -3,7 +3,7 @@ require('express-async-errors')  // captura errores de async handlers en Express
 const router  = express.Router()
 const path    = require('path')
 const multer  = require('multer')
-const { query, queryOne, recalculateStandings, recalculateAllStandings, IS_PG } = require('../config/db')
+const { query, queryOne, recalculateStandings, recalculateAllStandings, IS_PG, isUniqueViolation, uniqueViolationColumn } = require('../config/db')
 const { authMiddleware, adminOnly, optionalAuth, refereeOrAdmin, superAdminOnly } = require('../middleware/auth')
 const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
@@ -538,7 +538,14 @@ router.post('/teams', authMiddleware, adminOnly, async (req, res) => {
   if (!await checkOwnerByTournamentId(req, res, tournamentId)) return
   const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND category_id IS NOT DISTINCT FROM $3', [tournamentId, name.trim(), categoryId || null]))
   if (dup) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
-  const r = await query('INSERT INTO teams (tournament_id,category_id,name,logo,coach,captain,description) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', [tournamentId, categoryId || null, name.trim(), logo || null, coach || null, captain || null, description || null])
+  let r
+  try {
+    r = await query('INSERT INTO teams (tournament_id,category_id,name,logo,coach,captain,description) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', [tournamentId, categoryId || null, name.trim(), logo || null, coach || null, captain || null, description || null])
+  } catch (e) {
+    // Última línea de defensa: dos requests pasaron el check de arriba a la vez
+    if (isUniqueViolation(e)) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
+    throw e
+  }
   res.status(201).json((await queryOne('SELECT t.*,c.name AS "categoryName" FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.id=$1', [r.lastInsertRowid])))
 })
 
@@ -553,7 +560,12 @@ router.put('/teams/:id', authMiddleware, adminOnly, async (req, res) => {
   const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND category_id IS NOT DISTINCT FROM $3 AND id!=$4', [tid, name.trim(), categoryId || null, id]))
   if (dup) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
 
-  await query('UPDATE teams SET name=$1,logo=$2,coach=$3,captain=$4,description=$5,category_id=$6 WHERE id=$7', [name.trim(), logo || null, coach || null, captain || null, description || null, categoryId || null, id])
+  try {
+    await query('UPDATE teams SET name=$1,logo=$2,coach=$3,captain=$4,description=$5,category_id=$6 WHERE id=$7', [name.trim(), logo || null, coach || null, captain || null, description || null, categoryId || null, id])
+  } catch (e) {
+    if (isUniqueViolation(e)) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
+    throw e
+  }
   res.json((await queryOne('SELECT * FROM teams WHERE id=$1', [id])))
 })
 router.get('/teams/:id/players', async (req, res) => {
@@ -1709,10 +1721,17 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
   const firstCatId = categories[0]?.id || null
   const autoApprove = tournament.auto_approve_inscriptions === 1
   const status = autoApprove ? 'approved' : 'pending'
-  const r = await query(
-    'INSERT INTO inscriptions (tournament_id,category_id,categories_json,logo,team_name,contact_name,contact_email,contact_phone,players_count,notes,status,registration_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id',
-    [tournamentId, firstCatId, JSON.stringify(categories), logo||null, team_name, contact_name, contact_email, contact_phone||null, players_count||0, notes||null, status, token]
-  )
+  let r
+  try {
+    r = await query(
+      'INSERT INTO inscriptions (tournament_id,category_id,categories_json,logo,team_name,contact_name,contact_email,contact_phone,players_count,notes,status,registration_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id',
+      [tournamentId, firstCatId, JSON.stringify(categories), logo||null, team_name, contact_name, contact_email, contact_phone||null, players_count||0, notes||null, status, token]
+    )
+  } catch (e) {
+    // Última línea de defensa: dos requests pasaron el check de línea 1706-1708 a la vez
+    if (isUniqueViolation(e)) return res.status(409).json({ error: 'Ya existe una inscripción con ese nombre de equipo en este torneo. Si ya enviaste tu solicitud, revisa tu correo o contacta al organizador.' })
+    throw e
+  }
   const id = r.rows[0]?.id || r.lastInsertRowid
   if(players?.length) {
     const insP = (...__a) => query('INSERT INTO inscription_players (inscription_id,name,number,position,birth_date) VALUES ($1,$2,$3,$4,$5)', __a.flat())
@@ -1790,7 +1809,14 @@ async function createTeamsFromInscription(insc) {
   if (!cats.length) {
     // fallback: equipo sin categoría
     const ex = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id IS NULL', [insc.id])
-    if (!ex) await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, null, insc.team_name, insc.logo||null, insc.id])
+    if (!ex) {
+      try {
+        await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, null, insc.team_name, insc.logo||null, insc.id])
+      } catch (e) {
+        // Otra aprobación concurrente de la misma inscripción ya creó el equipo — no pasa nada
+        if (!isUniqueViolation(e)) throw e
+      }
+    }
     return
   }
   // Filtrar solo categorías que todavía existen en la BD (evita FK error si borraron la categoría)
@@ -1805,7 +1831,12 @@ async function createTeamsFromInscription(insc) {
   for (const cat of validCats) {
     const ex = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2', [insc.id, cat.id])
     if (!ex) {
-      await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, cat.id, insc.team_name, insc.logo||null, insc.id])
+      try {
+        await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, cat.id, insc.team_name, insc.logo||null, insc.id])
+      } catch (e) {
+        // Otra aprobación concurrente de la misma inscripción ya creó el equipo — no pasa nada
+        if (!isUniqueViolation(e)) throw e
+      }
     }
   }
 }
@@ -1996,10 +2027,20 @@ router.post('/inscriptions/:id/players', async (req, res) => {
 
   const inserted = []
   for (const p of toInsert) {
-    const r = await query(
-      'INSERT INTO inscription_players (inscription_id,category_id,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-      [insc.id, categoryId, p.name, p.number, p.position, p.curp, p.photo||null, p.documento_oficial||null]
-    )
+    // Última línea de defensa: dos envíos simultáneos pudieron pasar ambos los
+    // checks de CURP/número de arriba antes de que cualquiera insertara. Si el
+    // índice único choca aquí, se reporta como error de ESE jugador (no se
+    // aborta el resto del lote, igual que los demás casos de error arriba).
+    let r
+    try {
+      r = await query(
+        'INSERT INTO inscription_players (inscription_id,category_id,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+        [insc.id, categoryId, p.name, p.number, p.position, p.curp, p.photo||null, p.documento_oficial||null]
+      )
+    } catch (e) {
+      if (isUniqueViolation(e)) { errors.push(`${p.name}: CURP o número ya fue registrado por otro envío al mismo tiempo`); continue }
+      throw e
+    }
     const newId = r.rows[0]?.id || r.lastInsertRowid
     inserted.push({ id: newId, ...p })
 
@@ -2008,10 +2049,15 @@ router.post('/inscriptions/:id/players', async (req, res) => {
     if (team) {
       const dupPlayer = await queryOne('SELECT id FROM players WHERE team_id=$1 AND UPPER(curp)=$2', [team.id, p.curp])
       if (!dupPlayer) {
-        await query(
-          'INSERT INTO players (team_id,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-          [team.id, p.name, p.number, p.position, p.curp, p.photo||null, p.documento_oficial||null]
-        )
+        try {
+          await query(
+            'INSERT INTO players (team_id,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+            [team.id, p.name, p.number, p.position, p.curp, p.photo||null, p.documento_oficial||null]
+          )
+        } catch (e) {
+          // Otro envío concurrente ya metió a este jugador en el roster real — no pasa nada
+          if (!isUniqueViolation(e)) throw e
+        }
       }
     }
   }
@@ -2084,21 +2130,31 @@ router.put('/inscriptions/:id/players/:playerId', async (req, res) => {
     if (dupNum) return res.status(409).json({ error: `El número #${number} ya está registrado en esta categoría` })
   }
 
-  await query(
-    'UPDATE inscription_players SET name=$1,number=$2,position=$3,curp=$4,photo=$5,documento_oficial=$6 WHERE id=$7',
-    [name, number, position, curp, photo, documento_oficial, existing.id]
-  )
+  // Última línea de defensa: dos ediciones simultáneas pudieron pasar ambas
+  // los checks de CURP/número de arriba antes de que cualquiera actualizara.
+  try {
+    await query(
+      'UPDATE inscription_players SET name=$1,number=$2,position=$3,curp=$4,photo=$5,documento_oficial=$6 WHERE id=$7',
+      [name, number, position, curp, photo, documento_oficial, existing.id]
+    )
 
-  // Reflejar el cambio también en el roster real (players), igual que hace el alta
-  if (team) {
-    if (currentPlayer) {
-      await query('UPDATE players SET name=$1,number=$2,position=$3,curp=$4,photo=$5,documento_oficial=$6 WHERE id=$7',
-        [name, number, position, curp, photo, documento_oficial, currentPlayer.id])
-    } else {
-      // El jugador fue borrado del roster (o nunca se creó) — se repone al editar
-      await query('INSERT INTO players (team_id,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-        [team.id, name, number, position, curp, photo, documento_oficial])
+    // Reflejar el cambio también en el roster real (players), igual que hace el alta
+    if (team) {
+      if (currentPlayer) {
+        await query('UPDATE players SET name=$1,number=$2,position=$3,curp=$4,photo=$5,documento_oficial=$6 WHERE id=$7',
+          [name, number, position, curp, photo, documento_oficial, currentPlayer.id])
+      } else {
+        // El jugador fue borrado del roster (o nunca se creó) — se repone al editar
+        await query('INSERT INTO players (team_id,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          [team.id, name, number, position, curp, photo, documento_oficial])
+      }
     }
+  } catch (e) {
+    if (isUniqueViolation(e)) {
+      const col = uniqueViolationColumn(e, ['curp', 'number'])
+      return res.status(409).json({ error: col === 'number' ? `El número #${number} ya está registrado en esta categoría` : `CURP ${curp} ya está registrada en esta categoría` })
+    }
+    throw e
   }
 
   res.json(await queryOne('SELECT * FROM inscription_players WHERE id=$1', [existing.id]))
@@ -2157,13 +2213,19 @@ router.post('/inscriptions/:id/responsables', async (req, res) => {
   // Reemplazar responsables de esta categoría
   await query('DELETE FROM inscription_responsables WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])
   const saved = []
-  for (let i = 0; i < responsables.length; i++) {
-    const r = responsables[i]
-    const row = await queryOne(
-      'INSERT INTO inscription_responsables (inscription_id,category_id,nombre,apellidos,curp,foto,orden) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [insc.id, categoryId, r.nombre.trim(), r.apellidos.trim(), r.curp ? r.curp.trim().toUpperCase() : null, r.foto||null, i+1]
-    )
-    saved.push(row)
+  try {
+    for (let i = 0; i < responsables.length; i++) {
+      const r = responsables[i]
+      const row = await queryOne(
+        'INSERT INTO inscription_responsables (inscription_id,category_id,nombre,apellidos,curp,foto,orden) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+        [insc.id, categoryId, r.nombre.trim(), r.apellidos.trim(), r.curp ? r.curp.trim().toUpperCase() : null, r.foto||null, i+1]
+      )
+      saved.push(row)
+    }
+  } catch (e) {
+    // Envío concurrente para la misma categoría insertó una CURP repetida entre el DELETE y el INSERT de arriba
+    if (isUniqueViolation(e)) return res.status(409).json({ error: 'Hay CURPs duplicadas entre los responsables (otro envío al mismo tiempo)' })
+    throw e
   }
   res.status(201).json({ saved })
 })
