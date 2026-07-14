@@ -42,6 +42,14 @@ async function start() {
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, _next) => {
     console.error('[ERROR]', req.method, req.path, err.message || err)
+    // Multer no pone .status/.statusCode en sus errores (verificado: ambos
+    // vienen undefined), así que un archivo que excede el límite caía como
+    // 500 genérico en vez de 413 — el mensaje sí le llegaba bien al usuario
+    // (el frontend ya lo detecta por texto), pero cualquier monitoreo de
+    // errores 5xx lo contaría como falla real del servidor.
+    if (err.name === 'MulterError' && err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'Archivo demasiado grande (máx 25 MB)' })
+    }
     const status = err.status || err.statusCode || 500
     res.status(status).json({ error: err.message || 'Error interno del servidor' })
   })

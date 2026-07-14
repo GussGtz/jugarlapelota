@@ -1855,6 +1855,16 @@ router.post('/inscriptions/:id/players', async (req, res) => {
   if (!category) return res.status(404).json({error:'Categoría no encontrada'})
   // Validar que la categoría pertenece al torneo de esta inscripción
   if (String(category.tournament_id) !== String(insc.tournament_id)) return res.status(400).json({error:'La categoría no pertenece al torneo de esta inscripción'})
+  // Validar que además es una de las categorías que ESTA inscripción registró
+  // (antes solo se validaba contra el torneo — con el token de un equipo se
+  // podía, con una llamada directa a la API, mandar jugadores a una categoría
+  // que ese equipo nunca seleccionó, quedando huérfanos sin equipo real)
+  let inscCategoryIds = []
+  if (insc.categories_json) { try { inscCategoryIds = JSON.parse(insc.categories_json).map(c => String(c.id)) } catch {} }
+  if (insc.category_id) inscCategoryIds.push(String(insc.category_id))
+  if (inscCategoryIds.length && !inscCategoryIds.includes(String(categoryId))) {
+    return res.status(400).json({error:'Esta categoría no forma parte de tu inscripción'})
+  }
 
   // Check max players per team for this category
   if (category.max_players_per_team) {
@@ -1955,8 +1965,13 @@ router.post('/inscriptions/:id/players', async (req, res) => {
 
     // Duplicate jersey number en el mismo equipo/categoría — mismo criterio contra
     // el roster real (players)
-    const num = p.number ? parseInt(p.number) : null
-    if (num) {
+    // p.number ? ... : null trataba el dorsal 0 como "sin número" (0 es falsy)
+    // y se saltaba la validación de duplicados — la UI no permite 0 (min="1"),
+    // pero una llamada directa a la API sí podía colarlo en silencio. El mismo
+    // problema aplicaba al "if (num)" de abajo, que decide si se valida — se
+    // cambió a "if (num != null)" para no repetir el mismo bug un nivel más abajo.
+    const num = p.number != null && p.number !== '' ? parseInt(p.number) : null
+    if (num != null) {
       const dupNum = await queryOne(
         `SELECT p.id FROM players p JOIN teams t ON p.team_id=t.id
          WHERE t.inscription_id=$1 AND t.category_id=$2 AND p.number=$3`,
@@ -2022,7 +2037,7 @@ router.put('/inscriptions/:id/players/:playerId', async (req, res) => {
   const name = req.body.name?.trim()
   if (!name) return res.status(400).json({ error: 'El nombre es obligatorio' })
   const curp = req.body.curp?.trim().toUpperCase() || null
-  const number = req.body.number ? parseInt(req.body.number) : null
+  const number = req.body.number != null && req.body.number !== '' ? parseInt(req.body.number) : null
   const position = req.body.position || null
   const photo = req.body.photo || null
   const documento_oficial = req.body.documento_oficial || null
@@ -2060,7 +2075,7 @@ router.put('/inscriptions/:id/players/:playerId', async (req, res) => {
     )
     if (dupOtherTeam) return res.status(409).json({ error: `CURP ${curp} ya está registrada en el equipo "${dupOtherTeam.teamName}"` })
   }
-  if (number) {
+  if (number != null) {
     const dupNum = await queryOne(
       `SELECT p.id FROM players p JOIN teams t2 ON p.team_id=t2.id
        WHERE t2.inscription_id=$1 AND t2.category_id=$2 AND p.number=$3 AND p.id IS DISTINCT FROM $4`,
@@ -2114,6 +2129,14 @@ router.post('/inscriptions/:id/responsables', async (req, res) => {
   // Verificar que la categoría pertenece al torneo de esta inscripción
   const cat = await queryOne('SELECT id FROM categories WHERE id=$1 AND tournament_id=$2', [categoryId, insc.tournament_id])
   if (!cat) return res.status(400).json({ error: 'La categoría no pertenece al torneo de esta inscripción' })
+  // Validar que además es una de las categorías que ESTA inscripción registró
+  // (ver misma nota en POST /inscriptions/:id/players)
+  let inscCategoryIdsResp = []
+  if (insc.categories_json) { try { inscCategoryIdsResp = JSON.parse(insc.categories_json).map(c => String(c.id)) } catch {} }
+  if (insc.category_id) inscCategoryIdsResp.push(String(insc.category_id))
+  if (inscCategoryIdsResp.length && !inscCategoryIdsResp.includes(String(categoryId))) {
+    return res.status(400).json({ error: 'Esta categoría no forma parte de tu inscripción' })
+  }
   // Verificar token (skip si viene con sesión admin)
   const authHeader = req.headers.authorization
   const isAdmin = authHeader && (() => { try { const { role } = require('jsonwebtoken').verify(authHeader.replace('Bearer ',''), process.env.JWT_SECRET||'secret'); return role==='admin'||role==='superadmin' } catch{return false} })()

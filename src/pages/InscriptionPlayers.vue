@@ -289,6 +289,9 @@
                         {{ curpStatus(editForm) === 'valid' ? '✓' : '✗' }}
                       </span>
                     </div>
+                    <p v-if="curpAgeWarning(editForm, cat)" class="text-[10px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
+                      <IconAlertCircle class="w-3 h-3"/> {{ curpAgeWarning(editForm, cat) }}
+                    </p>
                   </div>
                   <div>
                     <label class="text-[10px] text-slate-400 mb-0.5 block">Documento oficial</label>
@@ -398,6 +401,9 @@
                     <span>Nacimiento: <strong>{{ decodedCURP(p.curp).birthYear }}</strong></span>
                     <span>Sexo: <strong>{{ decodedCURP(p.curp).sex === 'H' ? 'Hombre' : 'Mujer' }}</strong></span>
                   </div>
+                  <p v-if="curpAgeWarning(p, cat)" class="text-[10px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
+                    <IconAlertCircle class="w-3 h-3"/> {{ curpAgeWarning(p, cat) }}
+                  </p>
                 </div>
                 <!-- Row 3: Documento oficial -->
                 <div>
@@ -525,6 +531,13 @@ const editingPlayerId = ref(null)
 const editForm    = reactive({ name: '', number: '', position: '', curp: '', photo: '', documento_oficial: '', photoLoading: false, docLoading: false })
 const editError   = ref('')
 const savingEdit   = ref(false)
+// editOriginal guarda una foto de los valores con los que se abrió la edición
+// actual — así, si el usuario intenta editar OTRO jugador sin haber guardado,
+// se puede detectar que hay cambios sin guardar antes de descartarlos en
+// silencio (antes, editingPlayerId era un solo valor global a toda la página:
+// abrir la edición de un jugador distinto reasignaba el id sin avisar, y
+// cualquier cambio sin guardar en la fila anterior se perdía sin aviso).
+const editOriginal = ref(null)
 // Refs de input file por función (no por string) porque el elemento vive dentro
 // de un v-for — con ref="nombre" ahí adentro Vue lo colecciona como array.
 let editPhotoInputEl = null
@@ -532,16 +545,27 @@ let editDocInputEl   = null
 function setEditPhotoInput(el) { editPhotoInputEl = el }
 function setEditDocInput(el)   { editDocInputEl = el }
 
+function hasUnsavedEditChanges() {
+  if (!editOriginal.value) return false
+  const o = editOriginal.value
+  return ['name', 'number', 'position', 'curp', 'photo', 'documento_oficial']
+    .some(key => String(editForm[key] ?? '') !== String(o[key] ?? ''))
+}
+
 function startEditPlayer(p) {
+  if (editingPlayerId.value && editingPlayerId.value !== p.id && hasUnsavedEditChanges()) {
+    if (!confirm('Tienes cambios sin guardar en la edición actual. ¿Descartarlos y editar este otro jugador?')) return
+  }
   editingPlayerId.value = p.id
   editError.value = ''
-  Object.assign(editForm, {
+  const snapshot = {
     name: p.name || '', number: p.number || '', position: p.position || '',
-    curp: p.curp || '', photo: p.photo || '', documento_oficial: p.documento_oficial || '',
-    photoLoading: false, docLoading: false
-  })
+    curp: p.curp || '', photo: p.photo || '', documento_oficial: p.documento_oficial || ''
+  }
+  Object.assign(editForm, { ...snapshot, photoLoading: false, docLoading: false })
+  editOriginal.value = snapshot
 }
-function cancelEditPlayer() { editingPlayerId.value = null }
+function cancelEditPlayer() { editingPlayerId.value = null; editOriginal.value = null }
 
 async function onEditPhotoChange(e) {
   const file = e.target.files?.[0]; if (!file) return
@@ -573,6 +597,7 @@ async function saveEditPlayer(catId) {
     const idx = registeredPlayers.value.findIndex(p => p.id === editingPlayerId.value)
     if (idx !== -1) registeredPlayers.value[idx] = { ...registeredPlayers.value[idx], ...data }
     editingPlayerId.value = null
+    editOriginal.value = null
   } catch (e) {
     editError.value = e.response?.data?.error || 'Error al guardar los cambios'
   } finally {
@@ -702,6 +727,27 @@ function curpStatus(player) {
   const curp = player.curp?.trim()
   if (!curp || curp.length < 18) return 'empty'
   return parseCURP(curp) ? 'valid' : 'invalid'
+}
+
+// Aviso informativo de edad — el backend sí valida esto al guardar (rango de
+// nacimiento de la categoría + excepción de niñas), pero antes no había
+// ninguna señal en el formulario: la CURP se veía "válida" (✓ verde, formato
+// correcto) y el rechazo por edad solo aparecía como error después de darle
+// a Guardar. Es informativo nada más — no bloquea el botón de guardar, eso
+// lo sigue decidiendo el backend (que además cuenta el cupo de la excepción
+// de niñas, algo que aquí no se puede replicar sin consultar al servidor).
+function curpAgeWarning(player, cat) {
+  const decoded = decodedCURP(player.curp)
+  if (!decoded || !cat?.min_birth_year) return ''
+  const { birthYear, sex } = decoded
+  const isFemale = sex === 'M'
+  const minBY = cat.min_birth_year
+  const maxBY = cat.max_birth_year
+  const minBYGirls = cat.min_birth_year_girls
+  const effectiveMin = (isFemale && minBYGirls && minBYGirls < minBY) ? minBYGirls : minBY
+  if (birthYear < effectiveMin) return `Nació en ${birthYear} — se requiere nacido en ${effectiveMin} o después para esta categoría`
+  if (maxBY && birthYear > maxBY) return `Nació en ${birthYear} — el límite para esta categoría es ${maxBY}`
+  return ''
 }
 
 function respCurpStatus(resp) {
