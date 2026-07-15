@@ -54,8 +54,37 @@ async function start() {
     res.status(status).json({ error: err.message || 'Error interno del servidor' })
   })
 
+  // "Viendo en vivo": el conteo es simplemente el tamaño de la sala socket.io
+  // `match:${id}` — no hace falta guardar nada en la base de datos, con que
+  // el proceso viva ya sabemos cuántos hay conectados a cada partido.
+  function broadcastMatchViewers(matchId) {
+    const count = io.sockets.adapter.rooms.get(`match:${matchId}`)?.size || 0
+    io.to(`match:${matchId}`).emit('match:viewers', { matchId: Number(matchId), count })
+  }
+
   io.on('connection', (socket) => {
     socket.on('join:tournament', slug => socket.join(`tournament:${slug}`))
+
+    socket.on('join:match', (matchId) => {
+      if (!matchId) return
+      socket.join(`match:${matchId}`)
+      broadcastMatchViewers(matchId)
+    })
+    socket.on('leave:match', (matchId) => {
+      if (!matchId) return
+      socket.leave(`match:${matchId}`)
+      broadcastMatchViewers(matchId)
+    })
+
+    // 'disconnecting' (no 'disconnect') porque socket.rooms todavía tiene las
+    // salas match:* en este punto — en 'disconnect' ya las perdió y no hay
+    // forma de saber de qué partidos salir.
+    socket.on('disconnecting', () => {
+      const matchRooms = [...socket.rooms].filter(r => r.startsWith('match:'))
+      if (!matchRooms.length) return
+      setImmediate(() => matchRooms.forEach(room => broadcastMatchViewers(room.slice('match:'.length))))
+    })
+
     socket.on('disconnect', () => {})
   })
 

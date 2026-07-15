@@ -9,7 +9,10 @@
         <div class="flex items-start gap-3">
           <img v-if="n.cover" :src="n.cover" class="w-14 h-14 md:w-20 md:h-20 object-cover rounded-xl flex-shrink-0"/>
           <div class="flex-1 min-w-0">
-            <p class="text-slate-400 text-xs mb-0.5">{{ fmtDate(n.created_at) }}</p>
+            <p class="text-slate-400 text-xs mb-0.5 flex items-center gap-2">
+              {{ fmtDate(n.created_at) }}
+              <span v-if="n.view_count > 0" class="flex items-center gap-1"><IconEye class="w-3 h-3" /> {{ n.view_count }}</span>
+            </p>
             <h3 class="font-bold text-slate-900 text-sm leading-snug line-clamp-2">{{ n.title }}</h3>
           </div>
         </div>

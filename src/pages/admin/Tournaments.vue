@@ -23,12 +23,17 @@
           <div class="w-4 h-4 rounded-full flex-shrink-0" :style="{ backgroundColor: t.primary_color || '#00C2FF' }"></div>
         </div>
         <!-- Modality badge -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full"
             :class="modalityStyle(t.modality).badge">
             {{ modalityStyle(t.modality).label }}
           </span>
           <span class="text-xs text-slate-400">{{ fmt(t.start_date) }}</span>
+          <span v-if="t.followerCount > 0"
+            class="flex items-center gap-1 text-[10px] font-black uppercase px-2 py-1 rounded-full bg-red-50 text-red-500 ml-auto"
+            title="Seguidores">
+            <IconHeart class="w-3 h-3 fill-red-400" /> {{ t.followerCount }}
+          </span>
         </div>
         <div class="flex gap-2">
           <router-link :to="`/${t.slug}`" class="flex-1 text-center text-xs py-2 border border-muted rounded-lg text-slate-500 hover:text-slate-900">Ver público</router-link>

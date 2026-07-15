@@ -78,6 +78,11 @@
                 class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600">
                 Inscripción
               </span>
+              <span v-if="group.followerCount > 0"
+                class="flex items-center gap-1 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-red-50 text-red-500"
+                title="Seguidores">
+                <IconHeart class="w-2.5 h-2.5 fill-red-400" /> {{ group.followerCount }}
+              </span>
             </div>
             <p v-if="group.coach" class="text-slate-400 text-xs truncate">DT: {{ group.coach }}</p>
           </div>
@@ -429,10 +434,12 @@ const groupedTeams = computed(() => {
         hasUnassigned:  false,
         categories:     [],             // { id, name, teamId }
         allTeamIds:     [],
+        followerCount:  0,              // suma de todas las filas team_id del grupo (una por categoría)
       })
     }
     const g = map.get(key)
     g.allTeamIds.push(team.id)
+    g.followerCount += team.followerCount || 0
     if (!team.category_id) {
       g.hasUnassigned  = true
       g.unassignedTeam = team

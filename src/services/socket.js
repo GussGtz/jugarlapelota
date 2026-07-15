@@ -6,6 +6,8 @@ let socket = null
 // Listeners por matchId para eventos específicos
 const matchEventListeners    = new Map()  // matchId → callback[]
 const matchUpdateListeners   = new Map()  // matchId → callback[]
+const matchViewersListeners  = new Map()  // matchId → callback[]  ("viendo en vivo")
+const matchReactionsListeners = new Map() // matchId → callback[]
 // Listeners globales por torneo
 const tournamentListeners    = new Map()  // tournamentId → callback[]  (cualquier match:update de ese torneo)
 const standingsListeners     = new Map()  // `${tournamentId}:${categoryId}` → callback[]
@@ -76,7 +78,37 @@ export function connectSocket() {
     notify(standingsListeners, `${tournamentId}:all`, { tournamentId, categoryId, phaseId })
   })
 
+  // "Viendo en vivo" — cuántos hay conectados a la sala de este partido
+  socket.on('match:viewers', ({ matchId, count }) => {
+    notify(matchViewersListeners, matchId, count)
+  })
+
+  // Reacciones rápidas actualizadas (otro visitante reaccionó)
+  socket.on('match:reactions', ({ matchId, reactions }) => {
+    notify(matchReactionsListeners, matchId, reactions)
+  })
+
   return socket
+}
+
+/** Entra a la sala de "viendo en vivo" de un partido */
+export function joinMatchRoom(matchId) {
+  socket?.emit('join:match', matchId)
+}
+
+/** Sale de la sala de "viendo en vivo" de un partido */
+export function leaveMatchRoom(matchId) {
+  socket?.emit('leave:match', matchId)
+}
+
+/** Escucha el conteo de "viendo en vivo" de un partido específico */
+export function onMatchViewers(matchId, callback) {
+  return addListener(matchViewersListeners, matchId, callback)
+}
+
+/** Escucha actualizaciones de reacciones rápidas de un partido específico */
+export function onMatchReactions(matchId, callback) {
+  return addListener(matchReactionsListeners, matchId, callback)
 }
 
 export function getSocket() {

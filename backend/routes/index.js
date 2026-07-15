@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
 const authCtrl        = require('../controllers/auth.controller')
 const tournamentsCtrl = require('../controllers/tournaments.controller')
+const { teamFollowerCount, teamFollowerCounts, playerFollowerCount, playerFollowerCounts } = require('../utils/followers')
 
 // ── CURP utility ─────────────────────────────────────────────────────────────
 function parseCURP(curp) {
@@ -511,9 +512,14 @@ router.get('/tournaments/:slug/teams', async (req, res) => {
   const rows = catId
     ? (await query('SELECT t.*,c.name AS "categoryName",c.gender,c.group_name FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.tournament_id=$1 AND t.category_id=$2 ORDER BY t.name', [t.id,catId])).rows
     : (await query('SELECT t.*,c.name AS "categoryName",c.gender,c.group_name FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.tournament_id=$1 ORDER BY c.order_index,t.name', [t.id])).rows
-  res.json(rows)
+  const counts = await teamFollowerCounts(rows.map(r => r.id))
+  res.json(rows.map(r => ({ ...r, followerCount: counts.get(Number(r.id)) || 0 })))
 })
-router.get('/teams', async (_, res) => res.json((await query('SELECT t.*,c.name AS "categoryName",tr.slug AS "tournamentSlug",tr.name AS "tournamentName" FROM teams t LEFT JOIN categories c ON t.category_id=c.id LEFT JOIN tournaments tr ON t.tournament_id=tr.id ORDER BY t.name', [])).rows))
+router.get('/teams', async (_, res) => {
+  const rows = (await query('SELECT t.*,c.name AS "categoryName",tr.slug AS "tournamentSlug",tr.name AS "tournamentName" FROM teams t LEFT JOIN categories c ON t.category_id=c.id LEFT JOIN tournaments tr ON t.tournament_id=tr.id ORDER BY t.name', [])).rows
+  const counts = await teamFollowerCounts(rows.map(r => r.id))
+  res.json(rows.map(r => ({ ...r, followerCount: counts.get(Number(r.id)) || 0 })))
+})
 
 router.get('/matches/live', async (_, res) => {
   const rows = (await query(`
@@ -582,6 +588,7 @@ router.get('/players/:id', async (req, res) => {
     [req.params.id]
   )
   if (!row) return notFound(res)
+  row.followerCount = await playerFollowerCount(row.id)
   res.json(row)
 })
 
@@ -591,7 +598,8 @@ router.get('/tournaments/:slug/players', async (req, res) => {
   const rows = catId
     ? (await query(`SELECT p.*,te.name AS "teamName",te.category_id,c.name AS "categoryName" FROM players p JOIN teams te ON p.team_id=te.id LEFT JOIN categories c ON te.category_id=c.id WHERE te.tournament_id=$1 AND te.category_id=$2 ORDER BY p.goals DESC,p.assists DESC,p.name`, [t.id,catId])).rows
     : (await query(`SELECT p.*,te.name AS "teamName",te.category_id,c.name AS "categoryName" FROM players p JOIN teams te ON p.team_id=te.id LEFT JOIN categories c ON te.category_id=c.id WHERE te.tournament_id=$1 ORDER BY p.goals DESC,p.assists DESC,p.name`, [t.id])).rows
-  res.json(rows)
+  const counts = await playerFollowerCounts(rows.map(r => r.id))
+  res.json(rows.map(r => ({ ...r, followerCount: counts.get(Number(r.id)) || 0 })))
 })
 
 // ── Stats de fase regular (groups/league) — para reconocimientos ──────────
@@ -854,6 +862,51 @@ router.delete('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
     if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(() => {})
   }
   await query('DELETE FROM matches WHERE id=$1', [req.params.id]); res.status(204).end()
+})
+
+// ── Reacciones rápidas ────────────────────────────────────────────────────
+// Ver reacciones es público, pero reaccionar requiere sesión iniciada (rol
+// fan/aficionado desde "Acceder con Google", o cualquier otra cuenta) — así
+// un voto queda ligado al user_id de la cuenta en vez de a un id anónimo de
+// dispositivo, evitando que se reaccione varias veces solo abriendo el sitio
+// en modo incógnito. optionalAuth en el GET deja calcular "mine" cuando hay
+// sesión, sin bloquear a quien solo quiere ver el conteo.
+const REACTION_EMOJIS = ['👍', '🔥', '😮']
+
+router.get('/matches/:id/reactions', optionalAuth, async (req, res) => {
+  const matchId = req.params.id
+  const userId = req.user?.id || null
+  const counts = (await query(
+    'SELECT emoji, COUNT(*) AS c FROM match_reactions WHERE match_id=$1 GROUP BY emoji', [matchId]
+  )).rows
+  const mine = userId
+    ? (await query('SELECT emoji FROM match_reactions WHERE match_id=$1 AND voter_id=$2', [matchId, String(userId)])).rows.map(r => r.emoji)
+    : []
+  const reactions = REACTION_EMOJIS.map(emoji => ({
+    emoji, count: Number(counts.find(c => c.emoji === emoji)?.c || 0), mine: mine.includes(emoji)
+  }))
+  res.json(reactions)
+})
+
+router.post('/matches/:id/reactions', authMiddleware, async (req, res) => {
+  const matchId = req.params.id
+  const { emoji } = req.body
+  const voterId = String(req.user.id)
+  if (!emoji) return res.status(400).json({ error: 'Faltan datos' })
+  if (!REACTION_EMOJIS.includes(emoji)) return res.status(400).json({ error: 'Emoji no permitido' })
+  const existing = await queryOne('SELECT id FROM match_reactions WHERE match_id=$1 AND emoji=$2 AND voter_id=$3', [matchId, emoji, voterId])
+  if (existing) await query('DELETE FROM match_reactions WHERE id=$1', [existing.id])
+  else await query('INSERT INTO match_reactions (match_id, emoji, voter_id) VALUES ($1,$2,$3)', [matchId, emoji, voterId])
+
+  const counts = (await query(
+    'SELECT emoji, COUNT(*) AS c FROM match_reactions WHERE match_id=$1 GROUP BY emoji', [matchId]
+  )).rows
+  const mine = (await query('SELECT emoji FROM match_reactions WHERE match_id=$1 AND voter_id=$2', [matchId, voterId])).rows.map(r => r.emoji)
+  const reactions = REACTION_EMOJIS.map(e => ({
+    emoji: e, count: Number(counts.find(c => c.emoji === e)?.c || 0), mine: mine.includes(e)
+  }))
+  req.io?.to(`match:${matchId}`).emit('match:reactions', { matchId: Number(matchId), reactions })
+  res.json(reactions)
 })
 
 // ── Match events (árbitro) ────────────────────────────────────────────────
@@ -1604,6 +1657,13 @@ router.get('/news/:id', async (req, res) => {
   const row = (await queryOne('SELECT * FROM news WHERE id=$1', [req.params.id]))
   if(!row) return notFound(res); res.json(row)
 })
+// Público — el frontend llama esto una vez por sesión al expandir la noticia
+// (ver Media.vue), no cada vez que se colapsa/expande.
+router.post('/news/:id/view', async (req, res) => {
+  const r = await query('UPDATE news SET view_count = view_count + 1 WHERE id=$1', [req.params.id])
+  if (!r.rowCount) return notFound(res)
+  res.json({ ok: true })
+})
 router.post('/news', authMiddleware, adminOnly, async (req, res) => {
   const {tournamentId,title,content,cover} = req.body
   const r = await query(
@@ -1654,6 +1714,13 @@ router.post('/galleries', authMiddleware, adminOnly, async (req, res) => {
   const {tournamentId,title,cover,categoryId} = req.body
   const r = await query('INSERT INTO galleries (tournament_id,category_id,title,cover) VALUES ($1,$2,$3,$4) RETURNING id', [tournamentId,categoryId||null,title,cover])
   res.status(201).json((await queryOne('SELECT * FROM galleries WHERE id=$1', [r.lastInsertRowid])))
+})
+// Público — el frontend llama esto una vez por sesión al abrir el lightbox
+// de una foto de esta galería (ver Media.vue).
+router.post('/galleries/:id/view', async (req, res) => {
+  const r = await query('UPDATE galleries SET view_count = view_count + 1 WHERE id=$1', [req.params.id])
+  if (!r.rowCount) return notFound(res)
+  res.json({ ok: true })
 })
 router.delete('/galleries/:id', authMiddleware, adminOnly, async (req, res) => {
   const g = await queryOne('SELECT tournament_id FROM galleries WHERE id=$1', [req.params.id])
@@ -2877,6 +2944,7 @@ router.get('/teams/:id/profile', async (req, res) => {
     wins:   recentMatches.filter(m => (m.home_team===teamIdInt&&m.home_score>m.away_score)||(m.away_team===teamIdInt&&m.away_score>m.home_score)).length,
     draws:  recentMatches.filter(m => m.home_score===m.away_score).length,
     losses: recentMatches.filter(m => (m.home_team===teamIdInt&&m.home_score<m.away_score)||(m.away_team===teamIdInt&&m.away_score<m.home_score)).length,
+    followerCount: await teamFollowerCount(teamId),
   }
 
   res.json({ team, players, standings, recentMatches, upcomingMatches, liveMatch, awards, stats })
@@ -3338,6 +3406,41 @@ router.post('/follows/tournament/remove', optionalAuth, async (req, res) => {
   if (!tournamentId) return res.status(400).json({ error: 'Faltan datos' })
   if (endpoint) await query('DELETE FROM tournament_follows WHERE endpoint=$1 AND tournament_id=$2', [endpoint, tournamentId])
   if (req.user?.id) await query('DELETE FROM user_tournament_follows WHERE user_id=$1 AND tournament_id=$2', [req.user.id, tournamentId])
+  res.json({ ok: true })
+})
+
+// ── Player follows ──────────────────────────────────────────────────────────
+router.post('/follows/players', optionalAuth, async (req, res) => {
+  const { endpoint } = req.body
+  const ids = new Set()
+  if (endpoint) {
+    const rows = (await query('SELECT player_id FROM player_follows WHERE endpoint=$1', [endpoint])).rows
+    rows.forEach(r => ids.add(r.player_id))
+  }
+  if (req.user?.id) {
+    const rows = (await query('SELECT player_id FROM user_player_follows WHERE user_id=$1', [req.user.id])).rows
+    rows.forEach(r => ids.add(r.player_id))
+  }
+  res.json([...ids])
+})
+
+router.post('/follows/player/add', optionalAuth, async (req, res) => {
+  const { endpoint, playerId } = req.body
+  if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
+  if (!playerId) return res.status(400).json({ error: 'Faltan datos' })
+  try {
+    if (endpoint) await query('INSERT INTO player_follows (endpoint, player_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, playerId])
+    if (req.user?.id) await query('INSERT INTO user_player_follows (user_id, player_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.user.id, playerId])
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+router.post('/follows/player/remove', optionalAuth, async (req, res) => {
+  const { endpoint, playerId } = req.body
+  if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
+  if (!playerId) return res.status(400).json({ error: 'Faltan datos' })
+  if (endpoint) await query('DELETE FROM player_follows WHERE endpoint=$1 AND player_id=$2', [endpoint, playerId])
+  if (req.user?.id) await query('DELETE FROM user_player_follows WHERE user_id=$1 AND player_id=$2', [req.user.id, playerId])
   res.json({ ok: true })
 })
 

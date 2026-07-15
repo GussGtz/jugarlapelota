@@ -1,16 +1,19 @@
 const { query, queryOne } = require('../config/db')
+const { tournamentFollowerCount, tournamentFollowerCounts } = require('../utils/followers')
 
 // Admin ve solo sus torneos; superadmin y público ven todos
 async function getAll(req, res) {
   const { rows } = req.user?.role === 'admin'
     ? await query('SELECT * FROM tournaments WHERE created_by=$1 ORDER BY created_at DESC', [req.user.id])
     : await query('SELECT * FROM tournaments ORDER BY created_at DESC', [])
-  res.json(rows)
+  const counts = await tournamentFollowerCounts(rows.map(t => t.id))
+  res.json(rows.map(t => ({ ...t, followerCount: counts.get(Number(t.id)) || 0 })))
 }
 
 async function getBySlug(req, res) {
   const row = await queryOne('SELECT * FROM tournaments WHERE slug=$1', [req.params.slug])
   if (!row) return res.status(404).json({ error: 'Torneo no encontrado' })
+  row.followerCount = await tournamentFollowerCount(row.id)
   res.json(row)
 }
 

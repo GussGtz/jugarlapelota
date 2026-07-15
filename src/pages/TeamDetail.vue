@@ -49,7 +49,7 @@
         </div>
 
         <!-- Quick info row -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 border-t border-slate-100">
+        <div class="grid grid-cols-2 sm:grid-cols-5 border-t border-slate-100">
           <div v-if="profile.team.coach" class="flex items-center gap-2 px-4 py-3 border-r border-slate-100">
             <IconUser class="w-4 h-4 text-slate-400 shrink-0" />
             <div class="min-w-0">
@@ -71,11 +71,18 @@
               <p class="text-sm font-semibold text-slate-900">{{ profile.players.length }}</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 px-4 py-3">
+          <div class="flex items-center gap-2 px-4 py-3 border-r border-slate-100">
             <IconCircleDot class="w-4 h-4 text-slate-400 shrink-0" />
             <div>
               <p class="text-[10px] text-slate-400 uppercase tracking-wide">Partidos</p>
               <p class="text-sm font-semibold text-slate-900">{{ profile.stats.matchesPlayed }}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 px-4 py-3">
+            <IconHeart class="w-4 h-4 text-red-400 shrink-0" />
+            <div>
+              <p class="text-[10px] text-slate-400 uppercase tracking-wide">Seguidores</p>
+              <p class="text-sm font-semibold text-slate-900">{{ profile.stats.followerCount }}</p>
             </div>
           </div>
         </div>

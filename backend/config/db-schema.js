@@ -213,6 +213,32 @@ const PG_MIGRATIONS = [
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (user_id, tournament_id)
   )`,
+  // Seguir jugadores individuales — mismo patrón de dos capas que equipos/torneos
+  `CREATE TABLE IF NOT EXISTS player_follows (
+    endpoint  TEXT NOT NULL,
+    player_id BIGINT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (endpoint, player_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS user_player_follows (
+    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    player_id  BIGINT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, player_id)
+  )`,
+  // Reacciones rápidas a partidos — voter_id es un id anónimo de dispositivo
+  // (localStorage, ver src/utils/anon.js), no requiere cuenta ni push.
+  `CREATE TABLE IF NOT EXISTS match_reactions (
+    id BIGSERIAL PRIMARY KEY,
+    match_id  BIGINT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+    emoji     TEXT NOT NULL,
+    voter_id  TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(match_id, emoji, voter_id)
+  )`,
+  // Contador de vistas en noticias y galerías
+  `ALTER TABLE news ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0`,
+  `ALTER TABLE galleries ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0`,
 ]
 
 module.exports = { PG_SCHEMA, PG_MIGRATIONS }

@@ -33,7 +33,7 @@
 
           <!-- ── NOTICIA ─────────────────────────────────────── -->
           <article v-if="item.type === 'news'"
-            @click="expandedNews = expandedNews === item.id ? null : item.id"
+            @click="toggleNews(item)"
             class="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer">
 
             <!-- Vista colapsada -->
@@ -58,8 +58,9 @@
                     </div>
                     <h3 class="font-bold text-slate-900 text-sm leading-snug line-clamp-2">{{ item.title }}</h3>
                   </div>
-                  <p class="text-[10px] text-slate-400 flex items-center gap-1 mt-1">
-                    <IconClock class="w-3 h-3" /> {{ timeAgo(item.date) }}
+                  <p class="text-[10px] text-slate-400 flex items-center gap-2 mt-1">
+                    <span class="flex items-center gap-1"><IconClock class="w-3 h-3" /> {{ timeAgo(item.date) }}</span>
+                    <span v-if="item.viewCount > 0" class="flex items-center gap-1"><IconEye class="w-3 h-3" /> {{ item.viewCount }}</span>
                   </p>
                 </div>
                 <IconChevronDown class="w-4 h-4 text-slate-300 shrink-0 self-center" />
@@ -74,8 +75,9 @@
                   <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
                     :style="{ color: primaryColor, background: primaryColor + '18' }">Noticia</span>
                   <span v-if="item.categoryName" class="text-[9px] text-slate-400 font-medium">{{ item.categoryName }}</span>
-                  <span class="text-[9px] text-slate-400 ml-auto flex items-center gap-1">
-                    <IconClock class="w-3 h-3" /> {{ timeAgo(item.date) }}
+                  <span class="text-[9px] text-slate-400 ml-auto flex items-center gap-2">
+                    <span class="flex items-center gap-1"><IconClock class="w-3 h-3" /> {{ timeAgo(item.date) }}</span>
+                    <span v-if="item.viewCount > 0" class="flex items-center gap-1"><IconEye class="w-3 h-3" /> {{ item.viewCount }}</span>
                   </span>
                 </div>
                 <h3 class="font-black text-slate-900 text-xl leading-snug mb-3">{{ item.title }}</h3>
@@ -100,13 +102,14 @@
                   {{ item.images?.length || 0 }} fotos
                   <span v-if="item.categoryName"> · {{ item.categoryName }}</span>
                   · {{ timeAgo(item.date) }}
+                  <span v-if="item.viewCount > 0"> · {{ item.viewCount }} vistas</span>
                 </p>
               </div>
             </div>
             <!-- Grid de fotos -->
             <div v-if="item.images?.length" class="grid grid-cols-3 sm:grid-cols-4 gap-0.5 p-0.5">
               <div v-for="(img, idx) in item.images.slice(0, 8)" :key="img.id"
-                @click="lightbox = img.image_url"
+                @click="openLightbox(img.image_url, item)"
                 class="relative aspect-square overflow-hidden cursor-pointer group bg-slate-100">
                 <img :src="img.image_url" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 <!-- Overlay "+N más" en la última visible si hay más -->
@@ -199,6 +202,7 @@ const feed = computed(() => {
       content: n.content,
       cover:   n.cover,
       categoryName: n.categoryName || null,
+      viewCount: n.view_count || 0,
     })
   }
 
@@ -212,6 +216,7 @@ const feed = computed(() => {
       title:  g.title,
       images: g.images,
       categoryName: g.categoryName || null,
+      viewCount: g.view_count || 0,
     })
   }
 
@@ -246,6 +251,33 @@ function timeAgo(d) {
   if (days  === 1) return 'Ayer'
   if (days  < 7)   return `Hace ${days} días`
   return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// Solo cuenta una vista por elemento en esta visita — evita inflar el contador
+// si el usuario abre/cierra la misma noticia varias veces en la sesión.
+const viewedThisSession = new Set()
+
+function toggleNews(item) {
+  const wasExpanded = expandedNews.value === item.id
+  expandedNews.value = wasExpanded ? null : item.id
+  if (!wasExpanded && !viewedThisSession.has(`news-${item.id}`)) {
+    viewedThisSession.add(`news-${item.id}`)
+    // Muta el array fuente (news), no el item derivado de `feed` — así el
+    // computed vuelve a calcular y el contador se refleja en el DOM.
+    const source = news.value.find(n => n.id === item.id)
+    if (source) source.view_count = (source.view_count || 0) + 1
+    api.post(`/news/${item.id}/view`).catch(() => {})
+  }
+}
+
+function openLightbox(imageUrl, galleryItem) {
+  lightbox.value = imageUrl
+  if (!viewedThisSession.has(`gallery-${galleryItem.id}`)) {
+    viewedThisSession.add(`gallery-${galleryItem.id}`)
+    const source = galleries.value.find(g => g.id === galleryItem.id)
+    if (source) source.view_count = (source.view_count || 0) + 1
+    api.post(`/galleries/${galleryItem.id}/view`).catch(() => {})
+  }
 }
 
 onMounted(async () => {

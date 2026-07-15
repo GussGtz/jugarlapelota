@@ -46,6 +46,8 @@ module.exports = function initSQLite(db, bcrypt) {
   safe('ALTER TABLE players ADD COLUMN curp TEXT')
   safe('ALTER TABLE players ADD COLUMN documento_oficial TEXT')
   safe('ALTER TABLE inscriptions ADD COLUMN registration_token TEXT')
+  safe('ALTER TABLE news ADD COLUMN view_count INTEGER DEFAULT 0')
+  safe('ALTER TABLE galleries ADD COLUMN view_count INTEGER DEFAULT 0')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS phase_groups (
@@ -235,6 +237,21 @@ module.exports = function initSQLite(db, bcrypt) {
       name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT,
       org TEXT, message TEXT, status TEXT DEFAULT 'pending', notes TEXT,
       created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS player_follows (
+      endpoint TEXT NOT NULL, player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (endpoint, player_id)
+    );
+    CREATE TABLE IF NOT EXISTS user_player_follows (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (user_id, player_id)
+    );
+    CREATE TABLE IF NOT EXISTS match_reactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+      emoji TEXT NOT NULL, voter_id TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')), UNIQUE(match_id, emoji, voter_id)
     );
   `)
 

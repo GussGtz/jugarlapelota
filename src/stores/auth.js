@@ -11,11 +11,19 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return
     try {
       const { data } = await api.get('/auth/me')
-      if (!data?.id) { token.value = null; user.value = null; localStorage.removeItem('jlp_token'); localStorage.removeItem('jlp_user') }
-      else user.value = data
-    } catch {
-      token.value = null; user.value = null
-      localStorage.removeItem('jlp_token'); localStorage.removeItem('jlp_user')
+      if (data?.id) user.value = data
+    } catch (err) {
+      // Solo cerrar sesión si el servidor rechazó el token explícitamente (401).
+      // Cualquier otro fallo — red caída, timeout, el backend "dormido" en
+      // Render/Neon, un 5xx transitorio — no significa que la sesión sea
+      // inválida, y antes se trataba igual: bastaba una falla de red al
+      // arrancar la app para desloguear a alguien con un token perfectamente
+      // válido. La sesión debe durar hasta que el usuario cierre sesión a
+      // propósito (o el token expire de verdad, que sí devuelve 401).
+      if (err.response?.status === 401) {
+        token.value = null; user.value = null
+        localStorage.removeItem('jlp_token'); localStorage.removeItem('jlp_user')
+      }
     }
   }
 

@@ -72,6 +72,49 @@
       </div>
     </section>
 
+    <!-- Ranking de más seguidos -->
+    <section v-if="topTournaments.length || topTeams.length" class="max-w-7xl mx-auto px-4 py-12">
+      <div v-reveal class="flex items-center gap-3 mb-6">
+        <h2 class="section-title">Los más seguidos</h2>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-6">
+        <div v-if="topTournaments.length" class="card">
+          <p class="text-xs font-black uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+            <IconTrophy class="w-3.5 h-3.5" /> Torneos
+          </p>
+          <router-link v-for="(t, i) in topTournaments" :key="t.id" :to="`/${t.slug}`"
+            class="flex items-center gap-3 py-2 group">
+            <span class="w-5 text-center text-sm font-black text-slate-300">{{ i + 1 }}</span>
+            <div class="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
+              <img v-if="t.logo" :src="t.logo" class="w-full h-full object-contain" />
+              <IconTrophy v-else class="w-4 h-4 text-slate-400" />
+            </div>
+            <span class="flex-1 min-w-0 font-semibold text-slate-800 text-sm truncate group-hover:text-primary transition-colors">{{ t.name }}</span>
+            <span class="flex items-center gap-1 text-xs font-bold text-red-500 shrink-0">
+              <IconHeart class="w-3.5 h-3.5 fill-red-400" /> {{ t.followerCount }}
+            </span>
+          </router-link>
+        </div>
+        <div v-if="topTeams.length" class="card">
+          <p class="text-xs font-black uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+            <IconShirt class="w-3.5 h-3.5" /> Equipos
+          </p>
+          <router-link v-for="(t, i) in topTeams" :key="t.id" :to="`/${t.tournamentSlug}/equipo/${t.id}`"
+            class="flex items-center gap-3 py-2 group">
+            <span class="w-5 text-center text-sm font-black text-slate-300">{{ i + 1 }}</span>
+            <div class="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
+              <img v-if="t.logo" :src="t.logo" class="w-full h-full object-contain" />
+              <IconShirt v-else class="w-4 h-4 text-slate-400" />
+            </div>
+            <span class="flex-1 min-w-0 font-semibold text-slate-800 text-sm truncate group-hover:text-primary transition-colors">{{ t.name }}</span>
+            <span class="flex items-center gap-1 text-xs font-bold text-red-500 shrink-0">
+              <IconHeart class="w-3.5 h-3.5 fill-red-400" /> {{ t.followerCount }}
+            </span>
+          </router-link>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Instala la app + Para todos en el torneo ────────── -->
     <section id="caracteristicas" class="bg-slate-50 py-16 md:py-24 border-t border-slate-100">
       <div class="max-w-7xl mx-auto px-4">
@@ -136,6 +179,16 @@ const tournaments = useTournamentsStore()
 const liveMatches = ref([])
 const searchQuery = ref('')
 const showAll     = ref(false)
+const allTeams    = ref([])
+
+const topTournaments = computed(() =>
+  [...tournaments.list].filter(t => t.followerCount > 0)
+    .sort((a, b) => b.followerCount - a.followerCount).slice(0, 5)
+)
+const topTeams = computed(() =>
+  [...allTeams.value].filter(t => t.followerCount > 0)
+    .sort((a, b) => b.followerCount - a.followerCount).slice(0, 5)
+)
 
 const filteredTournaments = computed(() => {
   if (!searchQuery.value.trim()) return tournaments.list
@@ -249,6 +302,8 @@ onMounted(async () => {
   liveMatches.value = results
     .filter(r => r.status === 'fulfilled')
     .flatMap(r => r.value.live.map(m => ({ ...m, tournamentSlug: r.value.slug })))
+
+  api.get('/teams').then(r => { allTeams.value = r.data }).catch(() => {})
 })
 </script>
 

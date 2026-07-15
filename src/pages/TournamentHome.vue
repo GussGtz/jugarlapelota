@@ -57,6 +57,13 @@
             <p class="text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.matches }}</p>
             <p class="text-white/60 text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Partidos</p>
           </div>
+          <template v-if="stats.followers > 0">
+            <div class="w-px h-12 bg-white/20"></div>
+            <div class="text-center">
+              <p class="text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.followers }}</p>
+              <p class="text-white/60 text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Seguidores</p>
+            </div>
+          </template>
         </div>
 
         <!-- CTAs -->
@@ -924,9 +931,10 @@ const uniqueTeams = computed(() => {
 })
 
 const stats = computed(() => ({
-  teams:   uniqueTeams.value.length,
-  players: playerCount.value,
-  matches: matches.value.length
+  teams:     uniqueTeams.value.length,
+  players:   playerCount.value,
+  matches:   matches.value.length,
+  followers: tournament.value?.followerCount || 0
 }))
 
 // ── Standings helpers ──────────────────────────────────────────

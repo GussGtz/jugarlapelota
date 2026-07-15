@@ -13,7 +13,10 @@
         <div class="flex items-center justify-between">
           <div>
             <h3 class="font-bold text-slate-900">{{ g.title }}</h3>
-            <p class="text-slate-400 text-xs">{{ g.images?.length || 0 }} imagen(es)</p>
+            <p class="text-slate-400 text-xs flex items-center gap-2">
+              {{ g.images?.length || 0 }} imagen(es)
+              <span v-if="g.view_count > 0" class="flex items-center gap-1"><IconEye class="w-3 h-3" /> {{ g.view_count }}</span>
+            </p>
           </div>
           <div class="flex gap-2">
             <button @click="openImageForm(g)" class="text-xs text-primary px-3 py-1.5 border border-primary/30 rounded-lg hover:bg-primary/10">+ Imagen</button>

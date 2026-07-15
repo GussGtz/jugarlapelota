@@ -19,6 +19,7 @@
     </router-view>
   </component>
   <InstallPWA />
+  <OfflineOverlay />
 </template>
 
 <script setup>
@@ -28,6 +29,7 @@ import PublicLayout  from '@/layouts/PublicLayout.vue'
 import AdminLayout   from '@/layouts/AdminLayout.vue'
 import RefereeLayout from '@/layouts/RefereeLayout.vue'
 import InstallPWA    from '@/components/InstallPWA/InstallPWA.vue'
+import OfflineOverlay from '@/components/OfflineOverlay/OfflineOverlay.vue'
 import { connectSocket, disconnectSocket, requestNotificationPermission } from '@/services/socket'
 import { serverWaking } from '@/api'
 const waking = ref(false)

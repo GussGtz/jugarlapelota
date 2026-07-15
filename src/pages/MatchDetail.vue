@@ -8,7 +8,7 @@
       <div class="card overflow-hidden">
 
         <!-- Barra de estado -->
-        <div class="flex items-center justify-center gap-3 py-2.5 text-xs font-black uppercase tracking-widest"
+        <div class="flex items-center justify-center gap-3 py-2.5 text-xs font-black uppercase tracking-widest relative"
           :class="match.status==='live'     ? 'bg-red-600 text-white' :
                   match.status==='finished' ? 'bg-slate-100 text-slate-500' :
                   'bg-primary/10 text-primary'">
@@ -18,6 +18,11 @@
           </span>
           <span v-else-if="match.status==='finished'">Partido Finalizado</span>
           <span v-else>Programado · {{ formattedDate }}</span>
+          <!-- Viendo en vivo -->
+          <span v-if="liveViewers > 0" class="absolute right-3 flex items-center gap-1 normal-case tracking-normal font-bold text-[11px]"
+            :class="match.status==='live' ? 'text-white/90' : 'text-slate-400'">
+            <IconEye class="w-3.5 h-3.5"/> {{ liveViewers }}
+          </span>
         </div>
 
         <!-- Equipos + marcador -->
@@ -114,6 +119,17 @@
             <span class="text-slate-400 tabular-nums">{{ ev.minute }}'<span v-if="ev.second" class="text-slate-300">{{ String(ev.second).padStart(2,'0') }}</span></span>
             <span v-if="ev.type==='own_goal'" class="text-red-500 text-[10px]">(PP)</span>
           </div>
+        </div>
+
+        <!-- Reacciones rápidas -->
+        <div class="border-t border-muted px-4 py-2.5 flex items-center justify-center gap-2">
+          <button v-for="r in reactions" :key="r.emoji" @click="toggleReaction(r.emoji)"
+            :title="auth.isLoggedIn ? '' : 'Inicia sesión para reaccionar'"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-bold transition-all"
+            :class="r.mine ? 'bg-primary/10 border-primary/40 text-primary' : 'border-slate-200 text-slate-500 hover:border-slate-300'">
+            <span class="text-base leading-none">{{ r.emoji }}</span>
+            <span v-if="r.count > 0" class="tabular-nums">{{ r.count }}</span>
+          </button>
         </div>
       </div>
 
@@ -435,13 +451,14 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useFollowingStore } from '@/stores/following'
-import { onMatchEvent, onMatchUpdate } from '@/services/socket'
+import { onMatchEvent, onMatchUpdate, joinMatchRoom, leaveMatchRoom, onMatchViewers, onMatchReactions } from '@/services/socket'
 import api from '@/api'
 
 const route     = useRoute()
+const router    = useRouter()
 const auth      = useAuthStore()
 const following = useFollowingStore()
 const isAdmin   = computed(() => auth.isAdmin)
@@ -454,6 +471,30 @@ const match  = ref(null)
 const events = ref([])
 const stream = ref(null)
 const loading = ref(true)
+
+// "Viendo en vivo" + reacciones rápidas
+const liveViewers = ref(0)
+const reactions   = ref([])
+
+async function loadReactions() {
+  try {
+    const { data } = await api.get(`/matches/${route.params.id}/reactions`)
+    reactions.value = data
+  } catch {}
+}
+
+async function toggleReaction(emoji) {
+  // Reaccionar requiere sesión — si no hay, se manda directo al login en vez
+  // de intentar la llamada (que de todas formas rebotaría con 401).
+  if (!auth.isLoggedIn) { router.push(`/login?redirect=${encodeURIComponent(route.fullPath)}`); return }
+  // Optimista — se corrige solo si el servidor difiere (o via el propio socket)
+  const r = reactions.value.find(x => x.emoji === emoji)
+  if (r) { r.mine = !r.mine; r.count += r.mine ? 1 : -1 }
+  try {
+    const { data } = await api.post(`/matches/${route.params.id}/reactions`, { emoji })
+    reactions.value = data
+  } catch { await loadReactions() }
+}
 
 // Ticker de eventos en vivo (últimos eventos animados)
 const liveEvents = ref([])   // { id, type, playerName, teamName, minute, second, flash }
@@ -632,14 +673,16 @@ watch(elapsedMin, (min) => { ev.value.minute = min })
 // Watch equipo para resetear búsqueda
 watch(() => ev.value.teamId, () => { playerSearch.value = ''; ev.value.playerId = null })
 
-let cleanupSocketEvent  = null
-let cleanupSocketUpdate = null
+let cleanupSocketEvent     = null
+let cleanupSocketUpdate    = null
+let cleanupSocketViewers   = null
+let cleanupSocketReactions = null
 
 onMounted(async () => {
   loading.value = true
   try {
     await loadMatch()
-    await Promise.all([loadEvents(), loadPlayers()])
+    await Promise.all([loadEvents(), loadPlayers(), loadReactions()])
 
     if (match.value?.stream_id) {
       const s = await api.get(`/tournaments/${route.params.slug}/streams`)
@@ -675,12 +718,22 @@ onMounted(async () => {
       stopTimer()
     }
   })
+
+  // "Viendo en vivo" — entra a la sala del partido y escucha el conteo
+  joinMatchRoom(matchId)
+  cleanupSocketViewers = onMatchViewers(matchId, (count) => { liveViewers.value = count })
+
+  // Reacciones de otros visitantes en tiempo real
+  cleanupSocketReactions = onMatchReactions(matchId, (updated) => { reactions.value = updated })
 })
 
 onUnmounted(() => {
   stopTimer()
+  leaveMatchRoom(parseInt(route.params.id))
   cleanupSocketEvent?.()
   cleanupSocketUpdate?.()
+  cleanupSocketViewers?.()
+  cleanupSocketReactions?.()
   clearTimeout(liveEventTimer)
 })
 </script>
