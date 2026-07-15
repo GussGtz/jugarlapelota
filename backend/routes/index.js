@@ -1797,12 +1797,17 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
     }
   }
 
-  // Nombres repetidos dentro del MISMO envío (ej. "Club X A" escrito dos veces)
-  const seenNames = new Set()
+  // Nombres repetidos dentro de la MISMA categoría (ej. "Club X A" escrito dos
+  // veces como equipo extra) — escopado por categoryId, NO globalmente: el
+  // mismo team_name se repite a propósito una vez por cada categoría
+  // seleccionada (así ha funcionado siempre inscribirse en varias categorías
+  // a la vez), eso NO es un duplicado real.
+  const seenByCategory = {}
   for (const c of categories) {
     const norm = c.teamName.toLowerCase()
-    if (seenNames.has(norm)) return res.status(400).json({ error: `El nombre de equipo "${c.teamName}" está repetido en tu propia solicitud.` })
-    seenNames.add(norm)
+    if (!seenByCategory[c.id]) seenByCategory[c.id] = new Set()
+    if (seenByCategory[c.id].has(norm)) return res.status(400).json({ error: `El nombre de equipo "${c.teamName}" está repetido en la categoría "${c.name}".` })
+    seenByCategory[c.id].add(norm)
   }
 
   // Prevenir inscripción duplicada del mismo equipo en el mismo torneo —

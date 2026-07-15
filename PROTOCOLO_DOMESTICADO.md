@@ -568,3 +568,14 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 - Se agregó `console.error` al catch de `POST /upload/public` (antes tragaba el error en silencio sin loguearlo, a diferencia de `POST /upload`) — ayudó a diagnosticar este mismo fix y evita que un futuro problema de Cloudinary quede invisible.
 
 **Validado con:** subida real contra la cuenta de Cloudinary de producción vía `curl` — un `.txt` y un `.xyz` (extensión desconocida) que antes se rechazaban ahora suben correctamente como `resource_type: raw`; un `.png` y un `.pdf` de control confirmaron que el comportamiento para imágenes y PDF no cambió (`image` y `raw` respectivamente, igual que antes). Build de producción del frontend limpio.
+
+### 2026-07-15 — INCIDENTE: la feature de equipos A/B tumbó el registro normal (2+ categorías, mismo nombre)
+**Reporte del usuario:** captura de pantalla mostrando "El nombre de equipo "Venados FC Cancun" está repetido en tu propia solicitud" al intentar una inscripción normal.
+
+**Causa raíz:** el chequeo de "nombre repetido dentro del mismo envío" (agregado junto con la feature de equipos A/B, ver entrada anterior) comparaba el `teamName` de cada entrada de `categories` **sin tener en cuenta la categoría**. Pero es *completamente normal e intencional* que el mismo `team_name` aparezca una vez por cada categoría seleccionada (así ha funcionado siempre inscribirse en varias categorías a la vez, ej. un equipo en Sub-7 Y Sub-9) — el check lo interpretaba como un duplicado real y bloqueaba con 400 cualquier inscripción con 2+ categorías, que es el caso más común de la plataforma.
+
+**Corrección:** el chequeo ahora escopa la detección de duplicados por `categoryId` (`seenByCategory[cat.id]` en vez de un único `Set` global en `backend/routes/index.js`) — solo bloquea si el MISMO nombre se repite dentro de la MISMA categoría (el caso real que se quería prevenir: escribir "Club X A" dos veces como equipo extra), nunca entre categorías distintas.
+
+**Validado con:** reproducido el bug exacto en local (2 categorías, mismo `team_name`, sin equipos extra) — antes del fix devolvía 400, después crea la inscripción correctamente con una entrada por categoría. Se confirmó que el caso que sí debe bloquearse (mismo nombre repetido como equipo extra dentro de la MISMA categoría) sigue bloqueado. Build de producción limpio.
+
+**Nota de operación:** al diagnosticar este bug se hicieron pruebas directas contra la API de producción para confirmar el mensaje de error exacto — una de ellas (`auto_approve_inscriptions` activo en ese torneo) creó un equipo real de prueba ("Diagnostico Test XYZ", categoría Sub-7). Se le indicó al usuario eliminarlo manualmente desde Admin → Equipos, ya que no se cuenta con credenciales de admin de producción para hacerlo automáticamente.
