@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
 const authCtrl        = require('../controllers/auth.controller')
 const tournamentsCtrl = require('../controllers/tournaments.controller')
-const { teamFollowerCount, teamFollowerCounts, playerFollowerCount, playerFollowerCounts } = require('../utils/followers')
+const { teamFollowerCount, teamFollowerCounts, playerFollowerCount, playerFollowerCounts, linkDeviceAccount } = require('../utils/followers')
 
 // ── CURP utility ─────────────────────────────────────────────────────────────
 function parseCURP(curp) {
@@ -3404,6 +3404,7 @@ router.post('/push/unsubscribe', async (req, res) => {
 // sobrevive a cambios de dispositivo/navegador mientras el usuario esté logueado.
 router.post('/follows', optionalAuth, async (req, res) => {
   const { endpoint } = req.body
+  if (endpoint && req.user?.id) await linkDeviceAccount(endpoint, req.user.id)
   const ids = new Set()
   if (endpoint) {
     const rows = (await query('SELECT team_id FROM team_follows WHERE endpoint=$1', [endpoint])).rows
@@ -3421,6 +3422,7 @@ router.post('/follows/add', optionalAuth, async (req, res) => {
   if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
   if (!teamId) return res.status(400).json({ error: 'Faltan datos' })
   try {
+    if (endpoint && req.user?.id) await linkDeviceAccount(endpoint, req.user.id)
     if (endpoint) await query('INSERT INTO team_follows (endpoint, team_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, teamId])
     if (req.user?.id) await query('INSERT INTO user_team_follows (user_id, team_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.user.id, teamId])
     res.json({ ok: true })
@@ -3439,6 +3441,7 @@ router.post('/follows/remove', optionalAuth, async (req, res) => {
 // ── Tournament follows ─────────────────────────────────────────────────────
 router.post('/follows/tournaments', optionalAuth, async (req, res) => {
   const { endpoint } = req.body
+  if (endpoint && req.user?.id) await linkDeviceAccount(endpoint, req.user.id)
   const ids = new Set()
   if (endpoint) {
     const rows = (await query('SELECT tournament_id FROM tournament_follows WHERE endpoint=$1', [endpoint])).rows
@@ -3456,6 +3459,7 @@ router.post('/follows/tournament/add', optionalAuth, async (req, res) => {
   if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
   if (!tournamentId) return res.status(400).json({ error: 'Faltan datos' })
   try {
+    if (endpoint && req.user?.id) await linkDeviceAccount(endpoint, req.user.id)
     if (endpoint) await query('INSERT INTO tournament_follows (endpoint, tournament_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, tournamentId])
     if (req.user?.id) await query('INSERT INTO user_tournament_follows (user_id, tournament_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.user.id, tournamentId])
     res.json({ ok: true })
@@ -3474,6 +3478,7 @@ router.post('/follows/tournament/remove', optionalAuth, async (req, res) => {
 // ── Player follows ──────────────────────────────────────────────────────────
 router.post('/follows/players', optionalAuth, async (req, res) => {
   const { endpoint } = req.body
+  if (endpoint && req.user?.id) await linkDeviceAccount(endpoint, req.user.id)
   const ids = new Set()
   if (endpoint) {
     const rows = (await query('SELECT player_id FROM player_follows WHERE endpoint=$1', [endpoint])).rows
@@ -3491,6 +3496,7 @@ router.post('/follows/player/add', optionalAuth, async (req, res) => {
   if (!endpoint && !req.user?.id) return res.status(400).json({ error: 'Faltan datos' })
   if (!playerId) return res.status(400).json({ error: 'Faltan datos' })
   try {
+    if (endpoint && req.user?.id) await linkDeviceAccount(endpoint, req.user.id)
     if (endpoint) await query('INSERT INTO player_follows (endpoint, player_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [endpoint, playerId])
     if (req.user?.id) await query('INSERT INTO user_player_follows (user_id, player_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.user.id, playerId])
     res.json({ ok: true })

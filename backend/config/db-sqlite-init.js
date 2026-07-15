@@ -83,6 +83,10 @@ module.exports = function initSQLite(db, bcrypt) {
       p256dh TEXT NOT NULL, auth TEXT NOT NULL, user_agent TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS device_accounts (
+      endpoint TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL, role TEXT DEFAULT 'viewer', avatar TEXT,
