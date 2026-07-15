@@ -39,7 +39,7 @@
             :key="t.id"
             v-reveal="{ delay: i * 90 }"
             :to="`/${t.slug}`"
-            class="card group hover:scale-[1.02] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 ease-out block"
+            class="card group hover:scale-[1.02] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 ease-out block min-w-0"
             :style="{ borderColor: t.primaryColor || '' }"
           >
             <div class="overflow-hidden rounded-xl mb-4">
@@ -48,11 +48,11 @@
                 <IconTrophy class="w-10 h-10 text-gray-500" />
               </div>
             </div>
-            <div class="flex items-center gap-3">
-              <img v-if="t.logo" :src="t.logo" class="w-10 h-10 object-contain" />
-              <div>
-                <h3 class="font-bold text-slate-900 group-hover:text-primary transition-colors">{{ t.name }}</h3>
-                <p class="text-slate-500 text-xs flex items-center gap-1"><IconMapPin class="w-3 h-3" /> {{ t.location }}</p>
+            <div class="flex items-center gap-3 min-w-0">
+              <img v-if="t.logo" :src="t.logo" class="w-10 h-10 object-contain shrink-0" />
+              <div class="min-w-0">
+                <h3 class="font-bold text-slate-900 group-hover:text-primary transition-colors truncate">{{ t.name }}</h3>
+                <p class="text-slate-500 text-xs flex items-center gap-1 truncate"><IconMapPin class="w-3 h-3 shrink-0" /> <span class="truncate">{{ t.location }}</span></p>
               </div>
             </div>
           </router-link>
@@ -78,7 +78,7 @@
         <h2 class="section-title">Los más seguidos</h2>
       </div>
       <div class="grid sm:grid-cols-2 gap-6">
-        <div v-if="topTournaments.length" class="card">
+        <div v-if="topTournaments.length" class="card min-w-0">
           <p class="text-xs font-black uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
             <IconTrophy class="w-3.5 h-3.5" /> Torneos
           </p>
@@ -95,7 +95,7 @@
             </span>
           </router-link>
         </div>
-        <div v-if="topTeams.length" class="card">
+        <div v-if="topTeams.length" class="card min-w-0">
           <p class="text-xs font-black uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
             <IconShirt class="w-3.5 h-3.5" /> Equipos
           </p>

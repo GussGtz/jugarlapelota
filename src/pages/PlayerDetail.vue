@@ -24,7 +24,7 @@
       <p v-if="player.followerCount > 0" class="text-slate-400 text-xs flex items-center gap-1 -mt-3 ml-1">
         <IconHeart class="w-3 h-3 text-red-400" /> {{ player.followerCount }} seguidor{{ player.followerCount !== 1 ? 'es' : '' }}
       </p>
-      <div class="grid grid-cols-4 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div class="card text-center">
           <p class="text-3xl font-black text-accent">{{ player.goals }}</p>
           <p class="text-slate-500 text-xs mt-1">Goles</p>

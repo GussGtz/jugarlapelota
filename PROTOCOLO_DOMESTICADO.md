@@ -589,3 +589,17 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 - `backend/routes/index.js`: `POST /inscriptions` acepta el nuevo campo opcional `primaryTeamNames` y lo usa como override del nombre principal de esa categoría (si no se manda, sigue usando el nombre global de siempre — sin cambio de comportamiento para inscripciones de un solo equipo).
 
 **Validado con:** flujo real en navegador — al agregar un 2do equipo a Sub-7, el campo "Equipo 1" aparece precargado y editable, el texto se ve en negro con buen contraste; se guardaron "Sporting Club A" y "Sporting Club B" (dos nombres distintos y editados) en `categories_json`, confirmado directo en la base de datos. Build de producción limpio.
+
+### 2026-07-15 — Fix: overflow horizontal en móvil (stats de equipo, listados de torneos)
+**Pedido:** capturas mostrando el contador de un equipo perdiendo el texto "SEGUIDORES" en móvil, y la sección "Los más seguidos" con tarjetas cortadas en el borde derecho.
+
+**Causa raíz #1 (`TeamDetail.vue`):** la fila de stats (Jugadores/Partidos/Seguidores) usa `grid grid-cols-2 sm:grid-cols-5` — las celdas de DT/Capitán ya tenían `min-w-0` + `truncate`, pero Jugadores/Partidos/Seguidores no, así que esas 3 celdas no podían encogerse por debajo del ancho de su contenido y forzaban overflow horizontal en el layout de 2 columnas de móvil.
+
+**Causa raíz #2 (patrón más profundo, encontrado al reproducir "Los más seguidos"):** agregar `min-w-0`+`truncate` a los elementos INTERNOS de una tarjeta no basta si la tarjeta misma es hija directa de un `grid` sin `min-w-0` — un elemento grid/flex tiene `min-width: auto` por defecto, así que si su contenido interno "quiere" ser más ancho, la tarjeta completa (y por lo tanto la pista del grid) crece más allá del contenedor aunque el texto de adentro tenga `truncate`. Se confirmó inyectando un nombre largo real ("Cañeros de Zacatepec Filial Valladolid...") vía DOM: con solo el fix interno, la tarjeta seguía saliéndose del viewport (`cardWidth: 533px` vs `gridParentWidth: 343px`); con `min-w-0` en la tarjeta misma, truncó correctamente.
+
+**Corrección:**
+- `TeamDetail.vue`: `min-w-0` + `truncate` agregado a las celdas de Jugadores/Partidos/Seguidores (mismo patrón que DT/Capitán). Grid de Victorias/Empates/Derrotas/Goles y el grid de la Plantilla pasan a `grid-cols-2 sm:grid-cols-4` / con `min-w-0` en cada tarjeta de jugador, para no depender de que 4-5 columnas quepan en pantallas angostas.
+- `PlayerDetail.vue`: mismo ajuste `grid-cols-2 sm:grid-cols-4` en el grid de stats (Goles/Asistencias/Amarillas/Rojas).
+- `Home.vue` y `Tournaments.vue`: se agregó `min-w-0` a las tarjetas de torneo (`router-link.card`, hijas directas del grid) y `min-w-0`+`truncate` a su nombre/ubicación interna — mismo patrón en ambos archivos porque comparten el mismo diseño de tarjeta.
+
+**Validado con:** en navegador, a 320px/375px de ancho — confirmado `document.documentElement.scrollWidth === clientWidth` (sin overflow) en `TeamDetail.vue` con datos reales, y en `Home.vue`/tarjetas de torneo tras inyectar nombres largos vía DOM para forzar el escenario exacto de las capturas del usuario — el texto ahora trunca con elipsis en vez de desbordar. Revisado también el dashboard de admin en 375px (ya manejaba esto correctamente, sin cambios necesarios). Build de producción limpio.

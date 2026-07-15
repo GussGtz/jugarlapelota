@@ -64,25 +64,25 @@
               <p class="text-sm font-semibold text-slate-900 truncate">{{ profile.team.captain }}</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 px-4 py-3 border-r border-slate-100">
+          <div class="flex items-center gap-2 px-4 py-3 border-r border-slate-100 min-w-0">
             <IconUsers class="w-4 h-4 text-slate-400 shrink-0" />
-            <div>
-              <p class="text-[10px] text-slate-400 uppercase tracking-wide">Jugadores</p>
-              <p class="text-sm font-semibold text-slate-900">{{ profile.players.length }}</p>
+            <div class="min-w-0">
+              <p class="text-[10px] text-slate-400 uppercase tracking-wide truncate">Jugadores</p>
+              <p class="text-sm font-semibold text-slate-900 truncate">{{ profile.players.length }}</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 px-4 py-3 border-r border-slate-100">
+          <div class="flex items-center gap-2 px-4 py-3 border-r border-slate-100 min-w-0">
             <IconCircleDot class="w-4 h-4 text-slate-400 shrink-0" />
-            <div>
-              <p class="text-[10px] text-slate-400 uppercase tracking-wide">Partidos</p>
-              <p class="text-sm font-semibold text-slate-900">{{ profile.stats.matchesPlayed }}</p>
+            <div class="min-w-0">
+              <p class="text-[10px] text-slate-400 uppercase tracking-wide truncate">Partidos</p>
+              <p class="text-sm font-semibold text-slate-900 truncate">{{ profile.stats.matchesPlayed }}</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 px-4 py-3">
+          <div class="flex items-center gap-2 px-4 py-3 min-w-0">
             <IconHeart class="w-4 h-4 text-red-400 shrink-0" />
-            <div>
-              <p class="text-[10px] text-slate-400 uppercase tracking-wide">Seguidores</p>
-              <p class="text-sm font-semibold text-slate-900">{{ profile.stats.followerCount }}</p>
+            <div class="min-w-0">
+              <p class="text-[10px] text-slate-400 uppercase tracking-wide truncate">Seguidores</p>
+              <p class="text-sm font-semibold text-slate-900 truncate">{{ profile.stats.followerCount }}</p>
             </div>
           </div>
         </div>
@@ -99,7 +99,7 @@
       </div>
 
       <!-- Stats grid -->
-      <div class="grid grid-cols-4 gap-2 md:gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 text-center">
           <p class="text-2xl md:text-3xl font-black text-emerald-500">{{ profile.stats.wins }}</p>
           <p class="text-[10px] text-slate-400 mt-0.5 font-medium">Victorias</p>
@@ -152,7 +152,7 @@
         <!-- Plantilla -->
         <div v-if="activeTab === 'squad'" class="grid sm:grid-cols-2 gap-2">
           <div v-for="p in profile.players" :key="p.id"
-            class="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex items-center gap-3 hover:border-primary/30 transition-colors cursor-pointer"
+            class="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex items-center gap-3 hover:border-primary/30 transition-colors cursor-pointer min-w-0"
             @click="$router.push(`/${slug}/jugador/${p.id}`)">
             <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0"
               :style="{ background: teamColor }">
