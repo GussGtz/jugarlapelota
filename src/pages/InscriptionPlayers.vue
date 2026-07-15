@@ -324,7 +324,7 @@
                           <div class="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>
                       </div>
-                      <input :ref="setEditDocInput" type="file" accept="image/*,.heic,.heif,application/pdf" class="hidden" @change="onEditDocChange"/>
+                      <input :ref="setEditDocInput" type="file" class="hidden" @change="onEditDocChange"/>
                       <button type="button" @click="editDocInputEl?.click()"
                         class="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-white transition-colors">
                         {{ editForm.documento_oficial ? 'Cambiar documento' : 'Subir documento' }}
@@ -441,7 +441,7 @@
                         <div class="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     </div>
-                    <input :ref="el => setDocRef(el, playerKey(cat), idx)" type="file" accept="image/*,.heic,.heif,application/pdf" class="hidden"
+                    <input :ref="el => setDocRef(el, playerKey(cat), idx)" type="file" class="hidden"
                       @change="e => onDocChange(e, playerKey(cat), idx)"/>
                     <div class="flex-1">
                       <button type="button" @click="triggerDocInput(playerKey(cat), idx)"

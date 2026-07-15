@@ -57,32 +57,30 @@ cloudinary.config({
 })
 
 // ── File upload → Cloudinary ──────────────────────────────────────────────────
+// Sin fileFilter: antes había una lista blanca de 14 extensiones y cualquier
+// archivo fuera de ella se rechazaba en silencio (cb(null,false) → "Archivo no
+// válido" genérico) — pasaba con documentos oficiales escaneados en formatos
+// menos comunes, actas exportadas por apps distintas al carrete del teléfono,
+// etc. El único límite real que debe existir es el de tamaño (25 MB).
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB
-  fileFilter: (_req, file, cb) => {
-    // .heic/.heif (formato nativo de fotos de iPhone) faltaban aquí — por eso
-    // se rechazaban credenciales/actas/cartas tomadas directo del celular al
-    // registrar jugadores. Cloudinary sí sabe procesar HEIC (lo convierte a
-    // JPEG/WebP en la entrega gracias a fetch_format:'auto' en uploadToCloudinary),
-    // el problema era este filtro cortándolo antes de siquiera intentarlo.
-    const allowed = ['.jpg','.jpeg','.png','.webp','.gif','.svg','.bmp','.tiff','.tif','.heic','.heif','.mp4','.mov','.pdf']
-    cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()))
-  }
 })
 
 // Subida pública (para inscripciones sin auth)
-async function uploadToCloudinary(buffer, mimetype) {
+// filename se usa solo para decidir resource_type cuando el mimetype no es
+// confiable (ej. HEIC/HEIF de iPhone, que a veces llega vacío o genérico).
+async function uploadToCloudinary(buffer, mimetype, filename = '') {
   return new Promise((resolve, reject) => {
+    const ext = path.extname(filename).toLowerCase()
     const isVideo = mimetype.startsWith('video/')
-    const isPdf   = mimetype === 'application/pdf'
-    // PDFs se suben como 'raw'. La entrega de PDF vía resource_type 'image' está
-    // bloqueada por el plan de la cuenta de Cloudinary (401 "deny or ACL failure",
-    // persiste incluso con URLs firmadas) — para verlos inline se usa el proxy
-    // GET /documents/proxy en vez de depender de que Cloudinary lo sirva directo.
-    const resourceType = isVideo ? 'video' : isPdf ? 'raw' : 'image'
+    const isImage = mimetype.startsWith('image/') || ['.heic', '.heif'].includes(ext)
+    // Todo lo que no sea imagen o video (PDF, Word, Excel, ZIP, lo que sea)
+    // se sube como 'raw' — subirlo como 'image' hace que Cloudinary lo
+    // rechace de plano en cuanto se quitó la lista blanca de arriba.
+    const resourceType = isVideo ? 'video' : isImage ? 'image' : 'raw'
     const opts = { folder: 'jugarlapelota', resource_type: resourceType }
-    if (!isPdf && !isVideo) { opts.quality = 'auto'; opts.fetch_format = 'auto' }
+    if (isImage) { opts.quality = 'auto'; opts.fetch_format = 'auto' }
     cloudinary.uploader.upload_stream(opts,
       (err, result) => err ? reject(err) : resolve(result.secure_url)
     ).end(buffer)
@@ -92,7 +90,7 @@ async function uploadToCloudinary(buffer, mimetype) {
 router.post('/upload', authMiddleware, adminOnly, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Archivo no válido o muy grande (máx 25 MB)' })
   try {
-    const url = await uploadToCloudinary(req.file.buffer, req.file.mimetype)
+    const url = await uploadToCloudinary(req.file.buffer, req.file.mimetype, req.file.originalname)
     res.json({ url })
   } catch (e) {
     console.error('[upload]', e.message)
@@ -130,9 +128,10 @@ router.get('/documents/proxy', async (req, res) => {
 router.post('/upload/public', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Archivo no válido' })
   try {
-    const url = await uploadToCloudinary(req.file.buffer, req.file.mimetype)
+    const url = await uploadToCloudinary(req.file.buffer, req.file.mimetype, req.file.originalname)
     res.json({ url })
   } catch (e) {
+    console.error('[upload/public]', e.message)
     res.status(500).json({ error: 'Error al subir imagen' })
   }
 })
