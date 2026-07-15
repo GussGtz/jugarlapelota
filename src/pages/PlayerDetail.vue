@@ -47,19 +47,30 @@
 </template>
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { useFollowingStore } from '@/stores/following'
+import { useAuthStore } from '@/stores/auth'
+import { usePWA } from '@/composables/usePWA'
 
 const route = useRoute()
+const router = useRouter()
 const player = ref(null)
 const loading = ref(true)
 const following = useFollowingStore()
+const auth = useAuthStore()
+const { pushGranted, subscribePush, pushEndpoint } = usePWA()
 
 const isFollowed = computed(() => player.value ? following.isFollowingPlayer(player.value.id) : false)
 
 async function toggleFollow() {
-  await following.togglePlayer(player.value.id)
+  if (!auth.isLoggedIn) {
+    // Igual que con equipos/torneos: manda a login primero, guardando la ruta para volver
+    router.push({ name: 'Login', query: { redirect: route.fullPath } })
+    return
+  }
+  if (!pushGranted.value) await subscribePush()
+  await following.togglePlayer(player.value.id, pushEndpoint.value)
   player.value.followerCount = (player.value.followerCount || 0) + (isFollowed.value ? 1 : -1)
 }
 
