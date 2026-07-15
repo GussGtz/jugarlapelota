@@ -48,6 +48,11 @@ module.exports = function initSQLite(db, bcrypt) {
   safe('ALTER TABLE inscriptions ADD COLUMN registration_token TEXT')
   safe('ALTER TABLE news ADD COLUMN view_count INTEGER DEFAULT 0')
   safe('ALTER TABLE galleries ADD COLUMN view_count INTEGER DEFAULT 0')
+  // Distingue a cuál equipo (dentro de una categoría con más de uno, ej.
+  // "Club X A"/"Club X B") pertenece cada jugador propuesto. Backfill para
+  // que las filas viejas no se queden en NULL (ver comentario en db-schema.js).
+  safe('ALTER TABLE inscription_players ADD COLUMN team_name TEXT')
+  safe(`UPDATE inscription_players SET team_name = (SELECT team_name FROM inscriptions WHERE id = inscription_players.inscription_id) WHERE team_name IS NULL`)
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS phase_groups (

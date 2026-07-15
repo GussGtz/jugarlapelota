@@ -736,15 +736,21 @@ router.post('/players/check-duplicate', authMiddleware, adminOnly, async (req, r
   res.json({ duplicate: dup || null })
 })
 router.delete('/players/:id', authMiddleware, adminOnly, async (req, res) => {
-  const p = await queryOne('SELECT pl.curp, t.tournament_id, t.inscription_id FROM players pl JOIN teams t ON pl.team_id=t.id WHERE pl.id=$1', [req.params.id])
+  const p = await queryOne('SELECT pl.curp, t.tournament_id, t.inscription_id, t.category_id, t.name AS "teamName" FROM players pl JOIN teams t ON pl.team_id=t.id WHERE pl.id=$1', [req.params.id])
   if (!p) return res.status(404).json({ error: 'Jugador no encontrado' })
   if (!await checkOwnerByTournamentId(req, res, p.tournament_id)) return
   await query('DELETE FROM players WHERE id=$1', [req.params.id])
   // Sin esto, el registro que originó a este jugador queda huérfano en
   // inscription_players y el link público de registro sigue rechazando la misma
   // CURP como "ya registrada" aunque el jugador ya no exista en el roster.
+  // Se escopa por categoría+equipo (no solo CURP): la misma CURP puede
+  // aparecer legítimamente en OTRA categoría de la misma inscripción, y con
+  // 2 equipos en una categoría el DELETE debe tocar solo el equipo correcto.
   if (p.curp && p.inscription_id) {
-    await query('DELETE FROM inscription_players WHERE inscription_id=$1 AND UPPER(curp)=$2', [p.inscription_id, p.curp.toUpperCase()])
+    await query(
+      'DELETE FROM inscription_players WHERE inscription_id=$1 AND category_id=$2 AND team_name=$3 AND UPPER(curp)=$4',
+      [p.inscription_id, p.category_id, p.teamName, p.curp.toUpperCase()]
+    )
   }
   res.status(204).end()
 })
@@ -1763,17 +1769,10 @@ router.get('/tournaments/:slug/inscriptions', authMiddleware, adminOnly, async (
   res.json(result)
 })
 router.post('/inscriptions', async (req, res) => {  // Public — no auth
-  const {tournamentId,categoryIds,team_name,contact_name,contact_email,contact_phone,players_count,notes,players,logo} = req.body
+  const {tournamentId,categoryIds,team_name,contact_name,contact_email,contact_phone,players_count,notes,players,logo,extraTeams} = req.body
   if(!team_name||!contact_name||!contact_email) return res.status(400).json({error:'Campos requeridos faltantes'})
   if(!tournamentId) return res.status(400).json({error:'Torneo no especificado'})
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email)) return res.status(400).json({error:'El correo electrónico no tiene un formato válido'})
-  // Prevenir inscripción duplicada del mismo equipo en el mismo torneo
-  const dup = await queryOne(
-    "SELECT id FROM inscriptions WHERE tournament_id=$1 AND LOWER(TRIM(team_name))=LOWER(TRIM($2)) AND status<>'rejected'",
-    [tournamentId, team_name.trim()]
-  )
-  if (dup) return res.status(409).json({ error: 'Ya existe una inscripción con ese nombre de equipo en este torneo. Si ya enviaste tu solicitud, revisa tu correo o contacta al organizador.' })
-  const token = crypto.randomBytes(20).toString('hex')
   const tournament = await queryOne('SELECT id,auto_approve_inscriptions FROM tournaments WHERE id=$1', [tournamentId])
   if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' })
   // Resolver y validar categorías — obligatorias y deben pertenecer a este torneo
@@ -1783,8 +1782,54 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
   // público completo en desarrollo local, incluyendo esta ruta de alta).
   const catPh1 = categoryIds.map((_, i) => `$${i + 1}`).join(',')
   const catRows = (await query(`SELECT id,name FROM categories WHERE id IN (${catPh1}) AND tournament_id=$${categoryIds.length + 1}`, [...categoryIds, tournament.id])).rows
-  const categories = catRows.map(c => ({ id: c.id, name: c.name }))
-  if (!categories.length) return res.status(400).json({ error: 'Las categorías seleccionadas no son válidas para este torneo' })
+  if (!catRows.length) return res.status(400).json({ error: 'Las categorías seleccionadas no son válidas para este torneo' })
+
+  // Una entry "principal" (team_name) por categoría, más una entry extra por
+  // cada nombre en extraTeams[categoryId] — así un mismo club puede inscribir
+  // 2+ equipos en la misma categoría (ej. "Club X A"/"Club X B") desde un
+  // solo formulario, en vez de mandar inscripciones separadas y desconectadas.
+  const categories = []
+  for (const c of catRows) {
+    categories.push({ id: c.id, name: c.name, teamName: team_name.trim() })
+    const extras = Array.isArray(extraTeams?.[c.id]) ? extraTeams[c.id] : []
+    for (const extraName of extras) {
+      const trimmed = (extraName || '').trim()
+      if (trimmed) categories.push({ id: c.id, name: c.name, teamName: trimmed })
+    }
+  }
+
+  // Nombres repetidos dentro del MISMO envío (ej. "Club X A" escrito dos veces)
+  const seenNames = new Set()
+  for (const c of categories) {
+    const norm = c.teamName.toLowerCase()
+    if (seenNames.has(norm)) return res.status(400).json({ error: `El nombre de equipo "${c.teamName}" está repetido en tu propia solicitud.` })
+    seenNames.add(norm)
+  }
+
+  // Prevenir inscripción duplicada del mismo equipo en el mismo torneo —
+  // compara CADA nombre de este envío (principal + extras) contra team_name
+  // y los teamName embebidos en categories_json de OTRAS inscripciones no
+  // rechazadas. En JS (no SQL) para no depender de funciones JSON específicas
+  // de Postgres/SQLite (mismo criterio portable que otras queries del proyecto).
+  const otherInscriptions = (await query(
+    "SELECT team_name, categories_json FROM inscriptions WHERE tournament_id=$1 AND status<>'rejected'",
+    [tournamentId]
+  )).rows
+  const existingNames = new Set()
+  for (const insc of otherInscriptions) {
+    if (insc.team_name) existingNames.add(insc.team_name.trim().toLowerCase())
+    if (insc.categories_json) {
+      try {
+        for (const c of JSON.parse(insc.categories_json)) {
+          if (c.teamName) existingNames.add(c.teamName.trim().toLowerCase())
+        }
+      } catch {}
+    }
+  }
+  const dupName = categories.find(c => existingNames.has(c.teamName.toLowerCase()))
+  if (dupName) return res.status(409).json({ error: `Ya existe una inscripción con el nombre de equipo "${dupName.teamName}" en este torneo. Si ya enviaste tu solicitud, revisa tu correo o contacta al organizador.` })
+
+  const token = crypto.randomBytes(20).toString('hex')
   const firstCatId = categories[0]?.id || null
   const autoApprove = tournament.auto_approve_inscriptions === 1
   const status = autoApprove ? 'approved' : 'pending'
@@ -1895,14 +1940,35 @@ async function createTeamsFromInscription(insc) {
     console.warn(`[createTeams] Inscripción ${insc.id}: ninguna categoría del JSON existe ya en BD`)
     return
   }
+  // cat.teamName distingue equipos cuando una categoría tiene más de uno en
+  // esta inscripción (ej. "Club X A"/"Club X B") — entries viejas (creadas
+  // antes de esta feature) no tienen teamName, así que caen al team_name
+  // principal de la inscripción.
   for (const cat of validCats) {
-    const ex = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2', [insc.id, cat.id])
+    const resolvedName = (cat.teamName || insc.team_name || '').trim()
+    const ex = await queryOne(
+      'SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2 AND LOWER(TRIM(name))=LOWER(TRIM($3))',
+      [insc.id, cat.id, resolvedName]
+    )
     if (!ex) {
       try {
-        await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, cat.id, insc.team_name, insc.logo||null, insc.id])
+        await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, cat.id, resolvedName, insc.logo||null, insc.id])
       } catch (e) {
-        // Otra aprobación concurrente de la misma inscripción ya creó el equipo — no pasa nada
         if (!isUniqueViolation(e)) throw e
+        // El nombre ya existe en (torneo,categoría) — puede ser una doble
+        // aprobación concurrente de ESTA misma inscripción (inofensivo) o un
+        // conflicto real con OTRA inscripción que llegó al mismo nombre (el
+        // chequeo de POST /inscriptions no lo evita si ambas solicitudes se
+        // crearon antes de que cualquiera fuera aprobada/rechazada). En el
+        // segundo caso no se traga el error en silencio: si se ignorara, los
+        // jugadores de este equipo nunca encontrarían su team_id real.
+        const clash = await queryOne(
+          'SELECT inscription_id FROM teams WHERE tournament_id=$1 AND category_id=$2 AND LOWER(TRIM(name))=LOWER(TRIM($3))',
+          [insc.tournament_id, cat.id, resolvedName]
+        )
+        if (clash && String(clash.inscription_id) === String(insc.id)) continue
+        console.error(`[createTeams] Conflicto: "${resolvedName}" en categoría ${cat.id} ya pertenece a la inscripción #${clash?.inscription_id}, no a #${insc.id}`)
+        throw new Error(`No se pudo crear el equipo "${resolvedName}": ya existe otro equipo con ese nombre en esta categoría. Cambia el nombre e inténtalo de nuevo.`)
       }
     }
   }
@@ -1924,12 +1990,22 @@ router.get('/inscriptions/:id/register', async (req, res) => {
   }
   let categories = []
   if (insc.categories_json) { try { categories = JSON.parse(insc.categories_json) } catch{} }
+  // Antes de deduplicar por id (el SELECT de abajo trae una fila por
+  // categoría real), calcular qué nombres de equipo tiene cada categoría —
+  // normalmente 1, pero puede haber 2+ si el club inscribió varios equipos
+  // en la misma categoría (ej. "Club X A"/"Club X B").
+  const teamsByCategory = {}
+  for (const c of categories) {
+    const name = (c.teamName || insc.team_name || '').trim()
+    if (!teamsByCategory[c.id]) teamsByCategory[c.id] = []
+    if (name && !teamsByCategory[c.id].includes(name)) teamsByCategory[c.id].push(name)
+  }
   // Load full category data (with age config)
   if (categories.length) {
-    const ids = categories.map(c => c.id)
+    const ids = [...new Set(categories.map(c => c.id))]
     const catPh3 = ids.map((_, i) => `$${i + 1}`).join(',')
     const catRows = (await query(`SELECT * FROM categories WHERE id IN (${catPh3}) ORDER BY id`, ids)).rows
-    categories = catRows
+    categories = catRows.map(cat => ({ ...cat, teams: teamsByCategory[cat.id] || [insc.team_name] }))
   }
   const players       = (await query('SELECT ip.*,c.name AS "categoryName" FROM inscription_players ip LEFT JOIN categories c ON ip.category_id=c.id WHERE ip.inscription_id=$1 ORDER BY ip.category_id,ip.id', [insc.id])).rows
   const responsables  = (await query('SELECT * FROM inscription_responsables WHERE inscription_id=$1 ORDER BY category_id,orden', [insc.id])).rows
@@ -1964,9 +2040,34 @@ router.post('/inscriptions/:id/players', async (req, res) => {
     return res.status(400).json({error:'Esta categoría no forma parte de tu inscripción'})
   }
 
-  // Check max players per team for this category
+  // Si esta categoría tiene más de un equipo en esta inscripción (ej. "Club X
+  // A"/"Club X B"), hay que saber a cuál de los dos van estos jugadores.
+  let teamNamesForCat = []
+  if (insc.categories_json) {
+    try {
+      teamNamesForCat = [...new Set(
+        JSON.parse(insc.categories_json)
+          .filter(c => String(c.id) === String(categoryId))
+          .map(c => (c.teamName || insc.team_name || '').trim())
+          .filter(Boolean)
+      )]
+    } catch {}
+  }
+  if (!teamNamesForCat.length) teamNamesForCat = [insc.team_name]
+  let teamName = (req.body.teamName || '').trim()
+  if (teamNamesForCat.length > 1) {
+    if (!teamName || !teamNamesForCat.includes(teamName)) {
+      return res.status(400).json({ error: `Esta categoría tiene ${teamNamesForCat.length} equipos (${teamNamesForCat.join(', ')}) — especifica a cuál pertenecen estos jugadores.` })
+    }
+  } else {
+    teamName = teamNamesForCat[0]
+  }
+
+  // Check max players per team for this category — escopado por equipo
+  // (team_name), no solo por categoría: con 2 equipos en la misma categoría
+  // el cupo de cada uno es independiente.
   if (category.max_players_per_team) {
-    const currentCount = Number((await queryOne('SELECT COUNT(*) AS c FROM inscription_players WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])).c) || 0
+    const currentCount = Number((await queryOne('SELECT COUNT(*) AS c FROM inscription_players WHERE inscription_id=$1 AND category_id=$2 AND team_name=$3', [insc.id, categoryId, teamName])).c) || 0
     const remaining = category.max_players_per_team - currentCount
     if (remaining <= 0) {
       return res.status(400).json({ error: `Ya alcanzaste el límite de ${category.max_players_per_team} jugadores en ${category.name}.` })
@@ -2010,11 +2111,13 @@ router.post('/inscriptions/:id/players', async (req, res) => {
       const usesGirlsException = isFemale && category.min_birth_year && category.min_birth_year_girls &&
         curpData.birthYear < category.min_birth_year && curpData.birthYear >= category.min_birth_year_girls
       if (usesGirlsException) {
-        // Count how many already registered in this category use the exception (born < min_birth_year)
+        // Count how many already registered in this TEAM use the exception
+        // (born < min_birth_year) — escopado por equipo, no toda la categoría,
+        // para que el límite de 2 sea independiente entre equipo A y B.
         const existingExceptions = (await query(
           `SELECT ip.curp FROM inscription_players ip
-           WHERE ip.inscription_id=$1 AND ip.category_id=$2 AND ip.curp IS NOT NULL`,
-          [insc.id, categoryId]
+           WHERE ip.inscription_id=$1 AND ip.category_id=$2 AND ip.team_name=$3 AND ip.curp IS NOT NULL`,
+          [insc.id, categoryId, teamName]
         )).rows.filter(r => {
           const d = parseCURP(r.curp); return d && d.sex === 'M' && d.birthYear < category.min_birth_year && d.birthYear >= category.min_birth_year_girls
         })
@@ -2070,10 +2173,12 @@ router.post('/inscriptions/:id/players', async (req, res) => {
     // cambió a "if (num != null)" para no repetir el mismo bug un nivel más abajo.
     const num = p.number != null && p.number !== '' ? parseInt(p.number) : null
     if (num != null) {
+      // Escopado por equipo (t.name): dos equipos distintos en la misma
+      // categoría SÍ pueden repetir el mismo dorsal, cada uno con su roster.
       const dupNum = await queryOne(
         `SELECT p.id FROM players p JOIN teams t ON p.team_id=t.id
-         WHERE t.inscription_id=$1 AND t.category_id=$2 AND p.number=$3`,
-        [insc.id, categoryId, num]
+         WHERE t.inscription_id=$1 AND t.category_id=$2 AND LOWER(TRIM(t.name))=LOWER(TRIM($3)) AND p.number=$4`,
+        [insc.id, categoryId, teamName, num]
       )
       if (dupNum) {
         errors.push(`${name}: el número #${num} ya está registrado en esta categoría`)
@@ -2101,8 +2206,8 @@ router.post('/inscriptions/:id/players', async (req, res) => {
     let r
     try {
       r = await query(
-        'INSERT INTO inscription_players (inscription_id,category_id,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-        [insc.id, categoryId, p.name, p.number, p.position, p.curp, p.photo||null, p.documento_oficial||null]
+        'INSERT INTO inscription_players (inscription_id,category_id,team_name,name,number,position,curp,photo,documento_oficial) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
+        [insc.id, categoryId, teamName, p.name, p.number, p.position, p.curp, p.photo||null, p.documento_oficial||null]
       )
     } catch (e) {
       if (isUniqueViolation(e)) { errors.push(`${p.name}: CURP o número ya fue registrado por otro envío al mismo tiempo`); continue }
@@ -2111,8 +2216,12 @@ router.post('/inscriptions/:id/players', async (req, res) => {
     const newId = r.rows[0]?.id || r.lastInsertRowid
     inserted.push({ id: newId, ...p })
 
-    // Add to the team matching this specific category
-    const team = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2', [insc.id, categoryId])
+    // Add to the team matching this specific categoría+equipo (no basta con
+    // inscription_id+category_id: la categoría puede tener 2 equipos)
+    const team = await queryOne(
+      'SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2 AND LOWER(TRIM(name))=LOWER(TRIM($3))',
+      [insc.id, categoryId, teamName]
+    )
     if (team) {
       const dupPlayer = await queryOne('SELECT id FROM players WHERE team_id=$1 AND UPPER(curp)=$2', [team.id, p.curp])
       if (!dupPlayer) {
@@ -2158,7 +2267,10 @@ router.put('/inscriptions/:id/players/:playerId', async (req, res) => {
   // Ubicar primero el equipo y el jugador real correspondiente a esta fila —
   // hace falta su id para poder excluirlo de los checks de duplicado (si no, el
   // propio jugador se marcaría como "duplicado de sí mismo" al comparar CURPs).
-  const team = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2', [insc.id, existing.category_id])
+  const team = await queryOne(
+    'SELECT id FROM teams WHERE inscription_id=$1 AND category_id=$2 AND LOWER(TRIM(name))=LOWER(TRIM($3))',
+    [insc.id, existing.category_id, existing.team_name]
+  )
   const currentPlayer = team
     ? (existing.curp
         ? await queryOne('SELECT id FROM players WHERE team_id=$1 AND UPPER(curp)=$2', [team.id, existing.curp.toUpperCase()])
@@ -2189,10 +2301,12 @@ router.put('/inscriptions/:id/players/:playerId', async (req, res) => {
     if (dupOtherTeam) return res.status(409).json({ error: `CURP ${curp} ya está registrada en el equipo "${dupOtherTeam.teamName}"` })
   }
   if (number != null) {
+    // Escopado por equipo (t2.name): dos equipos distintos en la misma
+    // categoría sí pueden repetir el mismo dorsal.
     const dupNum = await queryOne(
       `SELECT p.id FROM players p JOIN teams t2 ON p.team_id=t2.id
-       WHERE t2.inscription_id=$1 AND t2.category_id=$2 AND p.number=$3 AND p.id IS DISTINCT FROM $4`,
-      [insc.id, existing.category_id, number, currentPlayer?.id || null]
+       WHERE t2.inscription_id=$1 AND t2.category_id=$2 AND LOWER(TRIM(t2.name))=LOWER(TRIM($3)) AND p.number=$4 AND p.id IS DISTINCT FROM $5`,
+      [insc.id, existing.category_id, existing.team_name, number, currentPlayer?.id || null]
     )
     if (dupNum) return res.status(409).json({ error: `El número #${number} ya está registrado en esta categoría` })
   }
@@ -2236,9 +2350,20 @@ router.get('/inscriptions/:id/responsables', authMiddleware, adminOnly, async (r
     'SELECT r.*,c.name AS "categoryName" FROM inscription_responsables r LEFT JOIN categories c ON r.category_id=c.id WHERE r.inscription_id=$1 ORDER BY r.category_id,r.orden',
     [insc.id]
   )).rows
-  // también devolvemos las categorías para el admin
-  let categories = []
-  if (insc.categories_json) { try { categories = JSON.parse(insc.categories_json) } catch {} }
+  // También devolvemos las categorías para el admin — deduplicadas por id con
+  // un array .teams[] (mismo formato que GET /inscriptions/:id/register), para
+  // que el admin muestre igual una inscripción pendiente que una aprobada
+  // aunque tengan 2+ equipos en la misma categoría.
+  let rawCategories = []
+  if (insc.categories_json) { try { rawCategories = JSON.parse(insc.categories_json) } catch {} }
+  const teamsByCategory = {}
+  for (const c of rawCategories) {
+    const name = (c.teamName || insc.team_name || '').trim()
+    if (!teamsByCategory[c.id]) teamsByCategory[c.id] = []
+    if (name && !teamsByCategory[c.id].includes(name)) teamsByCategory[c.id].push(name)
+  }
+  const uniqueCats = [...new Map(rawCategories.map(c => [c.id, c])).values()]
+  const categories = uniqueCats.map(c => ({ ...c, teams: teamsByCategory[c.id] || [insc.team_name] }))
   res.json({ responsables: rows, categories })
 })
 

@@ -45,12 +45,24 @@ const GUARDS = [
     createIndexSql: `CREATE UNIQUE INDEX IF NOT EXISTS uq_inscplayers_insc_cat_curp ON inscription_players(inscription_id, category_id, curp) WHERE curp IS NOT NULL`,
   },
   {
-    name: 'inscription_players_number',
+    // Nombre nuevo (no reutiliza uq_inscplayers_insc_cat_number): un índice ya
+    // creado con ese nombre en producción no se redefine solo por cambiar el
+    // SQL de createIndexSql — "CREATE ... IF NOT EXISTS" contra un nombre que
+    // ya existe es un no-op silencioso, dejaría la definición VIEJA (sin
+    // team_name) corriendo para siempre. El índice viejo se elimina abajo.
+    name: 'inscription_players_team_number',
+    // Incluye team_name: dos equipos DISTINTOS en la misma categoría (ej.
+    // "Club X A"/"Club X B") sí pueden repetir el mismo dorsal, cada uno
+    // tiene su propio roster. La migración de db-schema.js/db-sqlite-init.js
+    // backfillea team_name en filas viejas para que nunca quede NULL aquí
+    // (NULL no choca consigo mismo en un índice único, lo que dejaría de
+    // detectar dorsales duplicados en categorías de un solo equipo).
+    dropIndexSql: `DROP INDEX IF EXISTS uq_inscplayers_insc_cat_number`,
     findDuplicatesSql: `
-      SELECT inscription_id, category_id, number, COUNT(*) AS n FROM inscription_players
+      SELECT inscription_id, category_id, team_name, number, COUNT(*) AS n FROM inscription_players
       WHERE number IS NOT NULL
-      GROUP BY inscription_id, category_id, number HAVING COUNT(*) > 1`,
-    createIndexSql: `CREATE UNIQUE INDEX IF NOT EXISTS uq_inscplayers_insc_cat_number ON inscription_players(inscription_id, category_id, number) WHERE number IS NOT NULL`,
+      GROUP BY inscription_id, category_id, team_name, number HAVING COUNT(*) > 1`,
+    createIndexSql: `CREATE UNIQUE INDEX IF NOT EXISTS uq_inscplayers_insc_cat_team_number ON inscription_players(inscription_id, category_id, team_name, number) WHERE number IS NOT NULL`,
   },
   {
     name: 'inscriptions_tournament_teamname',
@@ -86,6 +98,7 @@ const GUARDS = [
 async function applyUniqueGuards({ query, exec }) {
   for (const g of GUARDS) {
     try {
+      if (g.dropIndexSql) await exec(g.dropIndexSql)
       const { rows: dupes } = await query(g.findDuplicatesSql)
       if (dupes.length) {
         console.warn(

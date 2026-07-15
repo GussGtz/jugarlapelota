@@ -46,12 +46,27 @@
               ? 'bg-primary text-white shadow'
               : 'bg-white border border-muted text-slate-600 hover:border-primary/40'">
             {{ cat.name }}
-            <span class="ml-1 text-xs opacity-70">({{ playersForCat(cat.id).length }}j)</span>
+            <span class="ml-1 text-xs opacity-70">({{ playersForCat(cat).length }}j)</span>
           </button>
         </div>
 
         <!-- Active category panel -->
         <div v-for="cat in inscription.categories" :key="cat.id" v-show="activeCategory === cat.id" class="space-y-5">
+
+          <!-- Sub-tabs de equipo — solo si este club inscribió 2+ equipos en esta
+               misma categoría (ej. "Club X A" / "Club X B") -->
+          <div v-if="cat.teams?.length > 1" class="flex gap-2 flex-wrap">
+            <button
+              v-for="team in cat.teams" :key="team"
+              type="button"
+              @click="activeTeamByCategory[cat.id] = team"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
+              :class="currentTeamName(cat) === team
+                ? 'bg-accent/10 border-accent text-accent'
+                : 'bg-white border-muted text-slate-500 hover:border-accent/40'">
+              {{ team }}
+            </button>
+          </div>
 
           <!-- ══ RESPONSABLES ══ -->
           <div class="card space-y-5">
@@ -62,21 +77,24 @@
               <div>
                 <h3 class="font-bold text-slate-900">Responsables / Cuerpo Técnico</h3>
                 <p class="text-xs text-slate-500">Mínimo 2 obligatorios · 3ro opcional · Cada uno con foto de hombros hacia arriba</p>
+                <p v-if="cat.teams?.length > 1" class="text-[11px] text-slate-400 mt-0.5">
+                  Los responsables se comparten entre los {{ cat.teams.length }} equipos de esta categoría.
+                </p>
               </div>
             </div>
 
             <!-- Responsables ya guardados -->
-            <div v-if="responsablesForCat(cat.id).length" class="space-y-2">
+            <div v-if="responsablesForCat(cat).length" class="space-y-2">
               <div class="flex items-center justify-between">
                 <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
                   <IconCheckCircle class="w-3.5 h-3.5"/> Responsables registrados
                 </p>
-                <button type="button" @click="editingResp[cat.id] = !editingResp[cat.id]"
+                <button type="button" @click="editingResp[respKey(cat)] = !editingResp[respKey(cat)]"
                   class="text-[10px] text-primary font-semibold border border-primary/30 px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
-                  {{ editingResp[cat.id] ? 'Cancelar edición' : 'Editar' }}
+                  {{ editingResp[respKey(cat)] ? 'Cancelar edición' : 'Editar' }}
                 </button>
               </div>
-              <div v-for="r in responsablesForCat(cat.id)" :key="r.id"
+              <div v-for="r in responsablesForCat(cat)" :key="r.id"
                 class="flex items-center gap-3 px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-sm">
                 <img v-if="r.foto" :src="r.foto" class="w-10 h-10 rounded-lg object-cover shrink-0 border border-emerald-200"/>
                 <div v-else class="w-10 h-10 rounded-lg bg-emerald-100 border border-emerald-200 shrink-0 flex items-center justify-center">
@@ -91,14 +109,14 @@
             </div>
 
             <!-- Formulario de responsables (siempre visible si no hay guardados, o si está en modo edición) -->
-            <div v-if="!responsablesForCat(cat.id).length || editingResp[cat.id]" class="space-y-4">
-              <div v-for="(r, idx) in newResponsables[cat.id]" :key="idx"
+            <div v-if="!responsablesForCat(cat).length || editingResp[respKey(cat)]" class="space-y-4">
+              <div v-for="(r, idx) in newResponsables[respKey(cat)]" :key="idx"
                 class="border border-muted rounded-2xl p-4 space-y-3 bg-slate-50/50">
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-xs font-black uppercase tracking-widest text-slate-500">
                     Responsable {{ idx + 1 }}{{ idx >= 2 ? ' (opcional)' : ' *' }}
                   </span>
-                  <button v-if="idx === 2" type="button" @click="removeResponsable(cat.id, idx)"
+                  <button v-if="idx === 2" type="button" @click="removeResponsable(respKey(cat), idx)"
                     class="text-red-400 hover:text-red-600 text-xs font-semibold">Quitar</button>
                 </div>
 
@@ -107,16 +125,16 @@
                   <!-- Foto -->
                   <div class="flex flex-col items-center gap-1.5 shrink-0">
                     <div class="relative w-16 h-16 rounded-xl border-2 border-dashed border-muted bg-white overflow-hidden flex items-center justify-center cursor-pointer group"
-                      @click="triggerRespPhoto(cat.id, idx)">
+                      @click="triggerRespPhoto(respKey(cat), idx)">
                       <img v-if="r.foto" :src="r.foto" class="w-full h-full object-cover"/>
                       <IconUser v-else class="w-7 h-7 text-slate-300 group-hover:text-primary transition-colors"/>
                       <div v-if="r.photoLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
                         <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     </div>
-                    <input :ref="el => setRespPhotoRef(el, cat.id, idx)" type="file" accept="image/*,.heic,.heif" class="hidden"
-                      @change="e => onRespPhotoChange(e, cat.id, idx)"/>
-                    <button type="button" @click="triggerRespPhoto(cat.id, idx)"
+                    <input :ref="el => setRespPhotoRef(el, respKey(cat), idx)" type="file" accept="image/*,.heic,.heif" class="hidden"
+                      @change="e => onRespPhotoChange(e, respKey(cat), idx)"/>
+                    <button type="button" @click="triggerRespPhoto(respKey(cat), idx)"
                       class="text-[10px] text-primary hover:underline font-semibold">
                       {{ r.foto ? 'Cambiar' : 'Foto *' }}
                     </button>
@@ -156,30 +174,30 @@
               </div>
 
               <!-- Botón añadir 3ro -->
-              <button v-if="newResponsables[cat.id]?.length === 2" type="button"
-                @click="addResponsable(cat.id)"
+              <button v-if="newResponsables[respKey(cat)]?.length === 2" type="button"
+                @click="addResponsable(respKey(cat))"
                 class="w-full py-3 border-2 border-dashed border-muted rounded-xl text-slate-400 hover:border-primary/40 hover:text-primary transition-all text-xs font-semibold">
                 + Agregar 3er responsable (opcional)
               </button>
             </div>
 
             <!-- Errores de responsables -->
-            <div v-if="responsableErrors[cat.id]?.length" class="space-y-1">
-              <p v-for="err in responsableErrors[cat.id]" :key="err"
+            <div v-if="responsableErrors[respKey(cat)]?.length" class="space-y-1">
+              <p v-for="err in responsableErrors[respKey(cat)]" :key="err"
                 class="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
                 {{ err }}
               </p>
             </div>
 
             <!-- Guardar responsables — solo cuando el formulario está activo -->
-            <button v-if="!responsablesForCat(cat.id).length || editingResp[cat.id]"
+            <button v-if="!responsablesForCat(cat).length || editingResp[respKey(cat)]"
               @click="saveResponsables(cat)"
-              :disabled="savingResp[cat.id] || !canSaveResponsables(cat.id)"
+              :disabled="savingResp[respKey(cat)] || !canSaveResponsables(respKey(cat))"
               class="btn-primary w-full disabled:opacity-50">
               <span class="flex items-center justify-center gap-2">
-                <IconLoader2 v-if="savingResp[cat.id]" class="w-4 h-4 animate-spin"/>
+                <IconLoader2 v-if="savingResp[respKey(cat)]" class="w-4 h-4 animate-spin"/>
                 <IconUsers v-else class="w-4 h-4" />
-                {{ savingResp[cat.id] ? 'Guardando...' : `Guardar responsables de ${cat.name}` }}
+                {{ savingResp[respKey(cat)] ? 'Guardando...' : `Guardar responsables de ${cat.name}` }}
               </span>
             </button>
           </div>
@@ -192,7 +210,9 @@
                   <div class="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
                     <IconShirt class="w-5 h-5 text-accent" />
                   </div>
-                  <h3 class="font-bold text-slate-900 text-lg">Jugadores — {{ cat.name }}</h3>
+                  <h3 class="font-bold text-slate-900 text-lg">
+                    Jugadores — {{ cat.name }}<span v-if="cat.teams?.length > 1"> · {{ currentTeamName(cat) }}</span>
+                  </h3>
                 </div>
                 <p v-if="cat.min_birth_year" class="text-xs text-slate-500 mt-1.5 ml-12">
                   Nacidos en
@@ -200,21 +220,21 @@
                   <span v-if="cat.min_birth_year_girls" class="text-pink-600 ml-2">· Niñas desde {{ cat.min_birth_year_girls }}</span>
                 </p>
                 <p v-if="cat.max_players_per_team" class="text-xs mt-0.5 ml-12">
-                  <span class="font-semibold text-slate-700">{{ playersForCat(cat.id).length }} / {{ cat.max_players_per_team }}</span>
+                  <span class="font-semibold text-slate-700">{{ playersForCat(cat).length }} / {{ cat.max_players_per_team }}</span>
                   <span class="text-slate-400"> jugadores</span>
-                  <span v-if="playersForCat(cat.id).length >= cat.max_players_per_team" class="ml-2 text-red-500 font-semibold">— Cupo lleno</span>
+                  <span v-if="playersForCat(cat).length >= cat.max_players_per_team" class="ml-2 text-red-500 font-semibold">— Cupo lleno</span>
                 </p>
               </div>
-              <button @click="addPlayerRow(cat.id)"
+              <button @click="addPlayerRow(playerKey(cat))"
                 class="text-xs text-accent border border-accent/30 px-3 py-1.5 rounded-lg hover:bg-accent/10 transition-colors font-semibold shrink-0">
                 + Agregar jugador
               </button>
             </div>
 
             <!-- Players already registered -->
-            <div v-if="playersForCat(cat.id).length" class="space-y-2">
+            <div v-if="playersForCat(cat).length" class="space-y-2">
               <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Registrados</p>
-              <div v-for="p in playersForCat(cat.id)" :key="p.id">
+              <div v-for="p in playersForCat(cat)" :key="p.id">
                 <!-- Vista normal -->
                 <div v-if="editingPlayerId !== p.id"
                   class="flex items-center gap-3 px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-sm">
@@ -325,31 +345,31 @@
 
             <!-- Input rows for new players -->
             <div class="space-y-3">
-              <p v-if="newPlayers[cat.id]?.length" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Agregar</p>
-              <div v-for="(p, idx) in newPlayers[cat.id]" :key="idx" class="grid gap-2">
+              <p v-if="newPlayers[playerKey(cat)]?.length" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Agregar</p>
+              <div v-for="(p, idx) in newPlayers[playerKey(cat)]" :key="idx" class="grid gap-2">
                 <!-- Row 1: photo + name + # + position -->
                 <div class="grid grid-cols-12 gap-2 items-start">
                   <!-- Photo -->
                   <div class="col-span-2 flex flex-col items-center gap-1">
                     <label class="text-[10px] text-slate-400 mb-0.5 block w-full">Foto</label>
                     <div class="relative w-14 h-14 rounded-xl border-2 border-dashed border-muted bg-slate-50 overflow-hidden flex items-center justify-center cursor-pointer group"
-                      @click="triggerPhoto(cat.id, idx)">
+                      @click="triggerPhoto(playerKey(cat), idx)">
                       <img v-if="p.photo" :src="p.photo" class="w-full h-full object-cover"/>
                       <IconUser v-else class="w-6 h-6 text-slate-300 group-hover:text-primary transition-colors"/>
                       <div v-if="p.photoLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
                         <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     </div>
-                    <input :ref="el => setPhotoRef(el, cat.id, idx, 'file')" type="file" accept="image/*,.heic,.heif" class="hidden"
-                      @change="e => onPhotoChange(e, cat.id, idx)"/>
-                    <input :ref="el => setPhotoRef(el, cat.id, idx, 'cam')" type="file" accept="image/*,.heic,.heif" capture="user" class="hidden"
-                      @change="e => onPhotoChange(e, cat.id, idx)"/>
+                    <input :ref="el => setPhotoRef(el, playerKey(cat), idx, 'file')" type="file" accept="image/*,.heic,.heif" class="hidden"
+                      @change="e => onPhotoChange(e, playerKey(cat), idx)"/>
+                    <input :ref="el => setPhotoRef(el, playerKey(cat), idx, 'cam')" type="file" accept="image/*,.heic,.heif" capture="user" class="hidden"
+                      @change="e => onPhotoChange(e, playerKey(cat), idx)"/>
                     <div class="flex gap-1">
-                      <button type="button" @click.stop="triggerFileInput(cat.id, idx)"
+                      <button type="button" @click.stop="triggerFileInput(playerKey(cat), idx)"
                         class="text-slate-400 hover:text-primary transition-colors" title="Subir foto">
                         <IconUpload class="w-3.5 h-3.5"/>
                       </button>
-                      <button type="button" @click.stop="triggerCameraInput(cat.id, idx)"
+                      <button type="button" @click.stop="triggerCameraInput(playerKey(cat), idx)"
                         class="text-slate-400 hover:text-primary transition-colors" title="Tomar foto">
                         <IconCamera class="w-3.5 h-3.5"/>
                       </button>
@@ -381,7 +401,7 @@
                     </select>
                   </div>
                   <div class="col-span-1 flex items-end pb-0.5">
-                    <button @click="removePlayerRow(cat.id, idx)" class="text-red-400 hover:text-red-600 transition-colors text-lg leading-none">×</button>
+                    <button @click="removePlayerRow(playerKey(cat), idx)" class="text-red-400 hover:text-red-600 transition-colors text-lg leading-none">×</button>
                   </div>
                 </div>
                 <!-- Row 2: CURP -->
@@ -414,17 +434,17 @@
                   <div class="flex items-center gap-3">
                     <!-- Preview miniatura -->
                     <div class="relative w-16 h-12 rounded-lg border-2 border-dashed border-muted bg-slate-50 overflow-hidden flex items-center justify-center shrink-0 cursor-pointer group"
-                      @click="triggerDocInput(cat.id, idx)">
+                      @click="triggerDocInput(playerKey(cat), idx)">
                       <img v-if="p.documento_oficial" :src="p.documento_oficial" class="w-full h-full object-cover"/>
                       <IconIdCard v-else class="w-6 h-6 text-slate-300 group-hover:text-primary transition-colors"/>
                       <div v-if="p.docLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
                         <div class="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     </div>
-                    <input :ref="el => setDocRef(el, cat.id, idx)" type="file" accept="image/*,.heic,.heif,application/pdf" class="hidden"
-                      @change="e => onDocChange(e, cat.id, idx)"/>
+                    <input :ref="el => setDocRef(el, playerKey(cat), idx)" type="file" accept="image/*,.heic,.heif,application/pdf" class="hidden"
+                      @change="e => onDocChange(e, playerKey(cat), idx)"/>
                     <div class="flex-1">
-                      <button type="button" @click="triggerDocInput(cat.id, idx)"
+                      <button type="button" @click="triggerDocInput(playerKey(cat), idx)"
                         class="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/5 transition-colors">
                         {{ p.documento_oficial ? 'Cambiar documento' : 'Subir documento' }}
                       </button>
@@ -438,40 +458,40 @@
                     </div>
                   </div>
                 </div>
-                <div v-if="idx < (newPlayers[cat.id].length - 1)" class="h-px bg-slate-100"></div>
+                <div v-if="idx < (newPlayers[playerKey(cat)].length - 1)" class="h-px bg-slate-100"></div>
               </div>
 
-              <button v-if="!newPlayers[cat.id]?.length" @click="addPlayerRow(cat.id)"
+              <button v-if="!newPlayers[playerKey(cat)]?.length" @click="addPlayerRow(playerKey(cat))"
                 class="w-full py-6 border-2 border-dashed border-muted rounded-xl text-slate-400 hover:border-primary/40 hover:text-primary transition-all text-sm">
                 + Agregar jugador en {{ cat.name }}
               </button>
               <!-- Botón para encadenar otro jugador justo debajo del actual, sin
                    tener que subir hasta el botón de la cabecera de la sección -->
-              <button v-else @click="addPlayerRow(cat.id)"
+              <button v-else @click="addPlayerRow(playerKey(cat))"
                 class="w-full py-3 border-2 border-dashed border-primary/30 rounded-xl text-primary hover:bg-primary/5 transition-all text-sm font-semibold">
                 + Agregar otro jugador
               </button>
             </div>
 
             <!-- Errors -->
-            <div v-if="categoryErrors[cat.id]?.length" class="space-y-1">
-              <p v-for="err in categoryErrors[cat.id]" :key="err"
+            <div v-if="categoryErrors[playerKey(cat)]?.length" class="space-y-1">
+              <p v-for="err in categoryErrors[playerKey(cat)]" :key="err"
                 class="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
                 {{ err }}
               </p>
             </div>
 
             <!-- Save players -->
-            <button v-if="newPlayers[cat.id]?.some(p => p.name.trim())"
+            <button v-if="newPlayers[playerKey(cat)]?.some(p => p.name.trim())"
               @click="savePlayers(cat)"
-              :disabled="saving[cat.id] || !newPlayers[cat.id]?.some(p => p.name.trim() && curpStatus(p) === 'valid')"
+              :disabled="saving[playerKey(cat)] || !newPlayers[playerKey(cat)]?.some(p => p.name.trim() && curpStatus(p) === 'valid')"
               class="btn-primary w-full disabled:opacity-50">
               <span class="flex items-center justify-center gap-2">
-                <IconLoader2 v-if="saving[cat.id]" class="w-4 h-4 animate-spin"/>
-                {{ saving[cat.id] ? 'Guardando...' : `Guardar jugadores en ${cat.name}` }}
+                <IconLoader2 v-if="saving[playerKey(cat)]" class="w-4 h-4 animate-spin"/>
+                {{ saving[playerKey(cat)] ? 'Guardando...' : `Guardar jugadores en ${cat.name}` }}
               </span>
             </button>
-            <p v-if="newPlayers[cat.id]?.some(p => p.name.trim() && curpStatus(p) !== 'valid')"
+            <p v-if="newPlayers[playerKey(cat)]?.some(p => p.name.trim() && curpStatus(p) !== 'valid')"
               class="text-[11px] text-slate-400 text-center -mt-1">
               Se guardarán solo los jugadores con nombre y CURP válidos — completa el resto para incluirlos.
             </p>
@@ -513,18 +533,37 @@ const regToken = route.query.token || ''
 const inscription    = ref(null)
 const loading        = ref(true)
 const loadError      = ref('')
-const saving     = reactive({}) // categoryId → bool
-const savingResp = reactive({}) // categoryId → bool
+const saving     = reactive({}) // playerKey(cat) → bool
+const savingResp = reactive({}) // respKey(cat) → bool
 const done           = ref(false)
 const activeCategory = ref(null)
-const newPlayers     = reactive({}) // categoryId → [{name, number, position, curp, photo}]
-const categoryErrors = reactive({}) // categoryId → [string]
-const newResponsables   = reactive({}) // categoryId → [{nombre, apellidos, curp, foto}]
-const responsableErrors = reactive({}) // categoryId → [string]
-const editingResp       = reactive({}) // categoryId → bool (mostrar form de edición)
+const newPlayers     = reactive({}) // playerKey(cat) → [{name, number, position, curp, photo}]
+const categoryErrors = reactive({}) // playerKey(cat) → [string]
+const newResponsables   = reactive({}) // respKey(cat) → [{nombre, apellidos, curp, foto}]
+const responsableErrors = reactive({}) // respKey(cat) → [string]
+const editingResp       = reactive({}) // respKey(cat) → bool (mostrar form de edición)
+// Qué equipo está activo dentro de una categoría con 2+ equipos (ej. "Club X
+// A"/"Club X B") — { [categoryId]: teamName }. Para categorías de un solo
+// equipo no se usa (currentTeamName resuelve directo a cat.teams[0]).
+const activeTeamByCategory = reactive({})
 
 const registeredPlayers     = ref([])
 const registeredResponsables = ref([])
+
+// ── Claves compuestas (categoría + equipo) ────────────────────────────────────
+// Una categoría puede tener más de un equipo en esta inscripción (ej. "Club X
+// A"/"Club X B"). Sin esto, el estado de los formularios (jugadores nuevos,
+// responsables, errores, etc.) de un equipo pisaría al del otro al compartir
+// la misma clave (solo categoryId). playerKey/respKey se usan idénticas hoy,
+// pero se mantienen como funciones separadas por si algún día responsables
+// dejara de compartirse entre equipos de la misma categoría.
+function currentTeamName(cat) {
+  if (!cat.teams?.length) return inscription.value?.team_name
+  if (cat.teams.length === 1) return cat.teams[0]
+  return activeTeamByCategory[cat.id] || cat.teams[0]
+}
+function playerKey(cat) { return `${cat.id}::${currentTeamName(cat)}` }
+function respKey(cat)   { return `${cat.id}::${currentTeamName(cat)}` }
 
 // ── Edición de un jugador ya registrado ────────────────────────────────────────
 const editingPlayerId = ref(null)
@@ -605,26 +644,34 @@ async function saveEditPlayer(catId) {
   }
 }
 
-function playersForCat(catId) {
-  return registeredPlayers.value.filter(p => String(p.category_id) === String(catId))
+// playersForCat/responsablesForCat reciben la categoría completa (no solo el
+// id) porque necesitan cat.teams para saber si hay que filtrar también por
+// el equipo activo (cuando la categoría tiene 2+ equipos).
+function playersForCat(cat) {
+  const list = registeredPlayers.value.filter(p => String(p.category_id) === String(cat.id))
+  if (!cat.teams || cat.teams.length <= 1) return list
+  const tn = currentTeamName(cat)
+  return list.filter(p => (p.team_name || '') === tn)
 }
-function responsablesForCat(catId) {
-  return registeredResponsables.value.filter(r => String(r.category_id) === String(catId))
+function responsablesForCat(cat) {
+  // Los responsables se comparten entre los equipos de una misma categoría —
+  // no se filtran por equipo.
+  return registeredResponsables.value.filter(r => String(r.category_id) === String(cat.id))
 }
 
 // ── Photo refs for players ────────────────────────────────────────────────────
 const photoRefs = {}
-function setPhotoRef(el, catId, idx, type) {
-  if (el) photoRefs[`${catId}-${idx}-${type}`] = el
+function setPhotoRef(el, key, idx, type) {
+  if (el) photoRefs[`${key}-${idx}-${type}`] = el
 }
-function triggerPhoto(catId, idx) { photoRefs[`${catId}-${idx}-file`]?.click() }
-function triggerFileInput(catId, idx) { photoRefs[`${catId}-${idx}-file`]?.click() }
-function triggerCameraInput(catId, idx) { photoRefs[`${catId}-${idx}-cam`]?.click() }
+function triggerPhoto(key, idx) { photoRefs[`${key}-${idx}-file`]?.click() }
+function triggerFileInput(key, idx) { photoRefs[`${key}-${idx}-file`]?.click() }
+function triggerCameraInput(key, idx) { photoRefs[`${key}-${idx}-cam`]?.click() }
 
-async function onPhotoChange(e, catId, idx) {
+async function onPhotoChange(e, key, idx) {
   const file = e.target.files?.[0]; if (!file) return
   if (file.size > 5 * 1024 * 1024) { alert('La foto no debe superar 5 MB.'); e.target.value = ''; return }
-  const player = newPlayers[catId]?.[idx]; if (!player) return
+  const player = newPlayers[key]?.[idx]; if (!player) return
   player.photoLoading = true
   try { player.photo = await uploadImagePublic(file) }
   catch { alert('Error al subir la foto') }
@@ -633,15 +680,15 @@ async function onPhotoChange(e, catId, idx) {
 
 // ── Document refs for players ─────────────────────────────────────────────────
 const docRefs = {}
-function setDocRef(el, catId, idx) {
-  if (el) docRefs[`${catId}-${idx}`] = el
+function setDocRef(el, key, idx) {
+  if (el) docRefs[`${key}-${idx}`] = el
 }
-function triggerDocInput(catId, idx) { docRefs[`${catId}-${idx}`]?.click() }
+function triggerDocInput(key, idx) { docRefs[`${key}-${idx}`]?.click() }
 
-async function onDocChange(e, catId, idx) {
+async function onDocChange(e, key, idx) {
   const file = e.target.files?.[0]; if (!file) return
   if (file.size > 25 * 1024 * 1024) { alert('El documento no debe superar 25 MB.'); e.target.value = ''; return }
-  const player = newPlayers[catId]?.[idx]; if (!player) return
+  const player = newPlayers[key]?.[idx]; if (!player) return
   player.docLoading = true
   try { player.documento_oficial = await uploadImagePublic(file) }
   catch (err) { alert(err.message || 'Error al subir el documento') }
@@ -650,15 +697,15 @@ async function onDocChange(e, catId, idx) {
 
 // ── Photo refs for responsables ───────────────────────────────────────────────
 const respPhotoRefs = {}
-function setRespPhotoRef(el, catId, idx) {
-  if (el) respPhotoRefs[`${catId}-${idx}`] = el
+function setRespPhotoRef(el, key, idx) {
+  if (el) respPhotoRefs[`${key}-${idx}`] = el
 }
-function triggerRespPhoto(catId, idx) { respPhotoRefs[`${catId}-${idx}`]?.click() }
+function triggerRespPhoto(key, idx) { respPhotoRefs[`${key}-${idx}`]?.click() }
 
-async function onRespPhotoChange(e, catId, idx) {
+async function onRespPhotoChange(e, key, idx) {
   const file = e.target.files?.[0]; if (!file) return
   if (file.size > 5 * 1024 * 1024) { alert('La foto no debe superar 5 MB.'); e.target.value = ''; return }
-  const resp = newResponsables[catId]?.[idx]; if (!resp) return
+  const resp = newResponsables[key]?.[idx]; if (!resp) return
   resp.photoLoading = true
   try { resp.foto = await uploadImagePublic(file) }
   catch { alert('Error al subir la foto') }
@@ -666,37 +713,37 @@ async function onRespPhotoChange(e, catId, idx) {
 }
 
 // ── Player helpers ────────────────────────────────────────────────────────────
-function addPlayerRow(catId) {
-  if (!newPlayers[catId]) newPlayers[catId] = []
-  newPlayers[catId].push({ name: '', number: null, position: '', curp: '', photo: '', photoLoading: false, documento_oficial: '', docLoading: false })
+function addPlayerRow(key) {
+  if (!newPlayers[key]) newPlayers[key] = []
+  newPlayers[key].push({ name: '', number: null, position: '', curp: '', photo: '', photoLoading: false, documento_oficial: '', docLoading: false })
 }
 
-function removePlayerRow(catId, idx) {
-  newPlayers[catId].splice(idx, 1)
+function removePlayerRow(key, idx) {
+  newPlayers[key].splice(idx, 1)
 }
 
 // ── Responsable helpers ───────────────────────────────────────────────────────
-function initResponsables(catId) {
-  if (!newResponsables[catId]) {
-    newResponsables[catId] = [
+function initResponsables(key) {
+  if (!newResponsables[key]) {
+    newResponsables[key] = [
       { nombre: '', apellidos: '', curp: '', foto: '', photoLoading: false },
       { nombre: '', apellidos: '', curp: '', foto: '', photoLoading: false },
     ]
   }
 }
 
-function addResponsable(catId) {
-  if (newResponsables[catId]?.length < 3) {
-    newResponsables[catId].push({ nombre: '', apellidos: '', curp: '', foto: '', photoLoading: false })
+function addResponsable(key) {
+  if (newResponsables[key]?.length < 3) {
+    newResponsables[key].push({ nombre: '', apellidos: '', curp: '', foto: '', photoLoading: false })
   }
 }
 
-function removeResponsable(catId, idx) {
-  newResponsables[catId].splice(idx, 1)
+function removeResponsable(key, idx) {
+  newResponsables[key].splice(idx, 1)
 }
 
-function canSaveResponsables(catId) {
-  const rs = newResponsables[catId] || []
+function canSaveResponsables(key) {
+  const rs = newResponsables[key] || []
   const withName = rs.filter(r => r.nombre.trim())
   if (withName.length < 2) return false
   return withName.every(r => r.apellidos.trim())
@@ -758,9 +805,10 @@ function respCurpStatus(resp) {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 async function saveResponsables(cat) {
-  const rs = (newResponsables[cat.id] || []).filter(r => r.nombre.trim())
-  responsableErrors[cat.id] = []
-  savingResp[cat.id] = true
+  const key = respKey(cat)
+  const rs = (newResponsables[key] || []).filter(r => r.nombre.trim())
+  responsableErrors[key] = []
+  savingResp[key] = true
   try {
     const res = await api.post(`/inscriptions/${inscriptionId}/responsables`, {
       categoryId: cat.id,
@@ -778,65 +826,68 @@ async function saveResponsables(cat) {
       ...(res.data.saved || [])
     ]
     // Reset form y cerrar modo edición
-    newResponsables[cat.id] = [
+    newResponsables[key] = [
       { nombre: '', apellidos: '', curp: '', foto: '', photoLoading: false },
       { nombre: '', apellidos: '', curp: '', foto: '', photoLoading: false },
     ]
-    editingResp[cat.id] = false
+    editingResp[key] = false
   } catch (e) {
     const err = e.response?.data
-    responsableErrors[cat.id] = [err?.error || 'Error al guardar responsables']
+    responsableErrors[key] = [err?.error || 'Error al guardar responsables']
   } finally {
-    savingResp[cat.id] = false
+    savingResp[key] = false
   }
 }
 
 async function savePlayers(cat) {
+  const key = playerKey(cat)
+  const teamName = currentTeamName(cat)
   // Solo se envían las filas listas (nombre + CURP válida) — así una fila que
   // todavía se está llenando (p.ej. nombre puesto pero CURP a medias) no
   // bloquea guardar las demás que ya están completas.
-  const players = (newPlayers[cat.id] || []).filter(p => p.name.trim() && curpStatus(p) === 'valid')
+  const players = (newPlayers[key] || []).filter(p => p.name.trim() && curpStatus(p) === 'valid')
   if (!players.length) return
 
   // Validación rápida de duplicados en el mismo envío
   const curpsEnvio = players.map(p => p.curp?.trim().toUpperCase()).filter(Boolean)
   if (new Set(curpsEnvio).size !== curpsEnvio.length) {
-    categoryErrors[cat.id] = ['Hay CURPs duplicadas entre los jugadores que intentas registrar']
+    categoryErrors[key] = ['Hay CURPs duplicadas entre los jugadores que intentas registrar']
     return
   }
   const numsEnvio = players.map(p => p.number).filter(n => n != null && n !== '')
   if (new Set(numsEnvio).size !== numsEnvio.length) {
-    categoryErrors[cat.id] = ['Hay números de dorsal duplicados entre los jugadores que intentas registrar']
+    categoryErrors[key] = ['Hay números de dorsal duplicados entre los jugadores que intentas registrar']
     return
   }
 
-  saving[cat.id] = true
-  categoryErrors[cat.id] = []
+  saving[key] = true
+  categoryErrors[key] = []
   try {
     const res = await api.post(`/inscriptions/${inscriptionId}/players`, {
       categoryId: cat.id,
+      teamName,
       token: regToken,
       players: players.map(({ name, number, position, curp, photo, documento_oficial }) =>
         ({ name, number, position, curp, photo, documento_oficial })
       )
     })
     const inserted = res.data.inserted || []
-    registeredPlayers.value.push(...inserted.map(p => ({ ...p, category_id: cat.id })))
+    registeredPlayers.value.push(...inserted.map(p => ({ ...p, category_id: cat.id, team_name: teamName })))
     // Solo eliminar del formulario los que se insertaron correctamente
     const insertedCurps = new Set(inserted.map(p => p.curp?.toUpperCase()).filter(Boolean))
     const insertedNames = new Set(inserted.map(p => p.name?.toLowerCase()).filter(Boolean))
-    newPlayers[cat.id] = (newPlayers[cat.id] || []).filter(p => {
+    newPlayers[key] = (newPlayers[key] || []).filter(p => {
       const curp = p.curp?.trim().toUpperCase()
       if (curp && insertedCurps.has(curp)) return false
       if (!curp && insertedNames.has(p.name?.trim().toLowerCase())) return false
       return true
     })
-    if (res.data.errors?.length) categoryErrors[cat.id] = res.data.errors
+    if (res.data.errors?.length) categoryErrors[key] = res.data.errors
   } catch (e) {
     const err = e.response?.data
-    categoryErrors[cat.id] = err?.errors || [err?.error || 'Error al guardar jugadores']
+    categoryErrors[key] = err?.errors || [err?.error || 'Error al guardar jugadores']
   } finally {
-    saving[cat.id] = false
+    saving[key] = false
   }
 }
 
@@ -849,7 +900,15 @@ onMounted(async () => {
     if (data.categories?.length) {
       activeCategory.value = data.categories[0].id
       for (const cat of data.categories) {
-        initResponsables(cat.id)
+        activeTeamByCategory[cat.id] = cat.teams?.[0]
+        // Inicializar el formulario de jugadores/responsables de CADA equipo
+        // de la categoría (no solo el activo) para que cambiar de sub-tab no
+        // pierda lo que ya se había empezado a escribir en el otro equipo.
+        // El backend siempre manda cat.teams con al menos 1 nombre.
+        for (const team of (cat.teams || [])) {
+          const key = `${cat.id}::${team}`
+          initResponsables(key)
+        }
       }
     }
   } catch (e) {

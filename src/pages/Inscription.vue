@@ -110,6 +110,23 @@
                     </span>
                   </label>
                 </div>
+
+                <!-- ¿El mismo club quiere meter más de un equipo en alguna de estas
+                     categorías? (ej. "Guerreros FC A" y "Guerreros FC B" en Sub-7) -->
+                <div v-for="cat in group.cats.filter(c => form.categoryIds.includes(c.id))" :key="`extra-${cat.id}`"
+                  class="mt-2 pl-1 space-y-1.5">
+                  <div v-for="(_, idx) in (form.extraTeams[cat.id] || [])" :key="idx" class="flex items-center gap-2">
+                    <input v-model="form.extraTeams[cat.id][idx]" maxlength="60"
+                      :placeholder="`Ej. ${form.team_name || 'Nombre'} B`"
+                      class="flex-1 text-xs bg-white border border-muted rounded-lg px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"/>
+                    <button type="button" @click="removeExtraTeam(cat.id, idx)"
+                      class="text-slate-400 hover:text-red-500 text-base leading-none px-1">×</button>
+                  </div>
+                  <button type="button" @click="addExtraTeam(cat.id)"
+                    class="text-[11px] font-bold text-primary hover:underline">
+                    + Agregar otro equipo en {{ cat.name }}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -234,8 +251,17 @@ const form = reactive({
   categoryIds: [],
   team_name: '', players_count: 11,
   contact_name: '', contact_email: '', contact_phone: '',
-  notes: '', players: [], logo: ''
+  notes: '', players: [], logo: '',
+  extraTeams: {}, // { [categoryId]: string[] } — equipos adicionales del mismo club en esa categoría
 })
+
+function addExtraTeam(catId) {
+  if (!form.extraTeams[catId]) form.extraTeams[catId] = []
+  form.extraTeams[catId].push('')
+}
+function removeExtraTeam(catId, idx) {
+  form.extraTeams[catId].splice(idx, 1)
+}
 
 async function onLogoChange(e) {
   const file = e.target.files[0]; if (!file) return
@@ -289,10 +315,17 @@ async function submit() {
   try {
     const tid = tournament.value?.id
     if (!tid) throw new Error('No se pudo obtener el torneo.')
+    // Solo mandar nombres no vacíos, y solo de categorías que sigan marcadas
+    const extraTeams = {}
+    for (const catId of form.categoryIds) {
+      const names = (form.extraTeams[catId] || []).map(n => n.trim()).filter(Boolean)
+      if (names.length) extraTeams[catId] = names
+    }
     const result = await api.post('/inscriptions', {
       ...form,
       tournamentId: tid,
       categoryIds:  form.categoryIds,
+      extraTeams,
     })
     createdId    = result.data.id
     createdToken = result.data.token || ''

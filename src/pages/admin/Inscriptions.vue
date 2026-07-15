@@ -74,12 +74,14 @@
             </div>
           </div>
         </div>
-        <!-- Categorías -->
+        <!-- Categorías — una entry por (categoría, equipo): si el club inscribió
+             2+ equipos en la misma categoría (ej. "Club X A"/"Club X B"), aquí
+             aparece un badge por cada uno para que quede claro cuál es cuál. -->
         <div class="flex flex-wrap gap-1">
           <span v-if="!insc.categories?.length" class="text-slate-500 text-sm">Sin categoría</span>
-          <span v-for="cat in insc.categories" :key="cat.id"
+          <span v-for="cat in insc.categories" :key="`${cat.id}-${cat.teamName || insc.team_name}`"
             class="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
-            {{ cat.name }}
+            {{ cat.name }}<template v-if="cat.teamName && cat.teamName !== insc.team_name"> — {{ cat.teamName }}</template>
           </span>
         </div>
         <!-- Contacto -->
@@ -130,11 +132,17 @@
           <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Teléfono</p><p class="text-slate-900">{{ selected.contact_phone || '—' }}</p></div>
           <div class="bg-slate-100 rounded-xl p-3"><p class="text-slate-400 text-xs mb-1">Jugadores</p><p class="text-slate-900">{{ selected.actual_players_count || selected.players_count || 0 }}</p></div>
         </div>
-        <!-- Responsables por categoría -->
+        <!-- Responsables por categoría (se comparten entre los equipos de una
+             misma categoría si hay más de uno — no se separan por equipo) -->
         <div v-if="selectedCategories.length">
           <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Responsables / Cuerpo Técnico</p>
           <div v-for="cat in selectedCategories" :key="cat.id" class="mb-3">
-            <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-1.5">{{ cat.name }}</p>
+            <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-1.5">
+              {{ cat.name }}
+              <span v-if="cat.teams?.length > 1" class="text-slate-400 font-semibold normal-case">
+                (compartidos entre {{ cat.teams.join(' y ') }})
+              </span>
+            </p>
             <div class="space-y-1.5">
               <div v-for="r in selected.responsables.filter(r => String(r.category_id) === String(cat.id))" :key="r.id"
                 class="flex items-center gap-3 bg-primary/5 border border-primary/15 rounded-xl px-3 py-2 text-sm">
@@ -153,20 +161,29 @@
             </div>
           </div>
         </div>
-        <!-- Jugadores -->
+        <!-- Jugadores — agrupados por categoría y, si aplica, por equipo (una
+             categoría con 2+ equipos, ej. "Club X A"/"Club X B", muestra un
+             roster separado por cada uno). -->
         <div v-if="selected.players?.length">
           <div class="flex items-center justify-between mb-2">
             <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Lista de jugadores</p>
             <span class="text-xs font-bold text-primary">{{ selected.players.length }} total</span>
           </div>
-          <div class="space-y-1.5 max-h-60 overflow-y-auto">
-            <div v-for="p in selected.players" :key="p.id" class="flex items-center gap-3 bg-slate-100 rounded-lg px-3 py-2 text-sm">
-              <span class="text-primary font-bold w-6 shrink-0">{{ p.number ? `#${p.number}` : '—' }}</span>
-              <span class="text-slate-900 flex-1 truncate">{{ p.name }}</span>
-              <span class="text-slate-400 text-xs shrink-0">{{ p.position || '' }}</span>
-              <span v-if="p.curp" class="text-[10px] font-mono text-slate-400 shrink-0 hidden sm:block">{{ p.curp }}</span>
-              <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
-                class="text-[10px] text-primary font-semibold border border-primary/30 px-1.5 py-0.5 rounded shrink-0">Doc</a>
+          <div class="space-y-3 max-h-60 overflow-y-auto">
+            <div v-for="group in playerGroups" :key="group.key">
+              <p v-if="group.showLabel" class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                {{ group.label }}
+              </p>
+              <div class="space-y-1.5">
+                <div v-for="p in group.players" :key="p.id" class="flex items-center gap-3 bg-slate-100 rounded-lg px-3 py-2 text-sm">
+                  <span class="text-primary font-bold w-6 shrink-0">{{ p.number ? `#${p.number}` : '—' }}</span>
+                  <span class="text-slate-900 flex-1 truncate">{{ p.name }}</span>
+                  <span class="text-slate-400 text-xs shrink-0">{{ p.position || '' }}</span>
+                  <span v-if="p.curp" class="text-[10px] font-mono text-slate-400 shrink-0 hidden sm:block">{{ p.curp }}</span>
+                  <a v-if="p.documento_oficial" :href="p.documento_oficial" target="_blank"
+                    class="text-[10px] text-primary font-semibold border border-primary/30 px-1.5 py-0.5 rounded shrink-0">Doc</a>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -201,6 +218,33 @@ const displayed = computed(() =>
 )
 
 const selectedCategories = computed(() => selected.value?.categories || [])
+
+// Jugadores del modal de detalle, agrupados por categoría y, si esa categoría
+// tiene 2+ equipos en esta inscripción (ej. "Club X A"/"Club X B"), también
+// por equipo — para no mezclar los rosters de dos equipos distintos en una
+// sola lista sin distinción.
+const playerGroups = computed(() => {
+  const players = selected.value?.players || []
+  const cats = selectedCategories.value
+  const groups = []
+  const seen = new Set()
+  for (const cat of cats) {
+    const catPlayers = players.filter(p => String(p.category_id) === String(cat.id))
+    if (cat.teams?.length > 1) {
+      for (const team of cat.teams) {
+        const teamPlayers = catPlayers.filter(p => (p.team_name || '') === team)
+        teamPlayers.forEach(p => seen.add(p.id))
+        if (teamPlayers.length) groups.push({ key: `${cat.id}-${team}`, label: `${cat.name} — ${team}`, players: teamPlayers })
+      }
+    } else if (catPlayers.length) {
+      catPlayers.forEach(p => seen.add(p.id))
+      groups.push({ key: `${cat.id}`, label: cat.name, players: catPlayers })
+    }
+  }
+  const orphan = players.filter(p => !seen.has(p.id))
+  if (orphan.length) groups.push({ key: 'sin-categoria', label: 'Sin categoría', players: orphan })
+  return groups.map(g => ({ ...g, showLabel: true }))
+})
 const pending   = computed(() => inscriptions.value.filter(i=>i.status==='pending').length)
 
 const inscriptionUrl = computed(() => {

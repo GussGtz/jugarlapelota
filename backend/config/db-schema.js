@@ -248,6 +248,16 @@ const PG_MIGRATIONS = [
     user_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`,
+  // Distingue a cuál de los (posiblemente varios) equipos de una misma
+  // categoría, dentro de una misma inscripción, pertenece cada jugador
+  // propuesto — permite que un club inscriba "Club X A" y "Club X B" en la
+  // misma categoría desde un solo formulario. Backfill abajo para que las
+  // filas viejas (una sola categoría = un solo equipo) queden con un valor
+  // no-NULL y el índice único de dorsal (uq_inscplayers_insc_cat_number)
+  // siga detectando duplicados en esas filas — NULL nunca choca consigo
+  // mismo en un índice único, así que dejar NULL rompería esa protección.
+  `ALTER TABLE inscription_players ADD COLUMN IF NOT EXISTS team_name TEXT`,
+  `UPDATE inscription_players SET team_name = (SELECT team_name FROM inscriptions WHERE id = inscription_players.inscription_id) WHERE team_name IS NULL`,
 ]
 
 module.exports = { PG_SCHEMA, PG_MIGRATIONS }
