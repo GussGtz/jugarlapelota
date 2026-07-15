@@ -4,7 +4,7 @@ const cors       = require('cors')
 const http       = require('http')
 const { Server } = require('socket.io')
 const path       = require('path')
-const { init, IS_PG, query } = require('./config/db')
+const { init, IS_PG, query, isUniqueViolation, uniqueViolationColumn } = require('./config/db')
 
 // ── Evitar crash por promesas no capturadas ───────────────────────────────
 process.on('unhandledRejection', (reason) => {
@@ -49,6 +49,14 @@ async function start() {
     // errores 5xx lo contaría como falla real del servidor.
     if (err.name === 'MulterError' && err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({ error: 'Archivo demasiado grande (máx 25 MB)' })
+    }
+    // Red de seguridad: si una ruta no atrapó a mano un choque de constraint
+    // UNIQUE (dos requests simultáneas pasaron el SELECT-check de duplicados
+    // antes de que cualquiera insertara), devolver 409 en vez de 500.
+    if (isUniqueViolation(err)) {
+      const col = uniqueViolationColumn(err, ['curp', 'number', 'team_name', 'teamname', 'name'])
+      const label = { curp: 'la CURP', number: 'el número', team_name: 'el nombre', teamname: 'el nombre', name: 'el nombre' }[col] || 'estos datos'
+      return res.status(409).json({ error: `Ya existe un registro con ${label} indicado (probablemente por un envío duplicado). Intenta de nuevo.` })
     }
     const status = err.status || err.statusCode || 500
     res.status(status).json({ error: err.message || 'Error interno del servidor' })
