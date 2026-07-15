@@ -77,12 +77,18 @@ function followerCountsFactory(entityCol, deviceTable, userTable) {
 
 // Registra/actualiza el vínculo dispositivo↔cuenta. Se llama desde cualquier
 // ruta de follows que reciba a la vez endpoint y sesión activa (sync al arrancar
-// la app, o al seguir/dejar de seguir algo estando logueado).
+// la app, o al seguir/dejar de seguir algo estando logueado). Es un vínculo
+// accesorio para deduplicar el conteo — nunca debe poder tumbar la petición
+// de follows en sí, así que atrapa sus propios errores.
 async function linkDeviceAccount(endpoint, userId) {
   if (!endpoint || !userId) return
-  await query(`
-    INSERT INTO device_accounts (endpoint, user_id) VALUES ($1,$2)
-    ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id`, [endpoint, userId])
+  try {
+    await query(`
+      INSERT INTO device_accounts (endpoint, user_id) VALUES ($1,$2)
+      ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id`, [endpoint, userId])
+  } catch (e) {
+    console.error('[linkDeviceAccount]', e.message)
+  }
 }
 
 const teamFollowerCount        = followerCountFactory('team_id', 'team_follows', 'user_team_follows')
