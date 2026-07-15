@@ -112,13 +112,23 @@
                 </div>
 
                 <!-- ¿El mismo club quiere meter más de un equipo en alguna de estas
-                     categorías? (ej. "Guerreros FC A" y "Guerreros FC B" en Sub-7) -->
+                     categorías? (ej. "Guerreros FC A" y "Guerreros FC B" en Sub-7) —
+                     en cuanto hay un 2do equipo, el nombre del 1ro también se vuelve
+                     editable aquí mismo (antes solo dependía del campo global de
+                     "Nombre del equipo" de más abajo, sin poder ajustarlo por categoría). -->
                 <div v-for="cat in group.cats.filter(c => form.categoryIds.includes(c.id))" :key="`extra-${cat.id}`"
                   class="mt-2 pl-1 space-y-1.5">
+                  <div v-if="form.extraTeams[cat.id]?.length" class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-slate-400 w-14 shrink-0">Equipo 1</span>
+                    <input v-model="form.primaryTeamNames[cat.id]" maxlength="60"
+                      :placeholder="form.team_name || 'Nombre del equipo 1'"
+                      class="flex-1 text-xs text-slate-900 bg-white border border-muted rounded-lg px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"/>
+                  </div>
                   <div v-for="(_, idx) in (form.extraTeams[cat.id] || [])" :key="idx" class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-slate-400 w-14 shrink-0">Equipo {{ idx + 2 }}</span>
                     <input v-model="form.extraTeams[cat.id][idx]" maxlength="60"
                       :placeholder="`Ej. ${form.team_name || 'Nombre'} B`"
-                      class="flex-1 text-xs bg-white border border-muted rounded-lg px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"/>
+                      class="flex-1 text-xs text-slate-900 bg-white border border-muted rounded-lg px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"/>
                     <button type="button" @click="removeExtraTeam(cat.id, idx)"
                       class="text-slate-400 hover:text-red-500 text-base leading-none px-1">×</button>
                   </div>
@@ -253,10 +263,17 @@ const form = reactive({
   contact_name: '', contact_email: '', contact_phone: '',
   notes: '', players: [], logo: '',
   extraTeams: {}, // { [categoryId]: string[] } — equipos adicionales del mismo club en esa categoría
+  primaryTeamNames: {}, // { [categoryId]: string } — override del nombre del "Equipo 1" cuando esa categoría tiene 2+ equipos
 })
 
 function addExtraTeam(catId) {
   if (!form.extraTeams[catId]) form.extraTeams[catId] = []
+  if (!form.extraTeams[catId].length && !form.primaryTeamNames[catId]) {
+    // Al agregar el primer equipo extra, precargar el "Equipo 1" con el
+    // nombre global para que el usuario solo tenga que ajustarlo si quiere
+    // algo distinto, en vez de partir de un campo vacío.
+    form.primaryTeamNames[catId] = form.team_name
+  }
   form.extraTeams[catId].push('')
 }
 function removeExtraTeam(catId, idx) {
@@ -317,15 +334,21 @@ async function submit() {
     if (!tid) throw new Error('No se pudo obtener el torneo.')
     // Solo mandar nombres no vacíos, y solo de categorías que sigan marcadas
     const extraTeams = {}
+    const primaryTeamNames = {}
     for (const catId of form.categoryIds) {
       const names = (form.extraTeams[catId] || []).map(n => n.trim()).filter(Boolean)
-      if (names.length) extraTeams[catId] = names
+      if (names.length) {
+        extraTeams[catId] = names
+        const override = (form.primaryTeamNames[catId] || '').trim()
+        if (override) primaryTeamNames[catId] = override
+      }
     }
     const result = await api.post('/inscriptions', {
       ...form,
       tournamentId: tid,
       categoryIds:  form.categoryIds,
       extraTeams,
+      primaryTeamNames,
     })
     createdId    = result.data.id
     createdToken = result.data.token || ''

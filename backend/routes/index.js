@@ -1768,7 +1768,7 @@ router.get('/tournaments/:slug/inscriptions', authMiddleware, adminOnly, async (
   res.json(result)
 })
 router.post('/inscriptions', async (req, res) => {  // Public — no auth
-  const {tournamentId,categoryIds,team_name,contact_name,contact_email,contact_phone,players_count,notes,players,logo,extraTeams} = req.body
+  const {tournamentId,categoryIds,team_name,contact_name,contact_email,contact_phone,players_count,notes,players,logo,extraTeams,primaryTeamNames} = req.body
   if(!team_name||!contact_name||!contact_email) return res.status(400).json({error:'Campos requeridos faltantes'})
   if(!tournamentId) return res.status(400).json({error:'Torneo no especificado'})
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email)) return res.status(400).json({error:'El correo electrónico no tiene un formato válido'})
@@ -1783,13 +1783,16 @@ router.post('/inscriptions', async (req, res) => {  // Public — no auth
   const catRows = (await query(`SELECT id,name FROM categories WHERE id IN (${catPh1}) AND tournament_id=$${categoryIds.length + 1}`, [...categoryIds, tournament.id])).rows
   if (!catRows.length) return res.status(400).json({ error: 'Las categorías seleccionadas no son válidas para este torneo' })
 
-  // Una entry "principal" (team_name) por categoría, más una entry extra por
-  // cada nombre en extraTeams[categoryId] — así un mismo club puede inscribir
-  // 2+ equipos en la misma categoría (ej. "Club X A"/"Club X B") desde un
-  // solo formulario, en vez de mandar inscripciones separadas y desconectadas.
+  // Una entry "principal" por categoría (team_name por default, o el override
+  // de primaryTeamNames[categoryId] si el usuario ajustó el nombre del Equipo
+  // 1 al agregar un 2do equipo ahí), más una entry extra por cada nombre en
+  // extraTeams[categoryId] — así un mismo club puede inscribir 2+ equipos en
+  // la misma categoría (ej. "Club X A"/"Club X B") desde un solo formulario,
+  // en vez de mandar inscripciones separadas y desconectadas.
   const categories = []
   for (const c of catRows) {
-    categories.push({ id: c.id, name: c.name, teamName: team_name.trim() })
+    const primaryOverride = (primaryTeamNames?.[c.id] || '').trim()
+    categories.push({ id: c.id, name: c.name, teamName: primaryOverride || team_name.trim() })
     const extras = Array.isArray(extraTeams?.[c.id]) ? extraTeams[c.id] : []
     for (const extraName of extras) {
       const trimmed = (extraName || '').trim()

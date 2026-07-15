@@ -579,3 +579,13 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 **Validado con:** reproducido el bug exacto en local (2 categorías, mismo `team_name`, sin equipos extra) — antes del fix devolvía 400, después crea la inscripción correctamente con una entrada por categoría. Se confirmó que el caso que sí debe bloquearse (mismo nombre repetido como equipo extra dentro de la MISMA categoría) sigue bloqueado. Build de producción limpio.
 
 **Nota de operación:** al diagnosticar este bug se hicieron pruebas directas contra la API de producción para confirmar el mensaje de error exacto — una de ellas (`auto_approve_inscriptions` activo en ese torneo) creó un equipo real de prueba ("Diagnostico Test XYZ", categoría Sub-7). Se le indicó al usuario eliminarlo manualmente desde Admin → Equipos, ya que no se cuenta con credenciales de admin de producción para hacerlo automáticamente.
+
+### 2026-07-15 — Mejora: nombre del "Equipo 1" editable + contraste de texto en equipos extra
+**Pedido:** captura mostrando el texto del input de "otro equipo" apenas visible (sin color explícito), más "si agrego un equipo más a cualquier categoría debo poder editar los nombres de ambos equipos".
+
+**Cambios en `src/pages/Inscription.vue`:**
+- Se agregó `text-slate-900` explícito a los inputs de equipo extra — antes no tenían clase de color y heredaban un tono muy claro, casi ilegible.
+- Nuevo campo `form.primaryTeamNames` (`{ [categoryId]: string }`): en cuanto una categoría tiene un 2do equipo, aparece un input editable para el "Equipo 1" (precargado con el nombre global del equipo, pero ajustable de forma independiente por categoría) junto a los inputs de "Equipo 2, 3...". Antes el nombre del primer equipo dependía únicamente del campo global "Nombre del equipo" de más abajo, sin poder afinarlo por categoría.
+- `backend/routes/index.js`: `POST /inscriptions` acepta el nuevo campo opcional `primaryTeamNames` y lo usa como override del nombre principal de esa categoría (si no se manda, sigue usando el nombre global de siempre — sin cambio de comportamiento para inscripciones de un solo equipo).
+
+**Validado con:** flujo real en navegador — al agregar un 2do equipo a Sub-7, el campo "Equipo 1" aparece precargado y editable, el texto se ve en negro con buen contraste; se guardaron "Sporting Club A" y "Sporting Club B" (dos nombres distintos y editados) en `categories_json`, confirmado directo en la base de datos. Build de producción limpio.
