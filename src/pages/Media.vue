@@ -109,7 +109,7 @@
             <!-- Grid de fotos -->
             <div v-if="item.images?.length" class="grid grid-cols-3 sm:grid-cols-4 gap-0.5 p-0.5">
               <div v-for="(img, idx) in item.images.slice(0, 8)" :key="img.id"
-                @click="openLightbox(img.image_url, item)"
+                @click="openLightbox(item, idx)"
                 class="relative aspect-square overflow-hidden cursor-pointer group bg-slate-100">
                 <img :src="img.image_url" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 <!-- Overlay "+N más" en la última visible si hay más -->
@@ -154,22 +154,56 @@
       </template>
     </div>
 
-    <!-- ── Lightbox ──────────────────────────────────────────── -->
+    <!-- ── Lightbox / catálogo de galería ──────────────────────── -->
     <Transition name="fade">
-      <div v-if="lightbox" @click="lightbox = null"
-        class="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 cursor-pointer">
-        <button @click.stop="lightbox = null"
-          class="absolute top-4 right-4 text-white/60 hover:text-white transition-colors z-10">
-          <IconX class="w-8 h-8" />
-        </button>
-        <img :src="lightbox" class="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl" />
+      <div v-if="lightbox" @click="closeLightbox"
+        class="fixed inset-0 bg-black/95 z-[200] flex flex-col cursor-pointer"
+        @touchstart="onTouchStart" @touchend="onTouchEnd">
+
+        <!-- Barra superior: título, contador, cerrar -->
+        <div class="flex items-center justify-between px-4 py-3 shrink-0 cursor-auto" @click.stop>
+          <div class="min-w-0">
+            <p class="text-white font-bold text-sm truncate">{{ lightbox.title }}</p>
+            <p class="text-white/50 text-xs">{{ lightbox.index + 1 }} / {{ lightbox.images.length }}</p>
+          </div>
+          <button @click="closeLightbox" class="text-white/60 hover:text-white transition-colors shrink-0 ml-3">
+            <IconX class="w-7 h-7" />
+          </button>
+        </div>
+
+        <!-- Imagen actual + flechas -->
+        <div class="flex-1 flex items-center justify-center relative px-2 min-h-0">
+          <button v-if="lightbox.images.length > 1" @click.stop="prevImage"
+            class="absolute left-1 sm:left-4 z-10 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer">
+            <IconChevronLeft class="w-6 h-6 sm:w-7 sm:h-7" />
+          </button>
+
+          <img :src="currentImage?.image_url" :key="currentImage?.id"
+            class="max-w-full max-h-full object-contain shadow-2xl cursor-auto" @click.stop />
+
+          <button v-if="lightbox.images.length > 1" @click.stop="nextImage"
+            class="absolute right-1 sm:right-4 z-10 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer">
+            <IconChevronRight class="w-6 h-6 sm:w-7 sm:h-7" />
+          </button>
+        </div>
+
+        <!-- Tira de miniaturas — modo catálogo, salta directo a cualquier foto -->
+        <div v-if="lightbox.images.length > 1"
+          class="flex gap-1.5 overflow-x-auto px-3 py-3 shrink-0 cursor-auto" @click.stop>
+          <button v-for="(img, idx) in lightbox.images" :key="img.id"
+            @click="lightbox.index = idx"
+            class="shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all"
+            :class="idx === lightbox.index ? 'border-white opacity-100' : 'border-transparent opacity-50 hover:opacity-80'">
+            <img :src="img.image_url" class="w-full h-full object-cover" />
+          </button>
+        </div>
       </div>
     </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTournament } from '@/composables/useTournament'
 import api from '@/api'
 import StreamCard from '@/components/StreamCard/StreamCard.vue'
@@ -180,6 +214,9 @@ const news      = ref([])
 const galleries = ref([])
 const streams   = ref([])
 const loading   = ref(false)
+// { images: [...], index: N, title } — antes solo guardaba una URL suelta sin
+// forma de ver el resto de la galería; ahora es el catálogo completo, con la
+// foto actual como índice sobre ese mismo arreglo.
 const lightbox  = ref(null)
 const expandedNews = ref(null)
 
@@ -270,8 +307,12 @@ function toggleNews(item) {
   }
 }
 
-function openLightbox(imageUrl, galleryItem) {
-  lightbox.value = imageUrl
+// Modo catálogo: guarda el arreglo completo de fotos de la galería + en qué
+// índice se abrió, para poder navegar entre todas sin cerrar el modal.
+const currentImage = computed(() => lightbox.value?.images[lightbox.value.index] || null)
+
+function openLightbox(galleryItem, idx) {
+  lightbox.value = { images: galleryItem.images, index: idx, title: galleryItem.title }
   if (!viewedThisSession.has(`gallery-${galleryItem.id}`)) {
     viewedThisSession.add(`gallery-${galleryItem.id}`)
     const source = galleries.value.find(g => g.id === galleryItem.id)
@@ -280,7 +321,38 @@ function openLightbox(imageUrl, galleryItem) {
   }
 }
 
+function closeLightbox() { lightbox.value = null }
+
+function nextImage() {
+  if (!lightbox.value) return
+  lightbox.value.index = (lightbox.value.index + 1) % lightbox.value.images.length
+}
+function prevImage() {
+  if (!lightbox.value) return
+  const n = lightbox.value.images.length
+  lightbox.value.index = (lightbox.value.index - 1 + n) % n
+}
+
+function onKeydown(e) {
+  if (!lightbox.value) return
+  if (e.key === 'Escape')     closeLightbox()
+  else if (e.key === 'ArrowRight') nextImage()
+  else if (e.key === 'ArrowLeft')  prevImage()
+}
+
+// Swipe táctil (móvil) — un simple delta en X entre touchstart y touchend
+// alcanza, sin necesitar una librería de gestos para un caso tan puntual.
+let touchStartX = 0
+function onTouchStart(e) { touchStartX = e.changedTouches[0].clientX }
+function onTouchEnd(e) {
+  const delta = e.changedTouches[0].clientX - touchStartX
+  if (Math.abs(delta) < 40) return
+  if (delta < 0) nextImage()
+  else prevImage()
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown)
   if (!slug.value) return
   loading.value = true
   try {
@@ -294,6 +366,7 @@ onMounted(async () => {
     streams.value   = s.data
   } catch (e) { console.error(e) } finally { loading.value = false }
 })
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <style scoped>
