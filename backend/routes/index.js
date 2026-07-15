@@ -271,10 +271,10 @@ router.delete('/phases/:id', authMiddleware, adminOnly, async (req, res) => {
     const events = (await query('SELECT * FROM match_events WHERE match_id=$1', [m.id])).rows
     for (const ev of events) {
       if (!ev.player_id) continue
-      if (ev.type === 'goal' || ev.type === 'own_goal') await query('UPDATE players SET goals=GREATEST(0,goals-1) WHERE id=$1', [ev.player_id])
-      if (ev.type === 'assist')      await query('UPDATE players SET assists=GREATEST(0,assists-1) WHERE id=$1', [ev.player_id])
-      if (ev.type === 'yellow_card') await query('UPDATE players SET yellow_cards=GREATEST(0,yellow_cards-1) WHERE id=$1', [ev.player_id])
-      if (ev.type === 'red_card')    await query('UPDATE players SET red_cards=GREATEST(0,red_cards-1) WHERE id=$1', [ev.player_id])
+      if (ev.type === 'goal' || ev.type === 'own_goal') await query('UPDATE players SET goals=CASE WHEN goals>0 THEN goals-1 ELSE 0 END WHERE id=$1', [ev.player_id])
+      if (ev.type === 'assist')      await query('UPDATE players SET assists=CASE WHEN assists>0 THEN assists-1 ELSE 0 END WHERE id=$1', [ev.player_id])
+      if (ev.type === 'yellow_card') await query('UPDATE players SET yellow_cards=CASE WHEN yellow_cards>0 THEN yellow_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
+      if (ev.type === 'red_card')    await query('UPDATE players SET red_cards=CASE WHEN red_cards>0 THEN red_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
     }
   }
   await query('DELETE FROM matches WHERE phase_id=$1', [id])
@@ -870,10 +870,10 @@ router.delete('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
     const events = (await query('SELECT * FROM match_events WHERE match_id=$1', [m.id])).rows
     for (const ev of events) {
       if (!ev.player_id) continue
-      if (ev.type === 'goal' || ev.type === 'own_goal') await query('UPDATE players SET goals=GREATEST(0,goals-1) WHERE id=$1', [ev.player_id])
-      if (ev.type === 'assist')      await query('UPDATE players SET assists=GREATEST(0,assists-1) WHERE id=$1', [ev.player_id])
-      if (ev.type === 'yellow_card') await query('UPDATE players SET yellow_cards=GREATEST(0,yellow_cards-1) WHERE id=$1', [ev.player_id])
-      if (ev.type === 'red_card')    await query('UPDATE players SET red_cards=GREATEST(0,red_cards-1) WHERE id=$1', [ev.player_id])
+      if (ev.type === 'goal' || ev.type === 'own_goal') await query('UPDATE players SET goals=CASE WHEN goals>0 THEN goals-1 ELSE 0 END WHERE id=$1', [ev.player_id])
+      if (ev.type === 'assist')      await query('UPDATE players SET assists=CASE WHEN assists>0 THEN assists-1 ELSE 0 END WHERE id=$1', [ev.player_id])
+      if (ev.type === 'yellow_card') await query('UPDATE players SET yellow_cards=CASE WHEN yellow_cards>0 THEN yellow_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
+      if (ev.type === 'red_card')    await query('UPDATE players SET red_cards=CASE WHEN red_cards>0 THEN red_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
     }
     // Recalcular standings sin este partido
     if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(() => {})
@@ -1037,11 +1037,11 @@ router.delete('/match-events/:id', authMiddleware, adminOnly, async (req, res) =
       else home = Math.max(0, home - 1)
     }
     await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [home, away, ev.match_id])
-    if (ev.player_id) await query('UPDATE players SET goals=GREATEST(0,goals-1) WHERE id=$1', [ev.player_id])
+    if (ev.player_id) await query('UPDATE players SET goals=CASE WHEN goals>0 THEN goals-1 ELSE 0 END WHERE id=$1', [ev.player_id])
   }
-  if (ev.type === 'assist'      && ev.player_id) await query('UPDATE players SET assists=GREATEST(0,assists-1) WHERE id=$1', [ev.player_id])
-  if (ev.type === 'yellow_card' && ev.player_id) await query('UPDATE players SET yellow_cards=GREATEST(0,yellow_cards-1) WHERE id=$1', [ev.player_id])
-  if (ev.type === 'red_card'    && ev.player_id) await query('UPDATE players SET red_cards=GREATEST(0,red_cards-1) WHERE id=$1', [ev.player_id])
+  if (ev.type === 'assist'      && ev.player_id) await query('UPDATE players SET assists=CASE WHEN assists>0 THEN assists-1 ELSE 0 END WHERE id=$1', [ev.player_id])
+  if (ev.type === 'yellow_card' && ev.player_id) await query('UPDATE players SET yellow_cards=CASE WHEN yellow_cards>0 THEN yellow_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
+  if (ev.type === 'red_card'    && ev.player_id) await query('UPDATE players SET red_cards=CASE WHEN red_cards>0 THEN red_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
 
   await query('DELETE FROM match_events WHERE id=$1', [ev.id])
 
