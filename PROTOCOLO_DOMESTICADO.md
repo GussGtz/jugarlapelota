@@ -603,3 +603,16 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 - `Home.vue` y `Tournaments.vue`: se agregó `min-w-0` a las tarjetas de torneo (`router-link.card`, hijas directas del grid) y `min-w-0`+`truncate` a su nombre/ubicación interna — mismo patrón en ambos archivos porque comparten el mismo diseño de tarjeta.
 
 **Validado con:** en navegador, a 320px/375px de ancho — confirmado `document.documentElement.scrollWidth === clientWidth` (sin overflow) en `TeamDetail.vue` con datos reales, y en `Home.vue`/tarjetas de torneo tras inyectar nombres largos vía DOM para forzar el escenario exacto de las capturas del usuario — el texto ahora trunca con elipsis en vez de desbordar. Revisado también el dashboard de admin en 375px (ya manejaba esto correctamente, sin cambios necesarios). Build de producción limpio.
+
+### 2026-07-15 — Fix: overflow horizontal en móvil de los 4 contadores del hero público (`TournamentHome.vue`)
+**Pedido:** captura de la página pública de un torneo ("COPA CARIBE") mostrando "104 JUGADORES", "0 PARTIDOS" y "SEG" (Seguidores cortado), con el número de Equipos tampoco visible — "corrigelo haz responsivo esos contadores de los 4".
+
+**Causa raíz:** la fila de stats (Equipos/Jugadores/Partidos/Seguidores) era un `flex items-center justify-center gap-8 md:gap-16` **sin `flex-wrap`**, con separadores verticales entre cada stat y números en `text-4xl md:text-6xl` (36-60px). Con los 4 contadores visibles a la vez (torneo con jugadores Y seguidores registrados) más 3 separadores, el ancho total de la fila supera con facilidad los ~375-414px de un viewport móvil típico; al no poder envolver (`flex` sin wrap) y estar centrada (`justify-center`) dentro de una sección con `overflow-hidden`, el navegador simplemente cortaba los extremos (Equipos a la izquierda, Seguidores a la derecha), dejando visibles solo los 2 stats del medio — coincide exactamente con la captura del usuario.
+
+**Corrección en `src/pages/TournamentHome.vue`:**
+- Se agregó `flex-wrap` al contenedor de la fila — si los 4 stats no caben en una sola línea, envuelven a 2 filas de 2 en vez de desbordar.
+- Tamaño de número escalonado en 3 pasos en vez de 2: `text-3xl sm:text-4xl md:text-6xl` (antes saltaba directo de `text-4xl` a `md:text-6xl` sin paso intermedio para pantallas pequeñas).
+- Gap reducido en móvil: `gap-x-6 gap-y-3 sm:gap-x-8 md:gap-x-16` (antes `gap-8` fijo incluso en el viewport más angosto).
+- Los separadores verticales (`w-px h-12 bg-white/20`) se ocultan en móvil (`hidden sm:block`) — son decorativos, consumían ancho innecesario y se verían fuera de lugar entre dos filas cuando el layout envuelve.
+
+**Validado con:** en navegador, sobre el torneo real "COPA CARIBE" (`/COPACARIBE`) — a 375px con sus 3 stats reales (11 Equipos, 2 Jugadores, 25 Partidos) no hay overflow (`scrollWidth === clientWidth`). Para reproducir el caso exacto de la captura (4to contador de Seguidores > 0), se clonó vía DOM un 4to bloque de stat con 128 seguidores: a 375px los 4 caben en una sola fila, totalmente legibles; a 320px con un valor de 4 dígitos (1284) la fila envuelve limpiamente a 2x2 sin cortar ningún número, en ambos casos `scrollWidth === clientWidth`. Confirmado en desktop que el diseño original (separadores visibles, tamaños grandes) no cambió. Build de producción limpio.

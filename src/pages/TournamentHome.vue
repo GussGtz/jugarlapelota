@@ -39,29 +39,35 @@
           {{ tournament.description }}
         </p>
 
-        <!-- Stats row — solo muestra datos reales, nunca inventados -->
-        <div class="th-hero-anim flex items-center justify-center gap-8 md:gap-16 py-4" style="animation-delay: 0.4s">
+        <!-- Stats row — solo muestra datos reales, nunca inventados.
+             flex-wrap + separadores ocultos en móvil: con 4 stats + números
+             grandes (text-4xl+) no caben en una sola fila en pantallas
+             angostas — antes se salían del viewport por los lados (el `flex`
+             sin wrap centraba la fila completa y la sección con overflow
+             hidden cortaba Equipos/Seguidores en los extremos). Al envolver,
+             caen en 2 filas de 2 sin perder ningún número. -->
+        <div class="th-hero-anim flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:gap-x-8 md:gap-x-16 py-4" style="animation-delay: 0.4s">
           <div class="text-center">
-            <p class="text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.teams }}</p>
-            <p class="text-white/60 text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Equipos</p>
+            <p class="text-3xl sm:text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.teams }}</p>
+            <p class="text-white/60 text-[10px] sm:text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Equipos</p>
           </div>
           <template v-if="stats.players > 0">
-            <div class="w-px h-12 bg-white/20"></div>
+            <div class="w-px h-12 bg-white/20 hidden sm:block"></div>
             <div class="text-center">
-              <p class="text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.players }}</p>
-              <p class="text-white/60 text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Jugadores</p>
+              <p class="text-3xl sm:text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.players }}</p>
+              <p class="text-white/60 text-[10px] sm:text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Jugadores</p>
             </div>
           </template>
-          <div class="w-px h-12 bg-white/20"></div>
+          <div class="w-px h-12 bg-white/20 hidden sm:block"></div>
           <div class="text-center">
-            <p class="text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.matches }}</p>
-            <p class="text-white/60 text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Partidos</p>
+            <p class="text-3xl sm:text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.matches }}</p>
+            <p class="text-white/60 text-[10px] sm:text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Partidos</p>
           </div>
           <template v-if="stats.followers > 0">
-            <div class="w-px h-12 bg-white/20"></div>
+            <div class="w-px h-12 bg-white/20 hidden sm:block"></div>
             <div class="text-center">
-              <p class="text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.followers }}</p>
-              <p class="text-white/60 text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Seguidores</p>
+              <p class="text-3xl sm:text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.followers }}</p>
+              <p class="text-white/60 text-[10px] sm:text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Seguidores</p>
             </div>
           </template>
         </div>
