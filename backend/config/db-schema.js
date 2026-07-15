@@ -137,14 +137,6 @@ const PG_SCHEMA = [
   p256dh TEXT NOT NULL, auth TEXT NOT NULL, user_agent TEXT,
   user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ DEFAULT NOW())`,
 
-// Vincula un dispositivo (endpoint, aunque nunca haya activado push) con la
-// cuenta con la que se logueó en ese dispositivo — evita que el conteo de
-// seguidores cuente 2 veces a la misma persona (fila por-dispositivo +
-// fila por-cuenta) cuando push_subscriptions no tiene ese endpoint.
-`CREATE TABLE IF NOT EXISTS device_accounts (
-  endpoint TEXT PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW())`,
-
 `CREATE TABLE IF NOT EXISTS admin_requests (
   id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL,
   phone TEXT, org TEXT, message TEXT, status TEXT DEFAULT 'pending',
@@ -247,6 +239,15 @@ const PG_MIGRATIONS = [
   // Contador de vistas en noticias y galerías
   `ALTER TABLE news ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0`,
   `ALTER TABLE galleries ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0`,
+  // Vincula un dispositivo (endpoint, aunque nunca haya activado push) con la
+  // cuenta con la que se logueó en ese dispositivo — evita que el conteo de
+  // seguidores cuente 2 veces a la misma persona (fila por-dispositivo +
+  // fila por-cuenta) cuando push_subscriptions no tiene ese endpoint.
+  `CREATE TABLE IF NOT EXISTS device_accounts (
+    endpoint TEXT PRIMARY KEY,
+    user_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
 ]
 
 module.exports = { PG_SCHEMA, PG_MIGRATIONS }

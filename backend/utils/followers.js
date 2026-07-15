@@ -18,22 +18,30 @@ const { query, queryOne } = require('../config/db')
 // vez de reutilizar el mismo placeholder dos veces: la conversión $N→? para SQLite
 // (config/db.js) reemplaza cada aparición por un "?" independiente, así que reusar
 // el mismo número deja el statement con más "?" que valores.
+// Un error aquí (p.ej. una migración de tabla que aún no corrió) nunca debe
+// tumbar la vista completa de un torneo/equipo solo por un contador social —
+// se atrapa y se degrada a 0 en vez de dejar que explote hacia arriba.
 function followerCountFactory(entityCol, deviceTable, userTable) {
   return async function count(id) {
-    const row = await queryOne(`
-      SELECT COUNT(DISTINCT identity) AS c FROM (
-        SELECT COALESCE(CAST(da.user_id AS TEXT), CAST(ps.user_id AS TEXT), df.endpoint) AS identity
-        FROM ${deviceTable} df
-        LEFT JOIN push_subscriptions ps ON ps.endpoint = df.endpoint
-        LEFT JOIN device_accounts da ON da.endpoint = df.endpoint
-        WHERE df.${entityCol} = $1
-        UNION
-        SELECT CAST(uf.user_id AS TEXT) AS identity
-        FROM ${userTable} uf
-        WHERE uf.${entityCol} = $2
-      ) x
-    `, [id, id])
-    return row ? Number(row.c) : 0
+    try {
+      const row = await queryOne(`
+        SELECT COUNT(DISTINCT identity) AS c FROM (
+          SELECT COALESCE(CAST(da.user_id AS TEXT), CAST(ps.user_id AS TEXT), df.endpoint) AS identity
+          FROM ${deviceTable} df
+          LEFT JOIN push_subscriptions ps ON ps.endpoint = df.endpoint
+          LEFT JOIN device_accounts da ON da.endpoint = df.endpoint
+          WHERE df.${entityCol} = $1
+          UNION
+          SELECT CAST(uf.user_id AS TEXT) AS identity
+          FROM ${userTable} uf
+          WHERE uf.${entityCol} = $2
+        ) x
+      `, [id, id])
+      return row ? Number(row.c) : 0
+    } catch (e) {
+      console.error(`[followerCount:${entityCol}]`, e.message)
+      return 0
+    }
   }
 }
 
@@ -41,24 +49,29 @@ function followerCountsFactory(entityCol, deviceTable, userTable) {
   return async function counts(ids) {
     const uniqueIds = [...new Set(ids.filter(id => id != null))]
     if (!uniqueIds.length) return new Map()
-    const n = uniqueIds.length
-    const ph1 = uniqueIds.map((_, i) => `$${i + 1}`).join(',')
-    const ph2 = uniqueIds.map((_, i) => `$${n + i + 1}`).join(',')
-    const rows = (await query(`
-      SELECT ${entityCol}, COUNT(DISTINCT identity) AS c FROM (
-        SELECT df.${entityCol} AS ${entityCol}, COALESCE(CAST(da.user_id AS TEXT), CAST(ps.user_id AS TEXT), df.endpoint) AS identity
-        FROM ${deviceTable} df
-        LEFT JOIN push_subscriptions ps ON ps.endpoint = df.endpoint
-        LEFT JOIN device_accounts da ON da.endpoint = df.endpoint
-        WHERE df.${entityCol} IN (${ph1})
-        UNION
-        SELECT uf.${entityCol} AS ${entityCol}, CAST(uf.user_id AS TEXT) AS identity
-        FROM ${userTable} uf
-        WHERE uf.${entityCol} IN (${ph2})
-      ) x
-      GROUP BY ${entityCol}
-    `, [...uniqueIds, ...uniqueIds])).rows
-    return new Map(rows.map(r => [Number(r[entityCol]), Number(r.c)]))
+    try {
+      const n = uniqueIds.length
+      const ph1 = uniqueIds.map((_, i) => `$${i + 1}`).join(',')
+      const ph2 = uniqueIds.map((_, i) => `$${n + i + 1}`).join(',')
+      const rows = (await query(`
+        SELECT ${entityCol}, COUNT(DISTINCT identity) AS c FROM (
+          SELECT df.${entityCol} AS ${entityCol}, COALESCE(CAST(da.user_id AS TEXT), CAST(ps.user_id AS TEXT), df.endpoint) AS identity
+          FROM ${deviceTable} df
+          LEFT JOIN push_subscriptions ps ON ps.endpoint = df.endpoint
+          LEFT JOIN device_accounts da ON da.endpoint = df.endpoint
+          WHERE df.${entityCol} IN (${ph1})
+          UNION
+          SELECT uf.${entityCol} AS ${entityCol}, CAST(uf.user_id AS TEXT) AS identity
+          FROM ${userTable} uf
+          WHERE uf.${entityCol} IN (${ph2})
+        ) x
+        GROUP BY ${entityCol}
+      `, [...uniqueIds, ...uniqueIds])).rows
+      return new Map(rows.map(r => [Number(r[entityCol]), Number(r.c)]))
+    } catch (e) {
+      console.error(`[followerCounts:${entityCol}]`, e.message)
+      return new Map()
+    }
   }
 }
 
