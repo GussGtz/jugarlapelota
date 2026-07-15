@@ -987,15 +987,33 @@ router.post('/matches/:id/events', authMiddleware, refereeOrAdmin, async (req, r
   // Partido con nombres de equipos para el socket
   const updatedMatch = (await queryOne(`
     SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam",
-           ht.logo AS "homeLogo", at.logo AS "awayLogo"
+           ht.logo AS "homeLogo", at.logo AS "awayLogo", tr.slug AS "tournamentSlug"
     FROM matches m
     JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
+    JOIN tournaments tr ON m.tournament_id=tr.id
     WHERE m.id=$1
   `, [matchId]))
 
   // Emitir evento enriquecido para el ticker instantáneo
   req.io?.emit('match:event', { matchId, event: richEvent, match: updatedMatch })
   req.io?.emit('match:update', updatedMatch)
+
+  // Notificar a quien sigue a ESTE jugador — solo eventos que son logro/hito
+  // personal (autogol no cuenta: no suma a las stats del jugador ni es algo
+  // que celebrar)
+  const playerPushMessages = {
+    goal:        { title: '⚽ ¡Gol!', body: `${richEvent.playerName} anotó un gol` },
+    assist:      { title: '🎯 ¡Asistencia!', body: `${richEvent.playerName} dio una asistencia` },
+    yellow_card: { title: '🟨 Tarjeta amarilla', body: `${richEvent.playerName} recibió una tarjeta amarilla` },
+    red_card:    { title: '🟥 Tarjeta roja', body: `${richEvent.playerName} recibió una tarjeta roja` },
+  }
+  if (playerId && playerPushMessages[type]) {
+    const { title, body } = playerPushMessages[type]
+    global.sendPushToPlayers?.([playerId], {
+      type: `player:${type}`, title, body,
+      url: `/${updatedMatch.tournamentSlug}/partidos`, tag: `player-${playerId}-match-${matchId}`
+    })
+  }
 
   res.status(201).json({ id: r.lastInsertRowid, event: richEvent, match: updatedMatch })
 })
@@ -3690,6 +3708,21 @@ async function sendPushToTournaments(tournamentIds, payload) {
   sendPush(endpoints, payload)
 }
 
+async function sendPushToPlayers(playerIds, payload) {
+  if (!playerIds?.length) return
+  const n = playerIds.length
+  const ph1 = playerIds.map((_, i) => `$${i + 1}`).join(',')
+  const ph2 = playerIds.map((_, i) => `$${n + i + 1}`).join(',')
+  const endpoints = (await query(
+    `SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
+     FROM push_subscriptions ps
+     LEFT JOIN player_follows pf ON pf.endpoint = ps.endpoint AND pf.player_id IN (${ph1})
+     LEFT JOIN user_player_follows upf ON upf.user_id = ps.user_id AND upf.player_id IN (${ph2})
+     WHERE pf.player_id IS NOT NULL OR upf.player_id IS NOT NULL`, [...playerIds, ...playerIds]
+  )).rows
+  sendPush(endpoints, payload)
+}
+
 async function sendPushToAll(payload) {
   const subs = (await query('SELECT * FROM push_subscriptions', [])).rows
   sendPush(subs, payload)
@@ -3746,6 +3779,7 @@ async function checkUpcomingMatchReminders() {
 global.sendPushToAll              = sendPushToAll
 global.sendPushToTeams            = sendPushToTeams
 global.sendPushToTournaments      = sendPushToTournaments
+global.sendPushToPlayers          = sendPushToPlayers
 global.sendMatchFinishedPush      = sendMatchFinishedPush
 global.sendMatchLivePush          = sendMatchLivePush
 global.checkUpcomingMatchReminders = checkUpcomingMatchReminders

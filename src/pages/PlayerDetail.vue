@@ -2,18 +2,18 @@
   <div class="max-w-2xl mx-auto px-4 py-8">
     <div v-if="loading" class="card animate-pulse h-64 bg-muted/50"></div>
     <div v-else-if="player" class="space-y-6">
-      <div class="card flex items-center gap-6">
-        <div class="w-24 h-24 rounded-2xl bg-muted flex items-center justify-center text-5xl flex-shrink-0">
+      <div class="card flex items-start gap-4 md:gap-6">
+        <div class="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-muted flex items-center justify-center text-5xl flex-shrink-0">
           <img v-if="player.photo" :src="player.photo" class="w-full h-full object-cover rounded-2xl"/>
           <IconUser v-else class="w-10 h-10 text-gray-500" />
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-slate-500 text-sm">#{{ player.number }} · {{ player.position }}</p>
-          <h1 class="text-3xl font-black text-slate-900">{{ player.name }}</h1>
-          <p class="text-primary text-sm mt-1">{{ player.teamName }}</p>
+          <h1 class="text-2xl md:text-3xl font-black text-slate-900 break-words">{{ player.name }}</h1>
+          <p class="text-primary text-sm mt-1 truncate">{{ player.teamName }}</p>
         </div>
         <button @click="toggleFollow"
-          class="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm transition-all border"
+          class="shrink-0 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl font-bold text-sm transition-all border"
           :class="isFollowed
             ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
             : 'bg-white border-slate-200 text-slate-600 hover:border-primary/40 hover:text-primary'">
