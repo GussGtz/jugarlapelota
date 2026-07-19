@@ -650,3 +650,10 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 **Sobre el cierre de sesión:** no se tocó nada del flujo de logout — el `auth.logout()` existente solo se dispara por acción explícita del usuario (botón "Cerrar sesión"), no hay temporizador ni interceptor que cierre sesión automáticamente en ningún punto de la app. Se deja como nota para futuras sesiones: cualquier cambio en el manejo de sesión/token debe preservar esto.
 
 **Validado con:** en navegador, sin sesión iniciada (localStorage limpio) — clic en el corazón de la ficha de "Samuel Gutierrez" redirige correctamente a `/login?redirect=/COPACARIBE/jugador/134`, sin llamar a la API de follow ni cambiar el estado local. Build de producción limpio.
+
+### 2026-07-15 — Feature: modal de foto de perfil en la ficha de jugador
+**Pedido:** "quiero que cuando me encuentre en el perfil de cualquier jugador me permita ver la foto de perfil en un modal responsivo y cerrarlo la x cuando quiera".
+
+**Implementación en `src/pages/PlayerDetail.vue`:** siguiendo el mismo patrón de lightbox ya usado en `Media.vue` (fondo `bg-black/95`, `Transition name="fade"`, botón `IconX` para cerrar) — la foto de la ficha ahora tiene `cursor-pointer` y al hacer clic abre un modal a pantalla completa con la imagen centrada (`max-w-full max-h-full object-contain`, se adapta a cualquier tamaño de pantalla sin recortarse ni deformarse). Se puede cerrar de 3 formas: botón X, clic en cualquier parte del fondo oscuro (la imagen tiene `@click.stop` para que un clic sobre la foto misma no la cierre), o tecla Escape (mismo patrón de `onKeydown` + `addEventListener('keydown', ...)` que ya usa `Media.vue`). Si el jugador no tiene foto (ícono de silueta por defecto) el modal no se activa.
+
+**Validado con:** en navegador, a 375px y en desktop — abrí el modal desde la ficha de "Samuel Gutierrez", confirmé que la imagen se muestra completa y centrada sin distorsión en ambos anchos, y probé los 3 métodos de cierre (botón X, clic en el fondo, tecla Escape) — los tres cierran correctamente tras la transición de 0.2s. Build de producción limpio.

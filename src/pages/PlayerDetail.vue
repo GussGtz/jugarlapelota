@@ -3,7 +3,8 @@
     <div v-if="loading" class="card animate-pulse h-64 bg-muted/50"></div>
     <div v-else-if="player" class="space-y-6">
       <div class="card flex items-start gap-4 md:gap-6">
-        <div class="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-muted flex items-center justify-center text-5xl flex-shrink-0">
+        <div class="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-muted flex items-center justify-center text-5xl flex-shrink-0"
+          :class="player.photo ? 'cursor-pointer' : ''" @click="player.photo && (showPhoto = true)">
           <img v-if="player.photo" :src="player.photo" class="w-full h-full object-cover rounded-2xl"/>
           <IconUser v-else class="w-10 h-10 text-gray-500" />
         </div>
@@ -43,10 +44,25 @@
         </div>
       </div>
     </div>
+
+    <!-- ── Modal de foto de perfil ──────────────────────── -->
+    <Transition name="fade">
+      <div v-if="showPhoto" @click="showPhoto = false"
+        class="fixed inset-0 bg-black/95 z-[200] flex flex-col cursor-pointer">
+        <div class="flex justify-end px-4 py-3 shrink-0">
+          <button @click="showPhoto = false" class="text-white/60 hover:text-white transition-colors">
+            <IconX class="w-7 h-7" />
+          </button>
+        </div>
+        <div class="flex-1 flex items-center justify-center px-4 pb-6 min-h-0">
+          <img :src="player.photo" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl cursor-auto" @click.stop />
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { useFollowingStore } from '@/stores/following'
@@ -57,6 +73,7 @@ const route = useRoute()
 const router = useRouter()
 const player = ref(null)
 const loading = ref(true)
+const showPhoto = ref(false)
 const following = useFollowingStore()
 const auth = useAuthStore()
 const { pushGranted, subscribePush, pushEndpoint } = usePWA()
@@ -80,4 +97,12 @@ onMounted(async () => {
     player.value = data
   } catch {} finally { loading.value = false }
 })
+
+function onKeydown(e) { if (e.key === 'Escape') showPhoto.value = false }
+window.addEventListener('keydown', onKeydown)
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </script>
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>
