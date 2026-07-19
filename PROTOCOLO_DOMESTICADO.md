@@ -702,3 +702,10 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 **`src/components/SocialLinks/SocialLinks.vue`:** el contenedor de iconos pasó de `justify-center` a `justify-end` — ahora se alinean a la derecha, en vez de centrados, debajo del banner de patrocinadores en la pestaña Media.
 
 **Validado con:** en navegador — clic en el contador de "Jugadores" mueve `window.scrollY` al mismo valor exacto (2844.5) que produce el contador de "Equipos", confirmando que apuntan a la misma sección. Captura de la pestaña Media mostrando los 5 iconos alineados al borde derecho del banner de patrocinadores. Build de producción limpio.
+
+### 2026-07-15 — Ajuste: margen derecho en iconos de redes sociales cuando hay solo una red configurada
+**Pedido:** "cuando es una sola red social se ve sola y como se alinea a la derecha se ve muy arrinconada, déjale un margen del lado derecho para que no parezca pegado a la pared".
+
+**Corrección en `src/components/SocialLinks/SocialLinks.vue`:** se agregó `pr-2` al contenedor — con un solo ícono (o varios) ya no queda pegado al borde derecho del banner de patrocinadores, sino con un pequeño respiro.
+
+**Validado con:** en navegador, configurando solo Facebook (el caso reportado) — el ícono ahora tiene separación visible del borde derecho en vez de tocarlo. Build de producción limpio.
