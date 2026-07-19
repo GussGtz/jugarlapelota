@@ -1,5 +1,5 @@
 <template>
-  <div v-if="links.length" class="flex items-center justify-center gap-3">
+  <div v-if="links.length" class="flex items-center justify-end gap-3">
     <a v-for="l in links" :key="l.key" :href="l.url" target="_blank" rel="noopener noreferrer"
       class="w-10 h-10 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110 shadow-sm"
       :style="{ background: l.color }" :title="l.label">

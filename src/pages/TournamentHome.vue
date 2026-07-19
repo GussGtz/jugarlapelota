@@ -53,10 +53,10 @@
           </button>
           <template v-if="stats.players > 0">
             <div class="w-px h-12 bg-white/20 hidden sm:block"></div>
-            <div class="text-center">
+            <button type="button" @click="scrollToTeams" class="text-center cursor-pointer" :disabled="!uniqueTeams.length">
               <p class="text-3xl sm:text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.players }}</p>
               <p class="text-white/60 text-[10px] sm:text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Jugadores</p>
-            </div>
+            </button>
           </template>
           <div class="w-px h-12 bg-white/20 hidden sm:block"></div>
           <button type="button" @click="router.push(`/${slug}/partidos`)" class="text-center cursor-pointer">

@@ -693,3 +693,12 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 - El contador de "Jugadores" se dejó sin cambios (sigue siendo un `<div>` no interactivo) hasta confirmar el destino.
 
 **Validado con:** en navegador — confirmado a nivel DOM que `document.getElementById('equipos-participantes')` existe, que tras el scroll el `getBoundingClientRect().top` del elemento queda en `0` (alineado arriba del viewport) con el color de fondo correcto (`rgb(15,23,42)`) y el contenido correcto ("EQUIPOS PARTICIPANTES..."). El botón de "Partidos" navega correctamente a `/COPACARIBE/partidos` (confirmado por `location.pathname`). Build de producción limpio.
+
+### 2026-07-15 — Ajustes: contador de Jugadores también hace scroll a Equipos + iconos de redes sociales alineados a la derecha
+**Pedido:** "cuando presione el contador de jugadores debe hacer lo mismo que la nueva función del botón equipos, solo hacer scroll en el home y mostrar el apartado de equipos participantes" + "las redes sociales en media que están debajo del banner de patrocinadores que no estén centrados los iconos sino se alineen a la derecha".
+
+**`src/pages/TournamentHome.vue`:** el bloque de stat "Jugadores" pasó de `<div>` a `<button type="button">` con `@click="scrollToTeams"` — mismo handler que ya usa el contador de "Equipos" (comparten destino: la sección "Equipos Participantes").
+
+**`src/components/SocialLinks/SocialLinks.vue`:** el contenedor de iconos pasó de `justify-center` a `justify-end` — ahora se alinean a la derecha, en vez de centrados, debajo del banner de patrocinadores en la pestaña Media.
+
+**Validado con:** en navegador — clic en el contador de "Jugadores" mueve `window.scrollY` al mismo valor exacto (2844.5) que produce el contador de "Equipos", confirmando que apuntan a la misma sección. Captura de la pestaña Media mostrando los 5 iconos alineados al borde derecho del banner de patrocinadores. Build de producción limpio.
