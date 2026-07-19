@@ -1,13 +1,13 @@
 <template>
   <div class="topbar bg-white border-b border-muted shadow-sm shrink-0">
     <!-- Safe-area spacer (solo mobile PWA) -->
-    <div class="safe-area-top md:hidden" />
+    <div class="safe-area-top xl:hidden" />
 
     <div class="flex items-center justify-between px-4 md:px-4 h-14">
       <div class="flex items-center gap-3">
         <!-- Desktop: colapsar sidebar -->
         <button @click="$emit('toggle-collapse')"
-          class="hidden md:flex w-8 h-8 items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors"
+          class="hidden xl:flex w-8 h-8 items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors"
           :title="collapsed ? 'Expandir menú' : 'Colapsar menú'">
           <IconPanelLeftClose v-if="!collapsed" class="w-4 h-4" />
           <IconPanelLeftOpen  v-else            class="w-4 h-4" />
@@ -17,7 +17,7 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <span class="hidden md:block text-sm text-slate-600">{{ auth.user?.name || 'Admin' }}</span>
+        <span class="hidden xl:block text-sm text-slate-600">{{ auth.user?.name || 'Admin' }}</span>
         <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm border border-primary/20">
           {{ initials }}
         </div>

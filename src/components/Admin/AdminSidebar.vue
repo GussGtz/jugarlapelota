@@ -19,7 +19,7 @@
       <button
         v-if="!collapsed"
         @click="emit('toggle-collapse')"
-        class="hidden md:flex w-7 h-7 items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors flex-shrink-0"
+        class="hidden xl:flex w-7 h-7 items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors flex-shrink-0"
         title="Colapsar sidebar"
       >
         <IconPanelLeftClose class="w-4 h-4" />
@@ -27,7 +27,7 @@
     </div>
 
     <!-- Botón expandir (solo visible cuando colapsado) -->
-    <div v-if="collapsed" class="hidden md:flex justify-center pt-2 pb-1">
+    <div v-if="collapsed" class="hidden xl:flex justify-center pt-2 pb-1">
       <button
         @click="emit('toggle-collapse')"
         class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors"

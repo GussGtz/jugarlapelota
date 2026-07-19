@@ -26,7 +26,7 @@
     </div>
 
     <!-- Tabs nav — oculto en inscripción cuando admin/referee logueado -->
-    <div v-if="!hideNav" class="hidden md:block sticky md:top-16 z-40 bg-white border-b border-muted shadow-sm">
+    <div v-if="!hideNav" class="hidden xl:block sticky xl:top-16 z-40 bg-white border-b border-muted shadow-sm">
       <div class="max-w-7xl mx-auto px-0 md:px-4 flex overflow-x-auto scrollbar-hide">
         <router-link
           v-for="tab in visibleTabs" :key="tab.path"

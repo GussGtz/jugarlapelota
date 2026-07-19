@@ -4,7 +4,7 @@
     <!-- Overlay mobile -->
     <Transition name="fade">
       <div v-if="mobileOpen"
-        class="fixed inset-0 bg-black/40 z-30 md:hidden"
+        class="fixed inset-0 bg-black/40 z-30 xl:hidden"
         @click="mobileOpen = false" />
     </Transition>
 
@@ -12,9 +12,9 @@
     <div class="fixed left-0 top-0 h-full z-40 transition-all duration-300 ease-in-out"
       :class="[
         // Mobile: slide-in drawer
-        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0',
         // Desktop: ancho según collapsed
-        collapsed ? 'md:w-16' : 'md:w-64'
+        collapsed ? 'xl:w-16' : 'xl:w-64'
       ]">
       <AdminSidebar
         :collapsed="collapsed"
@@ -25,19 +25,19 @@
 
     <!-- Main content — margen dinámico -->
     <div class="flex-1 min-w-0 flex flex-col transition-all duration-300 ease-in-out"
-      :class="collapsed ? 'md:ml-16' : 'md:ml-64'">
+      :class="collapsed ? 'xl:ml-16' : 'xl:ml-64'">
       <AdminTopbar
         :collapsed="collapsed"
         @toggle-sidebar="mobileOpen = !mobileOpen"
         @toggle-collapse="toggleCollapse"
       />
-      <main class="flex-1 px-2 py-3 md:p-6 overflow-x-hidden overflow-y-auto bg-slate-50 main-scroll md:pb-6">
+      <main class="flex-1 px-2 py-3 xl:p-6 overflow-x-hidden overflow-y-auto bg-slate-50 main-scroll xl:pb-6">
         <slot />
       </main>
     </div>
 
     <!-- Admin Bottom Nav — mobile only (oculto para superadmin) -->
-    <nav v-if="!auth.isSuperAdmin" class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg md:hidden admin-bottom-nav">
+    <nav v-if="!auth.isSuperAdmin" class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg xl:hidden admin-bottom-nav">
       <div class="flex justify-around items-center py-1">
         <router-link v-for="item in adminBottomTabs" :key="item.to" :to="item.to"
           class="flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all"
@@ -55,11 +55,11 @@
 
     <!-- Quick Drawer (mobile) — acceso rápido a secciones + logout -->
     <Transition name="fade">
-      <div v-if="quickDrawer" class="fixed inset-0 bg-black/40 z-[60] md:hidden" @click="quickDrawer = false"/>
+      <div v-if="quickDrawer" class="fixed inset-0 bg-black/40 z-[60] xl:hidden" @click="quickDrawer = false"/>
     </Transition>
     <Transition name="slide-up">
       <div v-if="quickDrawer"
-        class="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl md:hidden"
+        class="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl xl:hidden"
         style="padding-bottom: env(safe-area-inset-bottom, 0px)">
         <!-- Handle -->
         <div class="flex justify-center pt-3 pb-2">
@@ -162,7 +162,7 @@ const drawerQuickLinks = [
 }
 
 /* El main deja espacio = altura del nav (56px aprox) + safe-area inferior */
-@media (max-width: 767px) {
+@media (max-width: 1279px) {
   .main-scroll {
     padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   }

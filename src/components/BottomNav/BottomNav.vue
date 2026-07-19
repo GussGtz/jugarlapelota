@@ -1,5 +1,5 @@
 <template>
-  <nav class="block md:hidden fixed bottom-0 left-0 right-0 z-50 nav-root">
+  <nav class="block xl:hidden fixed bottom-0 left-0 right-0 z-50 nav-root">
     <!-- Frosted glass bar -->
     <div class="nav-bar">
 

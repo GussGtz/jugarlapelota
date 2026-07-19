@@ -13,7 +13,7 @@
       </router-link>
 
       <!-- Desktop nav links — solo fuera del torneo -->
-      <ul v-if="!inTournament" class="hidden md:flex items-center gap-6 text-sm font-medium transition-colors duration-300"
+      <ul v-if="!inTournament" class="hidden xl:flex items-center gap-6 text-sm font-medium transition-colors duration-300"
         :class="isTransparent ? 'text-white/90' : 'text-slate-700'">
         <li><router-link to="/" class="hover:text-primary transition-colors">Inicio</router-link></li>
         <li>
@@ -106,7 +106,7 @@
         </template>
 
         <!-- ── Hamburguesa mobile (solo home, fuera de torneo) ── -->
-        <div v-if="!inTournament && route.path === '/'" class="relative md:hidden" ref="mobileMenuRef">
+        <div v-if="!inTournament && route.path === '/'" class="relative xl:hidden" ref="mobileMenuRef">
           <button @click.stop="mobileMenuOpen = !mobileMenuOpen"
             class="flex items-center justify-center w-9 h-9 rounded-xl transition-all"
             :class="mobileMenuOpen

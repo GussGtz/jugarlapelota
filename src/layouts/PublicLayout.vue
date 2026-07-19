@@ -1,10 +1,10 @@
 <template>
   <div class="min-h-screen flex flex-col bg-slate-50">
     <AppNavbar v-if="!hideNav" />
-    <main class="flex-1 pb-20 md:pb-0">
+    <main class="flex-1 pb-20 xl:pb-0">
       <slot />
     </main>
-    <AppFooter class="hidden md:block" />
+    <AppFooter class="hidden xl:block" />
     <BottomNav v-if="(auth.isLoggedIn || slug) && !hideNav" :slug="slug" />
   </div>
 </template>
