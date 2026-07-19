@@ -709,3 +709,10 @@ Como también se encontraron ~20 columnas faltantes en el init de SQLite local (
 **Corrección en `src/components/SocialLinks/SocialLinks.vue`:** se agregó `pr-2` al contenedor — con un solo ícono (o varios) ya no queda pegado al borde derecho del banner de patrocinadores, sino con un pequeño respiro.
 
 **Validado con:** en navegador, configurando solo Facebook (el caso reportado) — el ícono ahora tiene separación visible del borde derecho en vez de tocarlo. Build de producción limpio.
+
+### 2026-07-15 — Ajuste: el margen derecho de redes sociales era muy poco, "medio ícono" de espacio
+**Pedido:** "deja un espacio decente lo que mida medio icono" (el `pr-2` de la corrección anterior seguía viéndose corto).
+
+**Corrección en `src/components/SocialLinks/SocialLinks.vue`:** `pr-2` (8px) → `pr-5` (20px) — cada ícono mide `w-10` (40px), así que 20px es exactamente medio ícono de margen, tal como se pidió.
+
+**Validado con:** en navegador, mismo caso de un solo ícono (Facebook) — el espacio del lado derecho ahora es notoriamente mayor y proporcional al tamaño del ícono. Build de producción limpio.
