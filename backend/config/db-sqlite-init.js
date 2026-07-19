@@ -24,6 +24,12 @@ module.exports = function initSQLite(db, bcrypt) {
   safe('ALTER TABLE matches ADD COLUMN home_is_tbd INTEGER DEFAULT 0')
   safe('ALTER TABLE matches ADD COLUMN away_is_tbd INTEGER DEFAULT 0')
   safe('ALTER TABLE tournaments ADD COLUMN sponsors_banner TEXT')
+  // Redes sociales del torneo — se muestran del lado del aficionado (ej. debajo del banner de patrocinadores en Media)
+  safe('ALTER TABLE tournaments ADD COLUMN social_facebook TEXT')
+  safe('ALTER TABLE tournaments ADD COLUMN social_instagram TEXT')
+  safe('ALTER TABLE tournaments ADD COLUMN social_tiktok TEXT')
+  safe('ALTER TABLE tournaments ADD COLUMN social_youtube TEXT')
+  safe('ALTER TABLE tournaments ADD COLUMN social_whatsapp TEXT')
   // Paridad con PG_MIGRATIONS (backend/config/db-schema.js) — columnas que faltaban en SQLite
   safe('ALTER TABLE phases ADD COLUMN is_active INTEGER DEFAULT 0')
   safe('ALTER TABLE matches ADD COLUMN match_notes TEXT')

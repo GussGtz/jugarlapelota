@@ -169,6 +169,12 @@ const PG_MIGRATIONS = [
   `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS modality TEXT DEFAULT 'copa'`,
   // Portada de patrocinadores — imagen fija arriba del feed de la pestaña Media
   `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS sponsors_banner TEXT`,
+  // Redes sociales del torneo — se muestran del lado del aficionado (ej. debajo del banner de patrocinadores en Media)
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS social_facebook TEXT`,
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS social_instagram TEXT`,
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS social_tiktok TEXT`,
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS social_youtube TEXT`,
+  `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS social_whatsapp TEXT`,
   // CURP & auto-approve features
   `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS auto_approve_inscriptions INTEGER DEFAULT 0`,
   `ALTER TABLE categories ADD COLUMN IF NOT EXISTS min_birth_year INTEGER`,

@@ -15,6 +15,9 @@
           <img :src="tournament.sponsors_banner" alt="Patrocinadores" class="w-full h-auto object-cover" />
         </div>
 
+        <!-- Redes sociales del torneo -->
+        <SocialLinks :tournament="tournament" />
+
         <!-- Transmisiones en vivo — siempre primero -->
         <template v-if="liveStreams.length">
           <div class="flex items-center gap-2 pt-2 pb-1 px-1">
@@ -207,6 +210,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTournament } from '@/composables/useTournament'
 import api from '@/api'
 import StreamCard from '@/components/StreamCard/StreamCard.vue'
+import SocialLinks from '@/components/SocialLinks/SocialLinks.vue'
 
 const { slug, tournament } = useTournament()
 

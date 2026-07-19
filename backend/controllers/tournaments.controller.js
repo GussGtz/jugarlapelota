@@ -18,11 +18,14 @@ async function getBySlug(req, res) {
 }
 
 async function create(req, res) {
-  const { name, slug, description, location, logo, banner, sponsorsBanner, primaryColor, secondaryColor, startDate, endDate, modality } = req.body
+  const { name, slug, description, location, logo, banner, sponsorsBanner, primaryColor, secondaryColor, startDate, endDate, modality,
+    socialFacebook, socialInstagram, socialTiktok, socialYoutube, socialWhatsapp } = req.body
   const result = await query(
-    `INSERT INTO tournaments (name,slug,description,location,logo,banner,sponsors_banner,primary_color,secondary_color,start_date,end_date,modality,created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
-    [name, slug, description, location, logo||null, banner||null, sponsorsBanner||null, primaryColor||'#00C2FF', secondaryColor||'#00FF95', startDate, endDate, modality||'copa', req.user.id]
+    `INSERT INTO tournaments (name,slug,description,location,logo,banner,sponsors_banner,primary_color,secondary_color,start_date,end_date,modality,created_by,
+     social_facebook,social_instagram,social_tiktok,social_youtube,social_whatsapp)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
+    [name, slug, description, location, logo||null, banner||null, sponsorsBanner||null, primaryColor||'#00C2FF', secondaryColor||'#00FF95', startDate, endDate, modality||'copa', req.user.id,
+     socialFacebook||null, socialInstagram||null, socialTiktok||null, socialYoutube||null, socialWhatsapp||null]
   )
   const row = await queryOne('SELECT * FROM tournaments WHERE id=$1', [result.lastInsertRowid])
   res.status(201).json(row)
@@ -31,11 +34,14 @@ async function create(req, res) {
 async function update(req, res) {
   const id = Number(req.params.id)
   if (!await checkOwnerById(req, res, id)) return
-  const { name, slug, description, location, logo, banner, sponsorsBanner, primaryColor, secondaryColor, startDate, endDate, modality } = req.body
+  const { name, slug, description, location, logo, banner, sponsorsBanner, primaryColor, secondaryColor, startDate, endDate, modality,
+    socialFacebook, socialInstagram, socialTiktok, socialYoutube, socialWhatsapp } = req.body
   await query(
     `UPDATE tournaments SET name=$1,slug=$2,description=$3,location=$4,logo=$5,banner=$6,sponsors_banner=$7,
-     primary_color=$8,secondary_color=$9,start_date=$10,end_date=$11,modality=$12 WHERE id=$13`,
-    [name, slug, description, location, logo||null, banner||null, sponsorsBanner||null, primaryColor, secondaryColor, startDate, endDate, modality||'copa', id]
+     primary_color=$8,secondary_color=$9,start_date=$10,end_date=$11,modality=$12,
+     social_facebook=$13,social_instagram=$14,social_tiktok=$15,social_youtube=$16,social_whatsapp=$17 WHERE id=$18`,
+    [name, slug, description, location, logo||null, banner||null, sponsorsBanner||null, primaryColor, secondaryColor, startDate, endDate, modality||'copa',
+     socialFacebook||null, socialInstagram||null, socialTiktok||null, socialYoutube||null, socialWhatsapp||null, id]
   )
   res.json(await queryOne('SELECT * FROM tournaments WHERE id=$1', [id]))
 }

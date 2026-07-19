@@ -151,6 +151,20 @@
               <p class="text-xs text-slate-400 mt-1.5">Se muestra fija arriba del contenido en la pestaña "Media" del torneo. Ideal para una imagen con los logos de tus patrocinadores.</p>
             </div>
           </div>
+
+          <!-- ── REDES SOCIALES ─────────────────────────────── -->
+          <div>
+            <label class="text-xs font-black uppercase tracking-wider text-slate-500 mb-3 block">Redes sociales</label>
+            <div class="grid md:grid-cols-2 gap-3">
+              <div v-for="f in socialFields" :key="f.key">
+                <label class="text-xs text-slate-600 mb-1 block">{{ f.label }}</label>
+                <input v-model="form[f.key]" type="url"
+                  class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary transition-colors"
+                  :placeholder="f.placeholder"/>
+              </div>
+            </div>
+            <p class="text-xs text-slate-400 mt-1.5">Aparecen del lado del aficionado (ej. debajo del banner de patrocinadores en la pestaña "Media"). Deja en blanco la que no uses.</p>
+          </div>
         </div><!-- /modal-body -->
         <div class="modal-footer">
           <button @click="save" :disabled="saving" class="btn-primary text-sm flex-1 disabled:opacity-50">
@@ -179,7 +193,8 @@ const saving   = ref(false)
 const form = reactive({
   name:'', slug:'', description:'', location:'', logo:'', banner:'', sponsorsBanner:'',
   primaryColor:'#00C2FF', secondaryColor:'#00FF95', startDate:'', endDate:'',
-  modality: 'copa'
+  modality: 'copa',
+  socialFacebook:'', socialInstagram:'', socialTiktok:'', socialYoutube:'', socialWhatsapp:''
 })
 
 const fields = [
@@ -189,6 +204,14 @@ const fields = [
   { key:'description', label:'Descripción breve',   full:true },
   { key:'startDate',   label:'Fecha inicio',         type:'date' },
   { key:'endDate',     label:'Fecha fin',            type:'date' },
+]
+
+const socialFields = [
+  { key:'socialFacebook',  label:'Facebook',  placeholder:'https://facebook.com/tuTorneo' },
+  { key:'socialInstagram', label:'Instagram', placeholder:'https://instagram.com/tuTorneo' },
+  { key:'socialTiktok',    label:'TikTok',    placeholder:'https://tiktok.com/@tuTorneo' },
+  { key:'socialYoutube',   label:'YouTube',   placeholder:'https://youtube.com/@tuTorneo' },
+  { key:'socialWhatsapp',  label:'WhatsApp',  placeholder:'https://wa.me/5219981234567' },
 ]
 
 const modalities = [
@@ -277,13 +300,16 @@ function openForm(t = null) {
       sponsorsBanner: t.sponsors_banner || '',
       primaryColor: t.primary_color || '#00C2FF', secondaryColor: t.secondary_color || '#00FF95',
       startDate: t.start_date || '', endDate: t.end_date || '',
-      modality: t.modality || 'copa'
+      modality: t.modality || 'copa',
+      socialFacebook: t.social_facebook || '', socialInstagram: t.social_instagram || '',
+      socialTiktok: t.social_tiktok || '', socialYoutube: t.social_youtube || '', socialWhatsapp: t.social_whatsapp || ''
     })
   } else {
     Object.assign(form, {
       name:'', slug:'', description:'', location:'', logo:'', banner:'', sponsorsBanner:'',
       primaryColor:'#00C2FF', secondaryColor:'#00FF95', startDate:'', endDate:'',
-      modality: 'copa'
+      modality: 'copa',
+      socialFacebook:'', socialInstagram:'', socialTiktok:'', socialYoutube:'', socialWhatsapp:''
     })
   }
   showForm.value = true
