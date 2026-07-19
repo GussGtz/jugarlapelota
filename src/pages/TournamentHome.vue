@@ -47,10 +47,10 @@
              hidden cortaba Equipos/Seguidores en los extremos). Al envolver,
              caen en 2 filas de 2 sin perder ningún número. -->
         <div class="th-hero-anim flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:gap-x-8 md:gap-x-16 py-4" style="animation-delay: 0.4s">
-          <div class="text-center">
+          <button type="button" @click="scrollToTeams" class="text-center cursor-pointer" :disabled="!uniqueTeams.length">
             <p class="text-3xl sm:text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.teams }}</p>
             <p class="text-white/60 text-[10px] sm:text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Equipos</p>
-          </div>
+          </button>
           <template v-if="stats.players > 0">
             <div class="w-px h-12 bg-white/20 hidden sm:block"></div>
             <div class="text-center">
@@ -59,10 +59,10 @@
             </div>
           </template>
           <div class="w-px h-12 bg-white/20 hidden sm:block"></div>
-          <div class="text-center">
+          <button type="button" @click="router.push(`/${slug}/partidos`)" class="text-center cursor-pointer">
             <p class="text-3xl sm:text-4xl md:text-6xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ stats.matches }}</p>
             <p class="text-white/60 text-[10px] sm:text-xs md:text-sm uppercase tracking-widest font-semibold mt-1">Partidos</p>
-          </div>
+          </button>
           <template v-if="stats.followers > 0">
             <div class="w-px h-12 bg-white/20 hidden sm:block"></div>
             <div class="text-center">
@@ -746,7 +746,7 @@
     <!-- ══════════════════════════════════════════════════════════ -->
     <!-- SECCIÓN 6 — Equipos participantes (fondo oscuro navy)      -->
     <!-- ══════════════════════════════════════════════════════════ -->
-    <section v-if="uniqueTeams.length" class="py-16 md:py-24" style="background:#0f172a">
+    <section v-if="uniqueTeams.length" id="equipos-participantes" class="py-16 md:py-24" style="background:#0f172a">
       <div class="max-w-7xl mx-auto px-4">
         <div v-reveal class="text-center mb-12">
           <h2 class="text-3xl md:text-5xl font-black uppercase text-white tracking-wide">Equipos Participantes</h2>
@@ -877,6 +877,10 @@ const { pushSupported, pushGranted, subscribePush, pushEndpoint, pushError } = u
 
 const isFollowed = computed(() => tournament.value ? following.isFollowingTournament(tournament.value.id) : false)
 const followLoading = ref(false)
+
+function scrollToTeams() {
+  document.getElementById('equipos-participantes')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 async function toggleFollow() {
   if (!tournament.value) return
