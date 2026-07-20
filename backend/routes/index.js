@@ -2880,44 +2880,36 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
       // Grupos disparejos: si se pidió un número de partidos por equipo y
       // algún grupo es más chico que los demás, sus equipos terminan el
       // round-robin interno completo (todos contra todos DENTRO del grupo)
-      // sin llegar al número pedido. Para esos equipos se completan los
-      // partidos que falten contra equipos de OTRO grupo. El resultado sigue
-      // sumando solo a la tabla de posiciones de cada equipo en SU propio
-      // grupo (ver getGroupStandings, que cuenta por equipo y no por
-      // match.group_id), nunca crea una tabla mezclada.
+      // sin llegar al número pedido. Para esos equipos — y SOLO esos: un
+      // equipo de un grupo que ya tenía suficientes integrantes para llegar
+      // al número pedido con su propio round-robin nunca se toca, ni como
+      // "ayuda" a otro grupo — se completan los partidos que falten contra
+      // otro equipo que también le esté faltando, sea de su mismo grupo o de
+      // otro. El resultado sigue sumando solo a la tabla de posiciones de
+      // cada equipo en SU propio grupo (ver getGroupStandings, que cuenta por
+      // equipo y no por match.group_id), nunca crea una tabla mezclada.
       if (matchesPerTeam) {
         let crossRound = 0
         while (true) {
           const need = teamIds.filter(t => matchCount[t] < matchesPerTeam)
-          if (!need.length) break
+          if (need.length < 2) break
 
           const used = new Set()
           const pairsThisRound = []
           for (const t1 of need) {
             if (used.has(t1)) continue
-            // Primero se busca un rival que TAMBIÉN esté corto (así ninguno
-            // termina jugando de más). Si ya no queda ninguno corto disponible
-            // — el caso típico cuando solo UN grupo quedó chico y los demás ya
-            // completaron el número pedido en su propio round-robin — se
-            // recurre a cualquier equipo del torneo con el que este equipo no
-            // se haya enfrentado todavía, aunque ese rival termine jugando un
-            // partido de más. Sin este segundo intento, "todos jueguen N
-            // partidos" nunca se cumpliría en ese caso (muy común: basta con
-            // que un solo grupo quede más chico que el resto).
-            let partner = teamIds.find(t2 =>
-              t2 !== t1 && !used.has(t2) && matchCount[t2] < matchesPerTeam && !playedPairs.has(pairKey(t1, t2))
+            const partner = need.find(t2 =>
+              t2 !== t1 && !used.has(t2) && !playedPairs.has(pairKey(t1, t2))
             )
-            if (partner == null) {
-              partner = teamIds.find(t2 => t2 !== t1 && !used.has(t2) && !playedPairs.has(pairKey(t1, t2)))
-            }
             if (partner == null) continue
             used.add(t1); used.add(partner)
             pairsThisRound.push([t1, partner])
             playedPairs.add(pairKey(t1, partner))
           }
-          // Si ya no se puede formar ni un solo par nuevo (un equipo sobrante
-          // que ya se enfrentó contra absolutamente todos los demás), se
-          // detiene — ese equipo se queda un partido corto, inevitable.
+          // Si ya no se puede formar ni un solo par nuevo (equipo(s) sobrante(s)
+          // impares, o ya se agotaron las combinaciones posibles entre los que
+          // faltan), se detiene — esos equipos se quedan un partido corto,
+          // inevitable sin tocar a un equipo que ya no lo necesitaba.
           if (!pairsThisRound.length) break
 
           crossRound++
