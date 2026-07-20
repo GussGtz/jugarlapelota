@@ -191,17 +191,36 @@ async function init() {
 
 // ── Standings (async) ─────────────────────────────────────────────────────────
 async function recalculateStandings(tournamentId, categoryId, phaseId, groupId = null) {
-  let sql = `SELECT * FROM matches WHERE tournament_id=$1 AND category_id=$2 AND status='finished'`
-  const params = [tournamentId, categoryId]
-  if (groupId)    { sql += ' AND group_id=$3';  params.push(groupId) }
-  else if (phaseId) { sql += ' AND phase_id=$3'; params.push(phaseId) }
-  const { rows: matches } = await query(sql, params)
+  // Por EQUIPO (no por match.group_id) cuando se pide un grupo: un partido
+  // "cruzado" entre grupos disparejos (ver groups/generate) solo guarda UN
+  // group_id en la fila de matches, así que filtrar por group_id=$N dejaba
+  // fuera del cálculo al equipo del otro grupo (nunca se le sumaba ese
+  // partido en SU tabla) y de paso lo colaba, incorrecto, en la tabla del
+  // grupo ajeno — provocando un choque de UNIQUE (tournament,category,
+  // phase,team) contra la fila real que ya tenía en su propio grupo.
+  let matches, memberSet = null
+  if (groupId) {
+    const memberRows = (await query('SELECT team_id FROM phase_group_teams WHERE group_id=$1', [groupId])).rows
+    const teamIdList = [...new Set(memberRows.map(r => r.team_id))]
+    if (!teamIdList.length) return
+    memberSet = new Set(teamIdList)
+    const n = teamIdList.length
+    const phHome = teamIdList.map((_, i) => `$${i + 1}`).join(',')
+    const phAway = teamIdList.map((_, i) => `$${i + 1 + n}`).join(',')
+    matches = (await query(`SELECT * FROM matches WHERE status='finished' AND (home_team IN (${phHome}) OR away_team IN (${phAway}))`, [...teamIdList, ...teamIdList])).rows
+  } else {
+    let sql = `SELECT * FROM matches WHERE tournament_id=$1 AND category_id=$2 AND status='finished'`
+    const params = [tournamentId, categoryId]
+    if (phaseId) { sql += ' AND phase_id=$3'; params.push(phaseId) }
+    matches = (await query(sql, params)).rows
+  }
   const stats = {}
   for (const m of matches) {
     for (const [tid, gf, ga] of [
       [m.home_team, m.home_score, m.away_score],
       [m.away_team, m.away_score, m.home_score]
     ]) {
+      if (memberSet && !memberSet.has(tid)) continue
       if (!stats[tid]) stats[tid] = {played:0,won:0,drawn:0,lost:0,gf:0,ga:0,pts:0}
       const s  = stats[tid]
       const gfN = parseInt(gf) || 0   // convertir a número siempre

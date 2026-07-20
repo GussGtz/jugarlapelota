@@ -222,18 +222,31 @@ router.get('/tournaments/:slug/phases', async (req, res) => {
       LEFT JOIN phase_group_teams pgt ON pg.id = pgt.group_id
       WHERE pg.phase_id = $1 GROUP BY pg.id ORDER BY pg.order_index
     `, [p.id])).rows
-    const groups = await Promise.all(groupRows.map(async g => ({
-      ...g,
-      matches: (await query(`
-        SELECT m.id, m.round_id, m.status, m.home_score, m.away_score,
-               ht.name AS "homeTeam", ht.logo AS "homeLogo",
-               at.name AS "awayTeam", at.logo AS "awayLogo"
-        FROM matches m
-        JOIN teams ht ON m.home_team = ht.id
-        JOIN teams at ON m.away_team = at.id
-        WHERE m.group_id = $1 ORDER BY m.round_id ASC, m.id ASC
-      `, [g.id])).rows
-    })))
+    const groups = await Promise.all(groupRows.map(async g => {
+      // Por EQUIPO (no por m.group_id) — así un partido "cruzado" (equipo de
+      // este grupo contra uno de otro grupo, para completar el número de
+      // partidos pedido cuando los grupos quedan disparejos) aparece en la
+      // lista de "Partidos" de ambos grupos, no solo en el que quedó
+      // guardado en la columna group_id del partido.
+      const memberIds = (await query('SELECT team_id FROM phase_group_teams WHERE group_id=$1', [g.id])).rows.map(r => r.team_id)
+      const n = memberIds.length
+      let matches = []
+      if (n) {
+        const phHome = memberIds.map((_, i) => `$${i + 1}`).join(',')
+        const phAway = memberIds.map((_, i) => `$${i + 1 + n}`).join(',')
+        matches = (await query(`
+          SELECT m.id, m.round_id, m.status, m.home_score, m.away_score,
+                 ht.name AS "homeTeam", ht.logo AS "homeLogo",
+                 at.name AS "awayTeam", at.logo AS "awayLogo"
+          FROM matches m
+          JOIN teams ht ON m.home_team = ht.id
+          JOIN teams at ON m.away_team = at.id
+          WHERE (m.home_team IN (${phHome}) OR m.away_team IN (${phAway}))
+          ORDER BY m.round_id ASC, m.id ASC
+        `, [...memberIds, ...memberIds])).rows
+      }
+      return { ...g, matches }
+    }))
     const matchStats = (await queryOne(`
       SELECT
         COUNT(*) AS total,
@@ -2809,6 +2822,16 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
       // NOTA: fecha y cancha NUNCA se auto-asignan — el admin las gestiona manualmente
       const createdGroups = []
 
+      // Para el relleno "cruzado" entre grupos disparejos (ver más abajo):
+      // cuántos partidos lleva cada equipo, a qué grupo pertenece, y qué
+      // parejas ya se enfrentaron (para nunca repetir un mismo cruce).
+      const matchCount = {}
+      teamIds.forEach(t => { matchCount[t] = 0 })
+      const groupOfTeam = {}
+      groupTeams.forEach((arr, gi) => arr.forEach(tid => { groupOfTeam[tid] = gi }))
+      const pairKey = (a, b) => (a < b ? `${a}-${b}` : `${b}-${a}`)
+      const playedPairs = new Set()
+
       for (let gi = 0; gi < groupCount; gi++) {
         const groupR = await insGroup(phaseId, `Grupo ${groupNames[gi]}`, gi, advanceCount)
         const groupId = groupR.lastInsertRowid
@@ -2845,11 +2868,68 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
           for (const [h, a] of roundPairs) {
             // Fecha NULL y cancha NULL — el admin las asigna en el panel de partidos
             await insMatch(phase.tournament_id, phase.category_id||null, phaseId, roundId, groupId, h, a, null, null)
+            matchCount[h]++; matchCount[a]++
+            playedPairs.add(pairKey(h, a))
           }
           rotating.unshift(rotating.pop())
         }
 
         createdGroups.push({ groupId, name: `Grupo ${groupNames[gi]}`, teams: gTeams })
+      }
+
+      // Grupos disparejos: si se pidió un número de partidos por equipo y
+      // algún grupo es más chico que los demás, sus equipos terminan el
+      // round-robin interno completo (todos contra todos DENTRO del grupo)
+      // sin llegar al número pedido. Para esos equipos se completan los
+      // partidos que falten contra equipos de OTRO grupo. El resultado sigue
+      // sumando solo a la tabla de posiciones de cada equipo en SU propio
+      // grupo (ver getGroupStandings, que cuenta por equipo y no por
+      // match.group_id), nunca crea una tabla mezclada.
+      if (matchesPerTeam) {
+        let crossRound = 0
+        while (true) {
+          const need = teamIds.filter(t => matchCount[t] < matchesPerTeam)
+          if (!need.length) break
+
+          const used = new Set()
+          const pairsThisRound = []
+          for (const t1 of need) {
+            if (used.has(t1)) continue
+            // Primero se busca un rival que TAMBIÉN esté corto (así ninguno
+            // termina jugando de más). Si ya no queda ninguno corto disponible
+            // — el caso típico cuando solo UN grupo quedó chico y los demás ya
+            // completaron el número pedido en su propio round-robin — se
+            // recurre a cualquier equipo del torneo con el que este equipo no
+            // se haya enfrentado todavía, aunque ese rival termine jugando un
+            // partido de más. Sin este segundo intento, "todos jueguen N
+            // partidos" nunca se cumpliría en ese caso (muy común: basta con
+            // que un solo grupo quede más chico que el resto).
+            let partner = teamIds.find(t2 =>
+              t2 !== t1 && !used.has(t2) && matchCount[t2] < matchesPerTeam && !playedPairs.has(pairKey(t1, t2))
+            )
+            if (partner == null) {
+              partner = teamIds.find(t2 => t2 !== t1 && !used.has(t2) && !playedPairs.has(pairKey(t1, t2)))
+            }
+            if (partner == null) continue
+            used.add(t1); used.add(partner)
+            pairsThisRound.push([t1, partner])
+            playedPairs.add(pairKey(t1, partner))
+          }
+          // Si ya no se puede formar ni un solo par nuevo (un equipo sobrante
+          // que ya se enfrentó contra absolutamente todos los demás), se
+          // detiene — ese equipo se queda un partido corto, inevitable.
+          if (!pairsThisRound.length) break
+
+          crossRound++
+          const rName = `Cruce entre grupos — Ronda ${crossRound}`
+          const roundR = await insRound(phaseId, rName, 100000 + crossRound)
+          const roundId = roundR.lastInsertRowid
+          for (const [h, a] of pairsThisRound) {
+            const gId = createdGroups[groupOfTeam[h]].groupId
+            await insMatch(phase.tournament_id, phase.category_id||null, phaseId, roundId, gId, h, a, null, null)
+            matchCount[h]++; matchCount[a]++
+          }
+        }
       }
 
       const totalMatches = (await qOne('SELECT COUNT(*) AS c FROM matches WHERE phase_id=$1', [phaseId])).c
@@ -2902,18 +2982,39 @@ async function getGroupStandings(groupId) {
     `, [groupId])).rows
   }
 
-  const matches = (await query(`SELECT * FROM matches WHERE group_id=$1 AND status='finished'`, [groupId])).rows
+  // Se busca por EQUIPO (no por m.group_id) para que un partido "cruzado"
+  // (un equipo de este grupo contra uno de otro grupo, cuando los grupos
+  // quedan disparejos y se completan partidos con equipos de otro grupo)
+  // cuente para la tabla de posiciones de CADA equipo en su propio grupo —
+  // el ciclo de abajo solo suma el lado (home/away) que pertenece a este
+  // grupo, así que el mismo partido puede aparecer y contar en dos tablas
+  // de posiciones distintas (una por cada equipo), sin duplicar nada.
+  const teamIdList = [...new Set(teams.map(t => t.id))]
+  // Dos listas de placeholders con numeración CONTINUA (no reutilizada) —
+  // reutilizar los mismos $N dos veces en una consulta es válido en
+  // Postgres pero rompe la conversión "$N → ?" de SQLite (cada "?" exige su
+  // propio valor), así que se duplica el arreglo de parámetros también.
+  const n = teamIdList.length
+  const phHome = teamIdList.map((_, i) => `$${i + 1}`).join(',')
+  const phAway = teamIdList.map((_, i) => `$${i + 1 + n}`).join(',')
+  const matches = n
+    ? (await query(`SELECT * FROM matches WHERE status='finished' AND (home_team IN (${phHome}) OR away_team IN (${phAway}))`, [...teamIdList, ...teamIdList])).rows
+    : []
 
-  // Tarjetas por equipo en este grupo (desde match_events)
-  const cards = (await query(`
-    SELECT e.team_id,
-      SUM(CASE WHEN e.type='red_card'    THEN 1 ELSE 0 END) AS reds,
-      SUM(CASE WHEN e.type='yellow_card' THEN 1 ELSE 0 END) AS yellows
-    FROM match_events e
-    JOIN matches m ON e.match_id=m.id
-    WHERE m.group_id=$1 AND e.team_id IS NOT NULL
-    GROUP BY e.team_id
-  `, [groupId])).rows
+  // Tarjetas por equipo en este grupo — por team_id directamente (no por
+  // m.group_id) para que las tarjetas de un partido "cruzado" también
+  // cuenten para el equipo, igual que sus goles y puntos arriba.
+  const phCards = teamIdList.map((_, i) => `$${i + 1}`).join(',')
+  const cards = n
+    ? (await query(`
+      SELECT e.team_id,
+        SUM(CASE WHEN e.type='red_card'    THEN 1 ELSE 0 END) AS reds,
+        SUM(CASE WHEN e.type='yellow_card' THEN 1 ELSE 0 END) AS yellows
+      FROM match_events e
+      WHERE e.team_id IN (${phCards})
+      GROUP BY e.team_id
+    `, teamIdList)).rows
+    : []
   const cardMap = {}
   for (const c of cards) cardMap[c.team_id] = { reds: c.reds, yellows: c.yellows }
 
@@ -2930,13 +3031,25 @@ async function getGroupStandings(groupId) {
 
   for (const m of matches) {
     const h = stats[m.home_team], a = stats[m.away_team]
-    if (!h || !a) continue
-    h.played++; a.played++
-    h.goals_for += m.home_score; h.goals_against += m.away_score
-    a.goals_for += m.away_score; a.goals_against += m.home_score
-    if (m.home_score > m.away_score)      { h.won++; h.points += 3; a.lost++ }
-    else if (m.home_score < m.away_score) { a.won++; a.points += 3; h.lost++ }
-    else                                  { h.drawn++; h.points++; a.drawn++; a.points++ }
+    // Antes exigía que AMBOS lados pertenecieran a este grupo (`if (!h || !a)
+    // continue`) — eso descartaba por completo un partido "cruzado" entre
+    // grupos disparejos. Ahora cada lado se actualiza de forma independiente:
+    // si el rival es de otro grupo (no está en `stats`), el resultado igual
+    // cuenta para EL equipo de este grupo — el mismo partido se procesa de
+    // nuevo (y cuenta para el otro lado) cuando se piden los standings del
+    // grupo del rival.
+    if (h) {
+      h.played++; h.goals_for += m.home_score; h.goals_against += m.away_score
+      if (m.home_score > m.away_score) { h.won++; h.points += 3 }
+      else if (m.home_score < m.away_score) h.lost++
+      else { h.drawn++; h.points++ }
+    }
+    if (a) {
+      a.played++; a.goals_for += m.away_score; a.goals_against += m.home_score
+      if (m.away_score > m.home_score) { a.won++; a.points += 3 }
+      else if (m.away_score < m.home_score) a.lost++
+      else { a.drawn++; a.points++ }
+    }
   }
 
   const rows = Object.values(stats)
@@ -2948,6 +3061,9 @@ async function getGroupStandings(groupId) {
     const h2h = {}
     for (const id of ids) h2h[id] = { pts: 0, gf: 0, ga: 0 }
     for (const m of matches) {
+      // Aquí SÍ se exige que ambos lados sean parte del grupo de equipos
+      // empatados que se está desempatando — un cruce contra un equipo de
+      // otro grupo no aplica al desempate cabeza a cabeza entre ESTOS equipos.
       if (!ids.has(m.home_team) || !ids.has(m.away_team)) continue
       const hs = m.home_score, as_ = m.away_score
       h2h[m.home_team].gf += hs; h2h[m.home_team].ga += as_
