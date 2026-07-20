@@ -61,7 +61,7 @@
 
     <!-- Grid de equipos AGRUPADOS por nombre -->
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div v-for="group in displayedGroups" :key="group.name"
+      <div v-for="group in displayedGroups" :key="group.key"
         class="card space-y-3 transition-shadow hover:shadow-md"
         :class="group.hasUnassigned ? 'border-amber-300 bg-amber-50/40' : ''">
 
@@ -416,13 +416,18 @@ const form = reactive({
 // ── Computed ──────────────────────────────────────────────
 const unassigned = computed(() => teams.value.filter(t => !t.category_id))
 
-// Agrupa equipos por nombre (mismo equipo en varias categorías = 1 tarjeta)
+// Agrupa equipos por club_key (identidad estable de club) — NO por nombre,
+// porque dos equipos ajenos pueden llamarse igual (ej. dos "TIGRES" de
+// clubes distintos) y fusionarlos por nombre podía borrar uno al editar el
+// otro. club_key lo asigna el backend en cada equipo (ver POST /teams);
+// equipos viejos lo tienen rellenado por la migración de arranque.
 const groupedTeams = computed(() => {
   const map = new Map()
   for (const team of teams.value) {
-    const key = team.name.trim().toLowerCase()
+    const key = team.club_key || `team:${team.id}`
     if (!map.has(key)) {
       map.set(key, {
+        key,
         name:           team.name,
         logo:           team.logo || '',
         coach:          team.coach || '',
@@ -559,7 +564,8 @@ async function saveQuickAssign() {
           captain:      quickTeam.value.captain || '',
           description:  quickTeam.value.description || '',
           categoryId:   catId,
-          tournamentId: quickTeam.value.tournament_id
+          tournamentId: quickTeam.value.tournament_id,
+          clubKey:      quickTeam.value.club_key
         })
       ))
     }
@@ -578,9 +584,8 @@ async function openForm(team = null) {
   editing.value = team
   if (team) {
     // Buscar el grupo completo para pre-cargar TODAS las categorías del equipo
-    const group = groupedTeams.value.find(
-      g => g.name.trim().toLowerCase() === team.name.trim().toLowerCase()
-    )
+    const teamKey = team.club_key || `team:${team.id}`
+    const group = groupedTeams.value.find(g => g.key === teamKey)
     const preselectedCatIds = new Set(
       (group?.categories || []).map(c => c.id).concat(
         team.category_id ? [team.category_id] : []
@@ -673,16 +678,21 @@ async function save() {
         await api.delete(`/teams/${group.unassignedTeam.id}`)
       }
 
-      // Agregar categorías nuevas
+      // Agregar categorías nuevas (mismo club_key del grupo que se está editando,
+      // para que se agrupen con este equipo y no con otro que solo comparta nombre)
       await Promise.all(toAdd.map(catId =>
-        api.post('/teams', { ...payload, categoryId: catId })
+        api.post('/teams', { ...payload, categoryId: catId, clubKey: group?.key })
       ))
 
     } else {
       // ── CREAR: una entrada por cada categoría seleccionada ──
       const catIds = form.categoryIds.size > 0 ? [...form.categoryIds] : [null]
+      // Si se crean varias categorías a la vez, comparten un club_key propio
+      // para quedar agrupadas como el mismo equipo (y no fusionarse después
+      // con un equipo ajeno que coincida en nombre).
+      const clubKey = catIds.length > 1 ? crypto.randomUUID() : undefined
       await Promise.all(catIds.map(catId =>
-        api.post('/teams', { ...payload, categoryId: catId })
+        api.post('/teams', { ...payload, categoryId: catId, clubKey })
       ))
     }
 
@@ -725,7 +735,9 @@ function openCategoryManager(group) {
 async function addCategoryToGroup(cat) {
   const g = catManagerGroup.value
   if (!g) return
-  // Crear nuevo equipo con esa categoría copiando datos del primario
+  // Crear nuevo equipo con esa categoría copiando datos del primario, con el
+  // mismo club_key para que quede agrupado con ESTE equipo (no con otro que
+  // solo comparta nombre)
   await api.post('/teams', {
     name:         g.name,
     logo:         g.logo,
@@ -733,19 +745,21 @@ async function addCategoryToGroup(cat) {
     captain:      g.captain,
     description:  g.description,
     categoryId:   cat.id,
-    tournamentId: g.primaryTeam.tournament_id
+    tournamentId: g.primaryTeam.tournament_id,
+    clubKey:      g.key
   })
   await loadTeams()
   // Refrescar el grupo en el manager
-  const updated = groupedTeams.value.find(gr => gr.name.toLowerCase() === g.name.toLowerCase())
+  const updated = groupedTeams.value.find(gr => gr.key === g.key)
   if (updated) catManagerGroup.value = { ...updated, categories: [...updated.categories] }
 }
 
 async function removeCategoryFromGroup(cat) {
   if (!confirm(`¿Quitar a "${catManagerGroup.value?.name}" de la categoría "${cat.name}"?`)) return
+  const groupKey = catManagerGroup.value?.key
   await api.delete(`/teams/${cat.teamId}`)
   await loadTeams()
-  const updated = groupedTeams.value.find(gr => gr.name.toLowerCase() === catManagerGroup.value?.name.toLowerCase())
+  const updated = groupedTeams.value.find(gr => gr.key === groupKey)
   if (updated) catManagerGroup.value = { ...updated, categories: [...updated.categories] }
   else showCatManager.value = false
 }

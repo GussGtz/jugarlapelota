@@ -32,6 +32,10 @@ module.exports = function initSQLite(db, bcrypt) {
   safe('ALTER TABLE tournaments ADD COLUMN social_whatsapp TEXT')
   // Token para el link privado de "rol de juegos" compartido con delegados
   safe('ALTER TABLE tournaments ADD COLUMN schedule_share_token TEXT')
+  // Identidad de club estable — evita que admin/Teams.vue fusione equipos NO
+  // relacionados que coinciden por nombre (ver repair-team-inscriptions.js,
+  // que rellena esta columna en equipos ya existentes).
+  safe('ALTER TABLE teams ADD COLUMN club_key TEXT')
   // Paridad con PG_MIGRATIONS (backend/config/db-schema.js) — columnas que faltaban en SQLite
   safe('ALTER TABLE phases ADD COLUMN is_active INTEGER DEFAULT 0')
   safe('ALTER TABLE matches ADD COLUMN match_notes TEXT')

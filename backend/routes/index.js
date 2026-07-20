@@ -596,7 +596,7 @@ async function syncInscriptionCategory(inscriptionId, categoryId, teamName) {
 }
 
 router.post('/teams', authMiddleware, adminOnly, async (req, res) => {
-  const {tournamentId, categoryId, name, logo, coach, captain, description} = req.body
+  const {tournamentId, categoryId, name, logo, coach, captain, description, clubKey} = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'El nombre del equipo es requerido' })
   if (!await checkOwnerByTournamentId(req, res, tournamentId)) return
   const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND category_id IS NOT DISTINCT FROM $3', [tournamentId, name.trim(), categoryId || null]))
@@ -609,9 +609,18 @@ router.post('/teams', authMiddleware, adminOnly, async (req, res) => {
     [tournamentId, name.trim()]
   )
   const inscriptionId = sibling?.inscription_id || null
+  // club_key es la identidad estable que usa admin/Teams.vue para agrupar
+  // "el mismo equipo en varias categorías" SIN fusionar por nombre a ciegas
+  // (dos equipos ajenos pueden compartir nombre). El caller (frontend) manda
+  // clubKey explícito cuando la acción es "agregar otra categoría a ESTE
+  // equipo" (addCategoryToGroup, save() multi-categoría, quickAssign multi) —
+  // si no lo manda, se hereda de la inscripción si existe, y si no, se genera
+  // uno nuevo único para que este equipo nunca quede agrupado por accidente
+  // con otro que solo coincide en nombre.
+  const finalClubKey = clubKey || (inscriptionId ? `insc:${inscriptionId}` : `manual:${crypto.randomBytes(6).toString('hex')}`)
   let r
   try {
-    r = await query('INSERT INTO teams (tournament_id,category_id,name,logo,coach,captain,description,inscription_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', [tournamentId, categoryId || null, name.trim(), logo || null, coach || null, captain || null, description || null, inscriptionId])
+    r = await query('INSERT INTO teams (tournament_id,category_id,name,logo,coach,captain,description,inscription_id,club_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id', [tournamentId, categoryId || null, name.trim(), logo || null, coach || null, captain || null, description || null, inscriptionId, finalClubKey])
   } catch (e) {
     // Última línea de defensa: dos requests pasaron el check de arriba a la vez
     if (isUniqueViolation(e)) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
@@ -2017,7 +2026,7 @@ async function createTeamsFromInscription(insc) {
     const ex = await queryOne('SELECT id FROM teams WHERE inscription_id=$1 AND category_id IS NULL', [insc.id])
     if (!ex) {
       try {
-        await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, null, insc.team_name, insc.logo||null, insc.id])
+        await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id,club_key) VALUES ($1,$2,$3,$4,$5,$6)', [insc.tournament_id, null, insc.team_name, insc.logo||null, insc.id, `insc:${insc.id}`])
       } catch (e) {
         // Otra aprobación concurrente de la misma inscripción ya creó el equipo — no pasa nada
         if (!isUniqueViolation(e)) throw e
@@ -2046,7 +2055,7 @@ async function createTeamsFromInscription(insc) {
     )
     if (!ex) {
       try {
-        await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id) VALUES ($1,$2,$3,$4,$5)', [insc.tournament_id, cat.id, resolvedName, insc.logo||null, insc.id])
+        await query('INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id,club_key) VALUES ($1,$2,$3,$4,$5,$6)', [insc.tournament_id, cat.id, resolvedName, insc.logo||null, insc.id, `insc:${insc.id}`])
       } catch (e) {
         if (!isUniqueViolation(e)) throw e
         // El nombre ya existe en (torneo,categoría) — puede ser una doble

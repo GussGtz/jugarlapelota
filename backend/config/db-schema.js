@@ -266,6 +266,10 @@ const PG_MIGRATIONS = [
   // mismo en un índice único, así que dejar NULL rompería esa protección.
   `ALTER TABLE inscription_players ADD COLUMN IF NOT EXISTS team_name TEXT`,
   `UPDATE inscription_players SET team_name = (SELECT team_name FROM inscriptions WHERE id = inscription_players.inscription_id) WHERE team_name IS NULL`,
+  // Identidad de club estable — evita que admin/Teams.vue fusione equipos NO
+  // relacionados que coinciden por nombre (ver repair-team-inscriptions.js,
+  // que rellena esta columna en equipos ya existentes).
+  `ALTER TABLE teams ADD COLUMN IF NOT EXISTS club_key TEXT`,
 ]
 
 module.exports = { PG_SCHEMA, PG_MIGRATIONS }

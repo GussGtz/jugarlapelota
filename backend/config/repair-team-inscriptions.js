@@ -65,4 +65,30 @@ async function repairTeamInscriptions({ query }) {
   }
 }
 
-module.exports = { repairTeamInscriptions }
+// admin/Teams.vue agrupaba equipos SOLO por nombre (sin distinguir clubes
+// distintos que coinciden en nombre, ej. dos "TIGRES" no relacionados) —
+// eso podía fusionar visualmente dos equipos ajenos y, al editar uno,
+// borrar de verdad al otro (api.delete disparado por save()/toRemove).
+// club_key es la identidad estable que evita esa fusión de aquí en
+// adelante. Este backfill SOLO llena equipos con club_key todavía NULL,
+// preservando la agrupación que ya existe hoy (por nombre) como punto de
+// partida — no intenta adivinar cuál de dos equipos ya mezclados es el
+// "correcto", solo congela el estado actual y bloquea fusiones futuras.
+async function backfillClubKeys({ query }) {
+  try {
+    const teams = (await query('SELECT id, tournament_id, name, inscription_id FROM teams WHERE club_key IS NULL')).rows
+    let updated = 0
+    for (const t of teams) {
+      const key = t.inscription_id
+        ? `insc:${t.inscription_id}`
+        : `legacy:${t.tournament_id}:${String(t.name).trim().toLowerCase()}`
+      await query('UPDATE teams SET club_key=$1 WHERE id=$2', [key, t.id])
+      updated++
+    }
+    if (updated) console.log(`🔧  [repair-team-inscriptions] club_key asignado a ${updated} equipo(s)`)
+  } catch (e) {
+    console.warn(`⚠️  [repair-team-inscriptions] no se pudo asignar club_key (${e.message})`)
+  }
+}
+
+module.exports = { repairTeamInscriptions, backfillClubKeys }
