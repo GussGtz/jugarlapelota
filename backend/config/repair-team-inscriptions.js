@@ -132,15 +132,20 @@ async function fixLegacyInscriptionClubKeys({ query }) {
 //     `players` con team_id=227 (huérfanos — la fila del equipo se borró
 //     pero los jugadores no, porque el borrado ocurrió antes de que
 //     existiera la restricción de llave foránea, o esta nunca se aplicó
-//     retroactivamente en esta tabla). Se recrea con el MISMO id=227 para
-//     que esos 11 jugadores se re-enlacen solos, sin tocar cada uno.
+//     retroactivamente en esta tabla).
 //   - Sub-13 y Sub-15 no tenían jugadores — se recrean con id nuevo.
-// Insertar un id explícito en una columna BIGSERIAL es seguro aquí: ya
-// existen equipos con id mayor a 227 (228, 229...), así que la secuencia ya
-// pasó ese punto y nunca volverá a generarlo por accidente.
-// Idempotente — no hace nada si las filas ya existen ni si la inscripción
-// #31 ya no existe. Cuando ya no aplique, este bloque puede borrarse sin
-// dejar rastro (no lo usa ninguna otra parte del código).
+// La primera versión de esta reparación intentaba recrear el id=227 a la
+// fuerza, pero mientras tanto el admin ya había recreado el equipo a mano
+// (con un id nuevo) — insertar OTRA fila con el mismo nombre en la misma
+// categoría hubiera violado el índice único uq_teams_tournament_category_name
+// y dejado los 11 jugadores huérfanos para siempre. Ahora: si YA existe un
+// equipo con este nombre en Sub-7 (recreado a mano o por esta misma
+// reparación en un arranque anterior), los jugadores huérfanos se REASIGNAN
+// a ese equipo real; solo se inserta la fila con id=227 si de verdad no
+// existe ningún equipo con ese nombre en esa categoría.
+// Idempotente — no hace nada si ya no hay jugadores huérfanos ni si la
+// inscripción #31 ya no existe. Cuando ya no aplique, este bloque puede
+// borrarse sin dejar rastro (no lo usa ninguna otra parte del código).
 async function recoverVenadosFilialCancun({ query }) {
   try {
     const INSC_ID = 31, TOURNAMENT_ID = 2, NAME = 'Venados FC Filial Cancún'
@@ -149,14 +154,24 @@ async function recoverVenadosFilialCancun({ query }) {
     if (!insc.rows.length) return
     const clubKey = `insc:${INSC_ID}:${NAME.trim().toLowerCase()}`
 
-    // Sub-7 (category_id=17) — mismo id=227 para reenlazar a los 11 jugadores ya existentes
-    const existing227 = await query('SELECT id FROM teams WHERE id=227', [])
-    if (!existing227.rows.length) {
-      await query(
-        'INSERT INTO teams (id,tournament_id,category_id,name,logo,inscription_id,club_key) VALUES (227,$1,$2,$3,$4,$5,$6)',
-        [TOURNAMENT_ID, 17, NAME, LOGO, INSC_ID, clubKey]
+    // Sub-7 (category_id=17) — reenlazar a los 11 jugadores huérfanos
+    const orphaned = await query('SELECT id FROM players WHERE team_id=227', [])
+    if (orphaned.rows.length) {
+      const existingSub7 = await query(
+        'SELECT id FROM teams WHERE tournament_id=$1 AND category_id=$2 AND LOWER(TRIM(name))=LOWER(TRIM($3))',
+        [TOURNAMENT_ID, 17, NAME]
       )
-      console.log('🔧  [recover-venados] equipo id=227 (Sub-7) recreado — 11 jugadores reenlazados automáticamente')
+      if (existingSub7.rows.length) {
+        const realTeamId = existingSub7.rows[0].id
+        await query('UPDATE players SET team_id=$1 WHERE team_id=227', [realTeamId])
+        console.log(`🔧  [recover-venados] ${orphaned.rows.length} jugador(es) huérfano(s) reenlazados al equipo real id=${realTeamId} (Sub-7)`)
+      } else {
+        await query(
+          'INSERT INTO teams (id,tournament_id,category_id,name,logo,inscription_id,club_key) VALUES (227,$1,$2,$3,$4,$5,$6)',
+          [TOURNAMENT_ID, 17, NAME, LOGO, INSC_ID, clubKey]
+        )
+        console.log('🔧  [recover-venados] equipo id=227 (Sub-7) recreado — 11 jugadores reenlazados automáticamente')
+      }
     }
 
     // Sub-13 (19) y Sub-15 (18) — mismo club, sin jugadores registrados aún

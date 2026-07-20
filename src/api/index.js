@@ -40,8 +40,14 @@ api.interceptors.response.use(
       }
       return Promise.reject(err)
     }
-    // Reintentar una vez si es error de red o timeout (backend durmiendo)
-    if (!config._retry && (!err.response || err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK')) {
+    // Reintentar una vez si es error de red o timeout (backend durmiendo) —
+    // SOLO para GET, que es seguro repetir. Reintentar POST/PUT/PATCH/DELETE
+    // es peligroso: si el request original SÍ llegó al servidor y solo se
+    // perdió la respuesta (timeout durante el "despertar" de Railway), el
+    // reintento ejecuta la misma mutación una segunda vez — causó un bug real
+    // donde "Generar partidos" duplicaba la generación de grupos/partidos.
+    const method = config.method?.toUpperCase()
+    if (method === 'GET' && !config._retry && (!err.response || err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK')) {
       config._retry = true
       await new Promise(r => setTimeout(r, 3000)) // espera 3s
       return api(config)

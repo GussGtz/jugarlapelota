@@ -2726,12 +2726,25 @@ router.get('/phase-groups/:id/matches', async (req, res) => {
   res.json(rows)
 })
 
+// Evita que dos ejecuciones de /phases/:id/groups/generate para la MISMA fase
+// corran a la vez — el endpoint hace DELETE + varios INSERT sin transacción,
+// así que dos llamadas concurrentes (ej. el reintento automático del cliente
+// HTTP ante un timeout, ver src/api/index.js) podían pisarse entre sí y dejar
+// una tarjeta de grupo vacía con un error de "registro duplicado".
+const generatingGroupsPhases = new Set()
+
 // Auto-generate groups for a phase
 router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req, res) => {
   const phaseId = req.params.id
   const { teamIds, groupCount, advanceCount = 2, startDate, location, daysPerRound = 7 } = req.body
   if (!teamIds?.length || !groupCount) return res.status(400).json({ error: 'teamIds y groupCount requeridos' })
 
+  if (generatingGroupsPhases.has(phaseId)) {
+    return res.status(409).json({ error: 'Ya se está generando esta fase — espera un momento e inténtalo de nuevo.' })
+  }
+  generatingGroupsPhases.add(phaseId)
+
+  try {
   // Eliminar en orden correcto: primero los hijos (matches, rounds) antes que los grupos
   // para evitar FOREIGN KEY constraint (matches.group_id → phase_groups.id sin CASCADE)
   await query('DELETE FROM matches WHERE phase_id=$1', [phaseId])
@@ -2803,6 +2816,9 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
 
   const totalMatches = (await queryOne('SELECT COUNT(*) AS c FROM matches WHERE phase_id=$1', [phaseId])).c
   res.status(201).json({ groups: createdGroups, totalMatches })
+  } finally {
+    generatingGroupsPhases.delete(phaseId)
+  }
 })
 
 // ── Helper: busca la fase knockout siguiente (SQLite-compatible) ──────────
