@@ -942,7 +942,7 @@
               <label class="text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Número de grupos</label>
               <select v-model.number="genForm.groupCount" @change="buildGroupPreview"
                 class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary">
-                <option v-for="n in validGroupCounts" :key="n" :value="n">{{ n }} grupos · {{ Math.ceil(genForm.teamIds.length/n) }} eq/grupo</option>
+                <option v-for="n in validGroupCounts" :key="n" :value="n">{{ n }} grupo{{ n>1?'s':'' }} · {{ Math.ceil(genForm.teamIds.length/n) }} eq/grupo</option>
               </select>
             </div>
             <div>
@@ -1472,10 +1472,11 @@ function toggleTeam(id) {
   buildGroupPreview()
 }
 
-// Opciones válidas de grupos según equipos seleccionados
+// Opciones válidas de grupos según equipos seleccionados (1 = fase de grupos
+// única, todos los equipos en un solo grupo, seguida del bracket)
 const validGroupCounts = computed(() => {
   const n = genForm.teamIds.length
-  return [2,3,4,5,6,8].filter(g => Math.ceil(n/g) >= 2)
+  return [1,2,3,4,5,6,8].filter(g => Math.ceil(n/g) >= 2)
 })
 
 const validAdvanceCounts = computed(() => {

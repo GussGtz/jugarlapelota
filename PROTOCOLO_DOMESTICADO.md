@@ -811,3 +811,22 @@ Al revisar además la BD real de producción (vía la API pública, sin necesita
 - Mismo logo que "Azul"/"Verde" (tomado de la API pública, mismo equipo real) para que la tarjeta luzca igual que en la captura del admin.
 
 **Validado con:** local, simulando el estado exacto de producción (2 jugadores "huérfanos" con `team_id=227` sin fila de equipo, `foreign_keys=OFF` para poder reproducir el estado roto) — se corrió `recoverVenadosFilialCancun` y se confirmó: equipo `id=227` recreado en Sub-7 con el log correcto, más 2 equipos nuevos en Sub-13/Sub-15; un `JOIN players↔teams` sobre `team_id=227` ya resuelve al equipo real recreado; una segunda corrida no duplicó nada (idempotente). `node --check` limpio. Datos de prueba eliminados. Al desplegar, los 11 jugadores reales de Sub-7 y las 3 tarjetas de "Venados FC Filial Cancún" (Sub-7/13/15) se restauran solas en el próximo arranque del servidor de producción.
+
+### 2026-07-20 — Feature: modalidad "Grupos + Eliminación" ahora acepta un solo grupo
+**Pedido:** "ajusta para que el modo de torneo de clasificación de grupos más bracket tenga la opción de un solo grupo".
+
+**Investigación:** el flujo de `grupos_eliminacion` tenía el número mínimo de grupos fijado en 2 en tres lugares distintos, y un bug real en `crossSeed()` que habría afectado a un grupo único aunque se hubiera permitido:
+1. `GET /tournaments/:slug/wizard-recommend` (`backend/routes/index.js` línea 388): el loop de `groupOptions` empezaba en `g=2`, así que "1 grupo" nunca aparecía como opción calculada.
+2. `POST /tournaments/:slug/auto-setup` (línea 499): `Math.max(2, parseInt(options.groupCount) || ...)` forzaba mínimo 2 aunque el admin mandara `groupCount:1` explícitamente.
+3. `src/pages/admin/Phases.vue` — `validGroupCounts` (línea ~1478): el `<select>` manual de "Número de grupos" nunca incluía `1` en su lista de opciones.
+4. **Bug real en `crossSeed()`** (línea ~3162): para cualquier cantidad de grupos que no fuera exactamente 2, la rama genérica solo tomaba el 1° y 2° lugar de cada grupo (`byGroup[k][0]`/`byGroup[k][1]`), sin importar el `advance_count` configurado. Con un solo grupo y `advance_count > 2`, cualquier clasificado en la posición 3+ se habría descartado en silencio del bracket, aunque `getGroupStandings`/el arreglo `advancing` sí los incluyera correctamente.
+
+`POST /phases/:id/groups/generate` (la que arma el grupo y los partidos de verdad) **no tenía ningún mínimo hardcodeado** — ya funcionaba con `groupCount:1` sin cambios.
+
+**Corrección:**
+- `wizard-recommend`: loop ahora empieza en `g=1`. Se agregó además `multiGroupOptions` para que la recomendación por default (`REC`) siga prefiriendo varios grupos cuando existan opciones válidas — "1 grupo" queda disponible pero no se autoselecciona salvo que sea la única opción viable (evita que el asistente empuje al admin hacia 1 grupo cuando la modalidad "grupos + eliminación" típicamente implica varios).
+- `auto-setup`: cambiado a `Math.max(1, ...)` para respetar `groupCount:1` explícito, conservando el fallback de recomendación (mínimo 2) cuando no se manda nada.
+- `Phases.vue`: `validGroupCounts` ahora incluye `1`; corregida también la pluralización del `<option>` ("1 grupo" en vez de "1 grupos").
+- **`crossSeed()`**: nueva rama dedicada `n === 1` — siembra bracket clásico dentro del mismo grupo (1° vs último clasificado, 2° vs penúltimo, ...); si el número de clasificados es impar, el sembrado de en medio queda solo y se resuelve como bye automático (mismo mecanismo de bye que ya existía para brackets con potencia de 2 incompleta).
+
+**Validado con:** local, torneo de prueba con modalidad `grupos_eliminacion` y 6 equipos — confirmado en el asistente que "1 grupo · 6 eq/grupo" aparece como opción (con "2 grupos" seguando recomendado por default), y en el formulario manual de "Generar" que el `<select>` incluye "1 grupo · 6 eq/grupo" con la vista previa mostrando un único "Grupo A" con los 6 equipos. Se generaron los 15 partidos (round-robin completo), se finalizaron todos con resultados determinísticos, y con `advance_count=3` se confirmó vía `/knockout-preview` y `/advance-to-knockout` que **los 3 clasificados avanzan** (antes del fix del `crossSeed`, solo 2 habrían avanzado) con el seed correcto: Semifinal real 1° vs 3° lugar, y el 2° lugar con bye directo a la Final — exactamente el comportamiento esperado de un bracket sembrado. `node --check` limpio. Build de producción limpio. Datos de prueba eliminados y config local revertida.

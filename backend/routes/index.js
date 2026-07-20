@@ -385,12 +385,19 @@ router.get('/tournaments/:slug/wizard-recommend', authMiddleware, adminOnly, asy
   else if (modality === 'grupos_eliminacion') {
     // Calcular opciones de grupos válidas
     const groupOptions = []
-    for (let g = 2; g <= Math.min(8, Math.floor(teamCount / 2)); g++) {
+    for (let g = 1; g <= Math.min(8, Math.floor(teamCount / 2)); g++) {
       const tpg = Math.ceil(teamCount / g)
       if (tpg >= 3) groupOptions.push({ groups: g, teamsPerGroup: tpg, guaranteed: tpg - 1 })
     }
-    // Recomendación: grupos de 4 si es posible
-    const recGroup = groupOptions.find(o => o.teamsPerGroup === 4) || groupOptions[0] || { groups: 2, teamsPerGroup: Math.ceil(teamCount/2), guaranteed: 2 }
+    // Recomendación: grupos de 4 si es posible. "1 grupo" queda disponible como
+    // opción seleccionable, pero no se recomienda por default salvo que sea la
+    // única opción válida — la modalidad "grupos + eliminación" asume que el
+    // admin quiere varios grupos; 1 solo grupo es la excepción, no la regla.
+    const multiGroupOptions = groupOptions.filter(o => o.groups > 1)
+    const recGroup = groupOptions.find(o => o.teamsPerGroup === 4)
+      || multiGroupOptions[0]
+      || groupOptions[0]
+      || { groups: 2, teamsPerGroup: Math.ceil(teamCount/2), guaranteed: 2 }
     const advOptions = [1, 2, 3].filter(a => a < recGroup.teamsPerGroup)
     const recAdv = advOptions.includes(2) ? 2 : advOptions[0] || 1
 
@@ -496,7 +503,7 @@ router.post('/tournaments/:slug/auto-setup', authMiddleware, adminOnly, async (r
       created.push({ name: 'Liguilla', type: 'knockout', rounds: r2 })
 
     } else if (modality === 'grupos_eliminacion') {
-      const groupCount    = Math.max(2, parseInt(options.groupCount)   || Math.max(2, Math.round(n / 4)))
+      const groupCount    = Math.max(1, parseInt(options.groupCount)   || Math.max(2, Math.round(n / 4)))
       const advanceCount  = Math.max(1, parseInt(options.advanceCount) || 2)
       const teamsPerGroup = Math.ceil(n / groupCount)
 
@@ -3152,7 +3159,18 @@ function crossSeed(advancing, numGroups) {
   const seeded = []
   const n = groupKeys.length
 
-  if (n === 2) {
+  if (n === 1) {
+    // 1 solo grupo: no hay otro grupo con quien cruzar — bracket clásico
+    // dentro del mismo grupo (1° vs último clasificado, 2° vs penúltimo...)
+    // para separar a los mejores sembrados en lados opuestos del cuadro.
+    const group = byGroup[groupKeys[0]]
+    const k = group.length
+    for (let i = 0; i < Math.floor(k / 2); i++) {
+      seeded.push(group[i])
+      seeded.push(group[k - 1 - i])
+    }
+    if (k % 2 === 1) seeded.push(group[Math.floor(k / 2)]) // clasificado impar de en medio: bye
+  } else if (n === 2) {
     // 2 grupos: cruza directamente
     const [gA, gB] = groupKeys.map(k => byGroup[k])
     for (let pos = 0; pos < numPositions; pos++) {
