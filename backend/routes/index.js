@@ -2790,10 +2790,19 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
       // primaria compuesta group_id+team_id) y matches no necesita el id
       // aquí, así que nunca se pide RETURNING para esos dos.
       const insGroup = (...__a) => q('INSERT INTO phase_groups (phase_id,name,order_index,advance_count) VALUES ($1,$2,$3,$4) RETURNING id', __a.flat())
-      // ON CONFLICT DO NOTHING: red de seguridad final — pase lo que pase
-      // arriba en el saneamiento de teamIds, insertar el mismo equipo dos
-      // veces en el mismo grupo nunca debe poder tirar toda la operación.
-      const insGroupTeam = (...__a) => q('INSERT INTO phase_group_teams (group_id,team_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', __a.flat())
+      // "ON CONFLICT DO NOTHING" se descartó: si un intento anterior (de antes
+      // del fix de la transacción) dejó una fila huérfana de este team_id
+      // apuntando a un group_id viejo/ajeno, DO NOTHING la ignora en silencio
+      // — el equipo se queda sin fila en SU grupo actual (partidos reales
+      // creados, pero tabla de posiciones vacía: "Sin partidos jugados aún").
+      // En vez de adivinar la restricción real de la tabla, se borra
+      // explícitamente cualquier fila previa de este team_id (seguro: cada
+      // team.id es único por categoría, nunca se comparte entre torneos ni
+      // categorías) y se inserta la correcta — sin depender de ON CONFLICT.
+      const insGroupTeam = async (groupId, tid) => {
+        await q('DELETE FROM phase_group_teams WHERE team_id=$1', [tid])
+        return q('INSERT INTO phase_group_teams (group_id,team_id) VALUES ($1,$2)', [groupId, tid])
+      }
       const insRound = (...__a) => q('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3) RETURNING id', __a.flat())
       const insMatch = (...__a) => q(`INSERT INTO matches (tournament_id,category_id,phase_id,round_id,group_id,home_team,away_team,date,location,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'scheduled')`, __a.flat())
 
