@@ -114,6 +114,8 @@ async function init() {
     await require('./db-unique-guards').applyUniqueGuards({ query, exec })
     await require('./repair-team-inscriptions').repairTeamInscriptions({ query })
     await require('./repair-team-inscriptions').backfillClubKeys({ query })
+    await require('./repair-team-inscriptions').fixLegacyInscriptionClubKeys({ query })
+    await require('./repair-team-inscriptions').recoverVenadosFilialCancun({ query })
   } else {
     const Database = require('better-sqlite3')
     const path = require('path'), fs = require('fs')
@@ -127,6 +129,7 @@ async function init() {
     await require('./db-unique-guards').applyUniqueGuards({ query, exec })
     await require('./repair-team-inscriptions').repairTeamInscriptions({ query })
     await require('./repair-team-inscriptions').backfillClubKeys({ query })
+    await require('./repair-team-inscriptions').fixLegacyInscriptionClubKeys({ query })
   }
 }
 
