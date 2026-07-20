@@ -51,6 +51,64 @@ async function exec(sql) {
   else { _db.exec(sql) }
 }
 
+// ── Transacciones reales ──────────────────────────────────────────────────────
+// Necesario para operaciones que hacen DELETE + varios INSERT que deben
+// aplicarse todos juntos o ninguno — sin esto, dos requests concurrentes para
+// la misma fase (ej. un doble clic/doble-tap del admin) podían pisarse entre
+// sí a medio camino y dejar un estado parcial (un grupo vacío + un error de
+// "registro duplicado" al chocar con la llave primaria de phase_group_teams).
+// En Postgres se usa un client dedicado del pool (no el pool mismo, que
+// reparte cada query a una conexión distinta) con BEGIN/COMMIT/ROLLBACK reales
+// — así Postgres serializa cualquier segunda transacción concurrente sobre las
+// mismas filas en vez de dejarlas correr en paralelo. En SQLite no hace falta
+// una serialización real (better-sqlite3 es síncrono: cada operación bloquea
+// el hilo único de Node, así que dos "requests" nunca pueden interleavear de
+// verdad), pero se envuelve igual en BEGIN/COMMIT/ROLLBACK por atomicidad.
+async function withTransaction(fn) {
+  if (IS_PG) {
+    const client = await _pool.connect()
+    try {
+      await client.query('BEGIN')
+      const txQuery = async (sql, params = []) => {
+        const upper = sql.trimStart().toUpperCase()
+        const needsId = upper.startsWith('INSERT') && !upper.includes('RETURNING')
+        const execSql = needsId ? sql + ' RETURNING id' : sql
+        try {
+          const res = await client.query(execSql, params)
+          const rawId = res.rows[0]?.id
+          const lastInsertRowid = rawId != null ? parseInt(rawId) : null
+          return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid }
+        } catch (e) {
+          if (needsId && e.code === '42703') {
+            const res = await client.query(sql, params)
+            return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid: null }
+          }
+          throw e
+        }
+      }
+      const txQueryOne = async (sql, params = []) => (await txQuery(sql, params)).rows[0] || null
+      const result = await fn({ query: txQuery, queryOne: txQueryOne })
+      await client.query('COMMIT')
+      return result
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {})
+      throw e
+    } finally {
+      client.release()
+    }
+  } else {
+    await exec('BEGIN')
+    try {
+      const result = await fn({ query, queryOne })
+      await exec('COMMIT')
+      return result
+    } catch (e) {
+      await exec('ROLLBACK').catch(() => {})
+      throw e
+    }
+  }
+}
+
 // ── Detección de choques de constraint UNIQUE (Postgres y SQLite) ──────────────
 // Sirve para distinguir un "ya existe" (condición de carrera: dos requests
 // pasaron el SELECT-check antes de que cualquiera insertara) de un error real
@@ -188,4 +246,4 @@ async function recalculateAllStandings(tournamentId) {
   for (const {category_id,phase_id,group_id} of gc) await recalculateStandings(tournamentId,category_id,phase_id,group_id)
 }
 
-module.exports = { query, queryOne, exec, init, IS_PG, recalculateStandings, recalculateAllStandings, isUniqueViolation, uniqueViolationColumn }
+module.exports = { query, queryOne, exec, init, IS_PG, recalculateStandings, recalculateAllStandings, isUniqueViolation, uniqueViolationColumn, withTransaction }

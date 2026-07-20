@@ -3,7 +3,7 @@ require('express-async-errors')  // captura errores de async handlers en Express
 const router  = express.Router()
 const path    = require('path')
 const multer  = require('multer')
-const { query, queryOne, recalculateStandings, recalculateAllStandings, IS_PG, isUniqueViolation, uniqueViolationColumn } = require('../config/db')
+const { query, queryOne, recalculateStandings, recalculateAllStandings, IS_PG, isUniqueViolation, uniqueViolationColumn, withTransaction } = require('../config/db')
 const { authMiddleware, adminOnly, optionalAuth, refereeOrAdmin, superAdminOnly } = require('../middleware/auth')
 const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
@@ -2745,84 +2745,96 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
   generatingGroupsPhases.add(phaseId)
 
   try {
-  // Eliminar en orden correcto: primero los hijos (matches, rounds) antes que los grupos
-  // para evitar FOREIGN KEY constraint (matches.group_id → phase_groups.id sin CASCADE)
-  await query('DELETE FROM matches WHERE phase_id=$1', [phaseId])
-  await query('DELETE FROM rounds WHERE phase_id=$1', [phaseId])
-  await query('DELETE FROM phase_groups WHERE phase_id=$1', [phaseId])
+    // Todo el DELETE + los INSERT de esta fase corren en UNA sola transacción
+    // real (ver withTransaction en config/db.js) — o se aplica todo o no se
+    // aplica nada. Antes, dos ejecuciones concurrentes para la misma fase
+    // (doble clic/doble-tap, o el reintento automático del cliente HTTP que ya
+    // se quitó) podían interleavear sus DELETE/INSERT sueltos y dejar un
+    // "Grupo A" vacío + un error de llave duplicada en phase_group_teams.
+    const { createdGroups, totalMatches, notFound } = await withTransaction(async ({ query: q, queryOne: qOne }) => {
+      // Eliminar en orden correcto: primero los hijos (matches, rounds) antes
+      // que los grupos, para evitar FOREIGN KEY constraint (matches.group_id
+      // → phase_groups.id sin CASCADE)
+      await q('DELETE FROM matches WHERE phase_id=$1', [phaseId])
+      await q('DELETE FROM rounds WHERE phase_id=$1', [phaseId])
+      await q('DELETE FROM phase_groups WHERE phase_id=$1', [phaseId])
 
-  const phase = (await queryOne('SELECT * FROM phases WHERE id=$1', [phaseId]))
-  if (!phase) return res.status(404).json({ error: 'Fase no encontrada' })
+      const phase = await qOne('SELECT * FROM phases WHERE id=$1', [phaseId])
+      if (!phase) return { notFound: true }
 
-  const groupNames = ['A','B','C','D','E','F','G','H']
+      const groupNames = ['A','B','C','D','E','F','G','H']
 
-  // Snake-draft seeding
-  const groupTeams = Array.from({ length: groupCount }, () => [])
-  let direction = 1, groupIdx = 0
-  for (let i = 0; i < teamIds.length; i++) {
-    groupTeams[groupIdx].push(teamIds[i])
-    if (direction === 1) {
-      if (groupIdx === groupCount - 1) { direction = -1 }
-      else groupIdx++
-    } else {
-      if (groupIdx === 0) { direction = 1 }
-      else groupIdx--
-    }
-  }
-
-  const insGroup = (...__a) => query('INSERT INTO phase_groups (phase_id,name,order_index,advance_count) VALUES ($1,$2,$3,$4)', __a.flat())
-  const insGroupTeam = (...__a) => query('INSERT INTO phase_group_teams (group_id,team_id) VALUES ($1,$2)', __a.flat())
-  const insRound = (...__a) => query('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3)', __a.flat())
-  const insMatch = (...__a) => query(`INSERT INTO matches (tournament_id,category_id,phase_id,round_id,group_id,home_team,away_team,date,location,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'scheduled')`, __a.flat())
-
-  // NOTA: fecha y cancha NUNCA se auto-asignan — el admin las gestiona manualmente
-  const createdGroups = []
-
-  for (let gi = 0; gi < groupCount; gi++) {
-    const groupR = await insGroup(phaseId, `Grupo ${groupNames[gi]}`, gi, advanceCount)
-    const groupId = groupR.lastInsertRowid
-    const gTeams = groupTeams[gi]
-
-    for (const tid of gTeams) await insGroupTeam(groupId, tid)
-
-    let teams = [...gTeams]
-    if (teams.length % 2 !== 0) teams.push(null)
-    // El método del círculo genera una ronda por cada oponente posible, sin
-    // repetir enfrentamientos entre rondas — si se pide un número de partidos
-    // por equipo menor al round-robin completo, basta con tomar solo las
-    // primeras `matchesPerTeam` rondas (el resto quedan sin jugarse: dentro
-    // del mismo grupo puede haber equipos que nunca se enfrenten, aceptado a
-    // propósito para no forzar un round-robin completo en grupos grandes).
-    const fullRounds = teams.length - 1
-    const numRounds = matchesPerTeam ? Math.min(fullRounds, matchesPerTeam) : fullRounds
-    const fixed = teams[0]
-    const rotating = teams.slice(1)
-
-    for (let ri = 0; ri < numRounds; ri++) {
-      const roundTeams = [fixed, ...rotating]
-      const roundPairs = []
-      for (let i = 0; i < teams.length / 2; i++) {
-        const home = roundTeams[i], away = roundTeams[teams.length - 1 - i]
-        if (home !== null && away !== null) roundPairs.push([home, away])
+      // Snake-draft seeding
+      const groupTeams = Array.from({ length: groupCount }, () => [])
+      let direction = 1, groupIdx = 0
+      for (let i = 0; i < teamIds.length; i++) {
+        groupTeams[groupIdx].push(teamIds[i])
+        if (direction === 1) {
+          if (groupIdx === groupCount - 1) { direction = -1 }
+          else groupIdx++
+        } else {
+          if (groupIdx === 0) { direction = 1 }
+          else groupIdx--
+        }
       }
-      if (!roundPairs.length) { rotating.push(rotating.shift()); continue }
 
-      const rName = `Grupo ${groupNames[gi]} — Jornada ${ri + 1}`
-      const roundR = await insRound(phaseId, rName, gi * 10 + ri)
-      const roundId = roundR.lastInsertRowid
+      const insGroup = (...__a) => q('INSERT INTO phase_groups (phase_id,name,order_index,advance_count) VALUES ($1,$2,$3,$4)', __a.flat())
+      const insGroupTeam = (...__a) => q('INSERT INTO phase_group_teams (group_id,team_id) VALUES ($1,$2)', __a.flat())
+      const insRound = (...__a) => q('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3)', __a.flat())
+      const insMatch = (...__a) => q(`INSERT INTO matches (tournament_id,category_id,phase_id,round_id,group_id,home_team,away_team,date,location,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'scheduled')`, __a.flat())
 
-      for (const [h, a] of roundPairs) {
-        // Fecha NULL y cancha NULL — el admin las asigna en el panel de partidos
-        await insMatch(phase.tournament_id, phase.category_id||null, phaseId, roundId, groupId, h, a, null, null)
+      // NOTA: fecha y cancha NUNCA se auto-asignan — el admin las gestiona manualmente
+      const createdGroups = []
+
+      for (let gi = 0; gi < groupCount; gi++) {
+        const groupR = await insGroup(phaseId, `Grupo ${groupNames[gi]}`, gi, advanceCount)
+        const groupId = groupR.lastInsertRowid
+        const gTeams = groupTeams[gi]
+
+        for (const tid of gTeams) await insGroupTeam(groupId, tid)
+
+        let teams = [...gTeams]
+        if (teams.length % 2 !== 0) teams.push(null)
+        // El método del círculo genera una ronda por cada oponente posible, sin
+        // repetir enfrentamientos entre rondas — si se pide un número de partidos
+        // por equipo menor al round-robin completo, basta con tomar solo las
+        // primeras `matchesPerTeam` rondas (el resto quedan sin jugarse: dentro
+        // del mismo grupo puede haber equipos que nunca se enfrenten, aceptado a
+        // propósito para no forzar un round-robin completo en grupos grandes).
+        const fullRounds = teams.length - 1
+        const numRounds = matchesPerTeam ? Math.min(fullRounds, matchesPerTeam) : fullRounds
+        const fixed = teams[0]
+        const rotating = teams.slice(1)
+
+        for (let ri = 0; ri < numRounds; ri++) {
+          const roundTeams = [fixed, ...rotating]
+          const roundPairs = []
+          for (let i = 0; i < teams.length / 2; i++) {
+            const home = roundTeams[i], away = roundTeams[teams.length - 1 - i]
+            if (home !== null && away !== null) roundPairs.push([home, away])
+          }
+          if (!roundPairs.length) { rotating.push(rotating.shift()); continue }
+
+          const rName = `Grupo ${groupNames[gi]} — Jornada ${ri + 1}`
+          const roundR = await insRound(phaseId, rName, gi * 10 + ri)
+          const roundId = roundR.lastInsertRowid
+
+          for (const [h, a] of roundPairs) {
+            // Fecha NULL y cancha NULL — el admin las asigna en el panel de partidos
+            await insMatch(phase.tournament_id, phase.category_id||null, phaseId, roundId, groupId, h, a, null, null)
+          }
+          rotating.unshift(rotating.pop())
+        }
+
+        createdGroups.push({ groupId, name: `Grupo ${groupNames[gi]}`, teams: gTeams })
       }
-      rotating.unshift(rotating.pop())
-    }
 
-    createdGroups.push({ groupId, name: `Grupo ${groupNames[gi]}`, teams: gTeams })
-  }
+      const totalMatches = (await qOne('SELECT COUNT(*) AS c FROM matches WHERE phase_id=$1', [phaseId])).c
+      return { createdGroups, totalMatches }
+    })
 
-  const totalMatches = (await queryOne('SELECT COUNT(*) AS c FROM matches WHERE phase_id=$1', [phaseId])).c
-  res.status(201).json({ groups: createdGroups, totalMatches })
+    if (notFound) return res.status(404).json({ error: 'Fase no encontrada' })
+    res.status(201).json({ groups: createdGroups, totalMatches })
   } finally {
     generatingGroupsPhases.delete(phaseId)
   }
