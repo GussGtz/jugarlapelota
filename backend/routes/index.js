@@ -2778,9 +2778,13 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
         }
       }
 
-      const insGroup = (...__a) => q('INSERT INTO phase_groups (phase_id,name,order_index,advance_count) VALUES ($1,$2,$3,$4)', __a.flat())
+      // RETURNING id explícito solo donde el id de vuelta se usa después
+      // (groupId, roundId) — phase_group_teams no tiene columna id (llave
+      // primaria compuesta group_id+team_id) y matches no necesita el id
+      // aquí, así que nunca se pide RETURNING para esos dos.
+      const insGroup = (...__a) => q('INSERT INTO phase_groups (phase_id,name,order_index,advance_count) VALUES ($1,$2,$3,$4) RETURNING id', __a.flat())
       const insGroupTeam = (...__a) => q('INSERT INTO phase_group_teams (group_id,team_id) VALUES ($1,$2)', __a.flat())
-      const insRound = (...__a) => q('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3)', __a.flat())
+      const insRound = (...__a) => q('INSERT INTO rounds (phase_id,name,order_index) VALUES ($1,$2,$3) RETURNING id', __a.flat())
       const insMatch = (...__a) => q(`INSERT INTO matches (tournament_id,category_id,phase_id,round_id,group_id,home_team,away_team,date,location,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'scheduled')`, __a.flat())
 
       // NOTA: fecha y cancha NUNCA se auto-asignan — el admin las gestiona manualmente

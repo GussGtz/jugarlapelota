@@ -69,22 +69,20 @@ async function withTransaction(fn) {
     const client = await _pool.connect()
     try {
       await client.query('BEGIN')
+      // A diferencia de query() suelto (auto-commit por consulta: un error en
+      // un intento especulativo no afecta a las demás consultas), aquí SÍ
+      // estamos dentro de una transacción real — intentar adivinar solo con
+      // "RETURNING id" y reintentar sin él si falla (como hace query() para
+      // tablas de unión sin columna id, ej. phase_group_teams) NO funciona:
+      // en Postgres, CUALQUIER error dentro de una transacción la marca como
+      // abortada, y hasta el reintento "correcto" fallaría con "current
+      // transaction is aborted...". Por eso aquí NO se adivina: cada INSERT
+      // debe pedir "RETURNING id" explícitamente en su propio SQL si necesita
+      // el id de vuelta (ver insGroup/insRound en groups/generate).
       const txQuery = async (sql, params = []) => {
-        const upper = sql.trimStart().toUpperCase()
-        const needsId = upper.startsWith('INSERT') && !upper.includes('RETURNING')
-        const execSql = needsId ? sql + ' RETURNING id' : sql
-        try {
-          const res = await client.query(execSql, params)
-          const rawId = res.rows[0]?.id
-          const lastInsertRowid = rawId != null ? parseInt(rawId) : null
-          return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid }
-        } catch (e) {
-          if (needsId && e.code === '42703') {
-            const res = await client.query(sql, params)
-            return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid: null }
-          }
-          throw e
-        }
+        const res = await client.query(sql, params)
+        const rawId = res.rows[0]?.id
+        return { rows: res.rows, rowCount: res.rowCount, lastInsertRowid: rawId != null ? parseInt(rawId) : null }
       }
       const txQueryOne = async (sql, params = []) => (await txQuery(sql, params)).rows[0] || null
       const result = await fn({ query: txQuery, queryOne: txQueryOne })
