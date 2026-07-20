@@ -30,6 +30,8 @@ module.exports = function initSQLite(db, bcrypt) {
   safe('ALTER TABLE tournaments ADD COLUMN social_tiktok TEXT')
   safe('ALTER TABLE tournaments ADD COLUMN social_youtube TEXT')
   safe('ALTER TABLE tournaments ADD COLUMN social_whatsapp TEXT')
+  // Token para el link privado de "rol de juegos" compartido con delegados
+  safe('ALTER TABLE tournaments ADD COLUMN schedule_share_token TEXT')
   // Paridad con PG_MIGRATIONS (backend/config/db-schema.js) — columnas que faltaban en SQLite
   safe('ALTER TABLE phases ADD COLUMN is_active INTEGER DEFAULT 0')
   safe('ALTER TABLE matches ADD COLUMN match_notes TEXT')

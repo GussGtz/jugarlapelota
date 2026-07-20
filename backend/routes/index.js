@@ -285,6 +285,47 @@ router.delete('/phases/:id', authMiddleware, adminOnly, async (req, res) => {
   res.status(204).end()
 })
 
+// ── Compartir rol de juegos (link privado para delegados) ────────────────
+// "Lista" = cada categoría tiene al menos una fase de grupos/liga con
+// partidos ya generados. No exige la fase eliminatoria — el rol que se
+// comparte es el de la fase inicial (grupos/liga), no el bracket.
+router.get('/tournaments/:slug/schedule-readiness', async (req, res) => {
+  const t = await getTournament(req.params.slug); if (!t) return notFound(res)
+  const categories = (await query('SELECT id FROM categories WHERE tournament_id=$1', [t.id])).rows
+  if (!categories.length) return res.json({ ready: false })
+  for (const c of categories) {
+    const phase = await queryOne(`
+      SELECT p.id FROM phases p
+      WHERE p.category_id=$1 AND p.type IN ('groups','league')
+        AND EXISTS (SELECT 1 FROM matches m WHERE m.phase_id=p.id)
+      LIMIT 1
+    `, [c.id])
+    if (!phase) return res.json({ ready: false })
+  }
+  res.json({ ready: true })
+})
+
+router.post('/tournaments/:slug/schedule-share', authMiddleware, adminOnly, async (req, res) => {
+  const t = await getTournament(req.params.slug); if (!t) return notFound(res)
+  if (!await checkOwnerByTournamentId(req, res, t.id)) return
+  let token = t.schedule_share_token
+  if (!token) {
+    token = crypto.randomBytes(20).toString('hex')
+    await query('UPDATE tournaments SET schedule_share_token=$1 WHERE id=$2', [token, t.id])
+  }
+  res.json({ token })
+})
+
+// Público — resuelve el token a los datos básicos del torneo, sin exponer el slug en el token mismo
+router.get('/schedule-link/:token', async (req, res) => {
+  const t = await queryOne(
+    'SELECT id,name,slug,logo,banner,primary_color,secondary_color,location FROM tournaments WHERE schedule_share_token=$1',
+    [req.params.token]
+  )
+  if (!t) return res.status(404).json({ error: 'Enlace inválido o expirado' })
+  res.json(t)
+})
+
 // ── Recomendaciones del wizard ────────────────────────────────────────────
 router.get('/tournaments/:slug/wizard-recommend', authMiddleware, adminOnly, async (req, res) => {
   const t = await getTournament(req.params.slug)

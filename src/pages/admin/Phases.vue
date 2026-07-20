@@ -4,12 +4,46 @@
     <div class="flex items-center justify-between flex-wrap gap-3">
       <h2 class="text-lg md:text-2xl font-extrabold text-slate-900">Fases y Rondas</h2>
       <div class="flex gap-2">
+        <button v-if="scheduleReady" @click="openShareModal"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-sm transition-all hover:opacity-90 bg-accent hover:bg-emerald-600">
+          <IconLink class="w-4 h-4" /> Compartir roles
+        </button>
         <button @click="openWizard"
           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-sm transition-all hover:opacity-90"
           style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">
           <IconZap class="w-4 h-4" /> Generar automáticamente
         </button>
         <button @click="openPhaseForm()" class="btn-primary text-sm">+ Nueva fase</button>
+      </div>
+    </div>
+
+    <!-- Modal: compartir rol de juegos -->
+    <div v-if="showShareModal" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-handle"/>
+        <div class="modal-header">
+          <h3 class="font-bold text-slate-900 text-base">Compartir rol de juegos</h3>
+          <button @click="showShareModal=false" class="text-slate-400 hover:text-slate-700"><IconX class="w-5 h-5"/></button>
+        </div>
+        <div class="modal-body space-y-3">
+          <p class="text-sm text-slate-500">
+            Este enlace privado muestra el rol de juegos de todas las categorías del torneo — ideal para compartir con los delegados de cada equipo. Quien lo tenga puede ver y cambiar entre categorías desde ahí mismo.
+          </p>
+          <div v-if="shareLoading" class="flex justify-center py-6">
+            <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <div v-else-if="shareUrl" class="link-card">
+            <p class="link-url">{{ shareUrl }}</p>
+            <button @click="copyShareLink" class="link-copy" :class="{ copied: shareCopied }">
+              <IconCheck v-if="shareCopied" class="w-4 h-4" />
+              <IconCopy v-else class="w-4 h-4" />
+              {{ shareCopied ? 'Copiado' : 'Copiar enlace' }}
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showShareModal=false" class="btn-ghost text-sm flex-1">Cerrar</button>
+        </div>
       </div>
     </div>
 
@@ -1217,6 +1251,47 @@ async function load() {
     groupStandingsMap.value  = groupMap
     knockoutMatchesMap.value = knockoutMap
   } catch {} finally { loading.value = false }
+  checkScheduleReadiness()
+}
+
+// ── Compartir rol de juegos ────────────────────────────────────────────
+const scheduleReady  = ref(false)
+const showShareModal = ref(false)
+const shareUrl       = ref('')
+const shareLoading   = ref(false)
+const shareCopied    = ref(false)
+
+async function checkScheduleReadiness() {
+  if (!selTournament.value) { scheduleReady.value = false; return }
+  try {
+    const { data } = await api.get(`/tournaments/${selTournament.value.slug}/schedule-readiness`)
+    scheduleReady.value = !!data.ready
+  } catch { scheduleReady.value = false }
+}
+
+async function openShareModal() {
+  showShareModal.value = true
+  shareUrl.value = ''
+  shareLoading.value = true
+  try {
+    const { data } = await api.post(`/tournaments/${selTournament.value.slug}/schedule-share`)
+    shareUrl.value = `${window.location.origin}/rol/${data.token}`
+  } catch { alert('No se pudo generar el enlace') }
+  finally { shareLoading.value = false }
+}
+
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(shareUrl.value)
+  } catch {
+    const el = document.createElement('input')
+    el.value = shareUrl.value
+    document.body.appendChild(el); el.select()
+    document.execCommand('copy')
+    document.body.removeChild(el)
+  }
+  shareCopied.value = true
+  setTimeout(() => { shareCopied.value = false }, 2500)
 }
 
 // ── Wizard ────────────────────────────────────────────────
@@ -1459,3 +1534,48 @@ onMounted(async () => {
   if (data.length) { selTournament.value = data[0]; await onTournamentChange() }
 })
 </script>
+
+<style scoped>
+.link-card {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  padding: 12px;
+  display: block;
+  box-sizing: border-box;
+}
+.link-url {
+  font-size: 11px;
+  font-family: monospace;
+  color: #475569;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.link-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  background: #0ea5e9;
+  color: white;
+  transition: background 0.15s;
+  box-sizing: border-box;
+}
+.link-copy.copied { background: #10b981; }
+</style>

@@ -35,6 +35,9 @@ const routes = [
   { path: '/login',   name: 'Login',         component: () => import('@/pages/Login.vue') },
   { path: '/arbitro', name: 'RefereePortal', component: () => import('@/pages/RefereePortal.vue'), meta: { layout: 'referee' } },
 
+  // ── Rol de juegos compartido (link privado para delegados) ──
+  { path: '/rol/:token', name: 'PublicSchedule', component: () => import('@/pages/PublicSchedule.vue') },
+
   // ── Admin ───────────────────────────────────────────────
   {
     path: '/admin',
