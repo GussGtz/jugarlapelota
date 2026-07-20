@@ -2736,7 +2736,7 @@ const generatingGroupsPhases = new Set()
 // Auto-generate groups for a phase
 router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req, res) => {
   const phaseId = req.params.id
-  const { teamIds, groupCount, advanceCount = 2, startDate, location, daysPerRound = 7 } = req.body
+  const { teamIds, groupCount, advanceCount = 2, startDate, location, daysPerRound = 7, matchesPerTeam } = req.body
   if (!teamIds?.length || !groupCount) return res.status(400).json({ error: 'teamIds y groupCount requeridos' })
 
   if (generatingGroupsPhases.has(phaseId)) {
@@ -2787,7 +2787,14 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
 
     let teams = [...gTeams]
     if (teams.length % 2 !== 0) teams.push(null)
-    const numRounds = teams.length - 1
+    // El método del círculo genera una ronda por cada oponente posible, sin
+    // repetir enfrentamientos entre rondas — si se pide un número de partidos
+    // por equipo menor al round-robin completo, basta con tomar solo las
+    // primeras `matchesPerTeam` rondas (el resto quedan sin jugarse: dentro
+    // del mismo grupo puede haber equipos que nunca se enfrenten, aceptado a
+    // propósito para no forzar un round-robin completo en grupos grandes).
+    const fullRounds = teams.length - 1
+    const numRounds = matchesPerTeam ? Math.min(fullRounds, matchesPerTeam) : fullRounds
     const fixed = teams[0]
     const rotating = teams.slice(1)
 

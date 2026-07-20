@@ -952,6 +952,17 @@
                 <option v-for="n in validAdvanceCounts" :key="n" :value="n">{{ n }} equipo{{ n>1?'s':'' }}</option>
               </select>
             </div>
+            <div class="col-span-2">
+              <label class="text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 block">
+                Partidos por equipo <span class="text-slate-300 font-normal normal-case">(opcional — vacío = todos contra todos)</span>
+              </label>
+              <input type="number" min="1" :max="fullRoundRobinMatches" v-model.number="genForm.matchesPerTeam"
+                :placeholder="`Máximo ${fullRoundRobinMatches} (todos contra todos)`"
+                class="w-full bg-white border border-muted rounded-xl px-4 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-primary"/>
+              <p class="text-[11px] text-slate-400 mt-1.5">
+                Si pides menos que {{ fullRoundRobinMatches }}, habrá equipos del mismo grupo que no se enfrenten entre sí.
+              </p>
+            </div>
           </div>
 
           <!-- Preview de grupos (snake-draft) -->
@@ -960,7 +971,7 @@
             <div class="px-4 py-2.5 border-b border-purple-100 flex items-center gap-2">
               <IconUsers class="w-4 h-4 text-purple-500"/>
               <p class="text-xs font-black uppercase tracking-wider text-purple-600">Vista previa de grupos</p>
-              <span class="text-[10px] text-purple-400 ml-auto">{{ Math.ceil(genForm.teamIds.length/genForm.groupCount)-1 }} partido{{ Math.ceil(genForm.teamIds.length/genForm.groupCount)-1>1?'s':'' }} garantizado{{ Math.ceil(genForm.teamIds.length/genForm.groupCount)-1>1?'s':'' }} por equipo</span>
+              <span class="text-[10px] text-purple-400 ml-auto">{{ guaranteedMatches }} partido{{ guaranteedMatches>1?'s':'' }} garantizado{{ guaranteedMatches>1?'s':'' }} por equipo</span>
             </div>
             <div class="p-3 grid gap-3" :class="groupsGridClass(groupPreview.length)">
               <div v-for="(group, gi) in groupPreview" :key="gi"
@@ -1043,7 +1054,7 @@ const genResultText = ref('')
 
 const phaseForm = reactive({ tournamentId: null, categoryId: null, name: '', type: 'league', order_index: 0 })
 const roundForm = reactive({ name: '', order_index: 0 })
-const genForm   = reactive({ type: 'round_robin', teamIds: [], startDate: '', location: '', roundMinutes: 7, groupCount: 2, advanceCount: 2 })
+const genForm   = reactive({ type: 'round_robin', teamIds: [], startDate: '', location: '', roundMinutes: 7, groupCount: 2, advanceCount: 2, matchesPerTeam: null })
 
 // Wizard state
 const wiz = reactive({
@@ -1450,6 +1461,7 @@ async function openGenerateForm(phase) {
   activePhase.value  = phase
   genForm.type       = phase.type === 'knockout' ? 'knockout' : phase.type === 'groups' ? 'groups' : 'round_robin'
   genForm.teamIds    = []
+  genForm.matchesPerTeam = null
   genResult.value    = ''
   categoryTeams.value = []
 
@@ -1484,6 +1496,17 @@ const validAdvanceCounts = computed(() => {
   return [1,2,3].filter(a => a < tpg)
 })
 
+// Partidos de un round-robin completo (todos contra todos dentro del grupo
+// más grande) — tope superior de "partidos por equipo". Si el admin pide un
+// número menor, se juega un round-robin parcial (ver backend) y quedan
+// equipos del mismo grupo que nunca se enfrentan entre sí — aceptado a
+// propósito para no forzar demasiados partidos en grupos grandes.
+const fullRoundRobinMatches = computed(() => Math.ceil(genForm.teamIds.length / genForm.groupCount) - 1)
+const guaranteedMatches = computed(() => {
+  const m = genForm.matchesPerTeam
+  return m && m > 0 ? Math.min(m, fullRoundRobinMatches.value) : fullRoundRobinMatches.value
+})
+
 // Preview de cómo quedan los grupos (snake-draft igual que el backend)
 const groupPreview = ref([])
 
@@ -1512,7 +1535,8 @@ async function generate() {
     if (genForm.type === 'groups') {
       const { data } = await api.post(`/phases/${activePhase.value.id}/groups/generate`, {
         teamIds: genForm.teamIds, groupCount: genForm.groupCount,
-        advanceCount: genForm.advanceCount, startDate: genForm.startDate, location: genForm.location
+        advanceCount: genForm.advanceCount, startDate: genForm.startDate, location: genForm.location,
+        matchesPerTeam: genForm.matchesPerTeam || undefined
       })
       genResultText.value = `${data.groups?.length} grupos generados, ${data.totalMatches} partidos`
     } else {
