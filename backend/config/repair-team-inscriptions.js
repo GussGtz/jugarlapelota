@@ -126,34 +126,54 @@ async function fixLegacyInscriptionClubKeys({ query }) {
 // "Venados FC Filial Cancún" (sin color), inscripción #31 del torneo Copa
 // Caribe (tournament_id 2), tenía equipos en Sub-7/Sub-13/Sub-15 (sin
 // "Azul"/"Verde", a diferencia de Sub-9/Sub-11 que sí tenían ambos colores)
-// — esas 3 filas ya no existen en la tabla teams (confirmado: no aparecen
-// en ningún torneo/categoría, y ninguno de los equipos de esta inscripción
-// tiene jugadores registrados, así que no hay datos de jugadores que
-// recuperar). Se recrean aquí de forma idempotente — no hace nada si ya
-// existen (por si se recrean a mano antes de este deploy) ni si la
-// inscripción #31 ya no existe. Cuando ya no aplique, este bloque puede
-// borrarse sin dejar rastro (no lo usa ninguna otra parte del código).
+// — esas 3 filas ya no existen en la tabla teams. Confirmado con el usuario
+// (consultas directas a la BD de producción):
+//   - El equipo de Sub-7 tenía id=227 y 11 jugadores reales YA CARGADOS en
+//     `players` con team_id=227 (huérfanos — la fila del equipo se borró
+//     pero los jugadores no, porque el borrado ocurrió antes de que
+//     existiera la restricción de llave foránea, o esta nunca se aplicó
+//     retroactivamente en esta tabla). Se recrea con el MISMO id=227 para
+//     que esos 11 jugadores se re-enlacen solos, sin tocar cada uno.
+//   - Sub-13 y Sub-15 no tenían jugadores — se recrean con id nuevo.
+// Insertar un id explícito en una columna BIGSERIAL es seguro aquí: ya
+// existen equipos con id mayor a 227 (228, 229...), así que la secuencia ya
+// pasó ese punto y nunca volverá a generarlo por accidente.
+// Idempotente — no hace nada si las filas ya existen ni si la inscripción
+// #31 ya no existe. Cuando ya no aplique, este bloque puede borrarse sin
+// dejar rastro (no lo usa ninguna otra parte del código).
 async function recoverVenadosFilialCancun({ query }) {
   try {
     const INSC_ID = 31, TOURNAMENT_ID = 2, NAME = 'Venados FC Filial Cancún'
-    const CATEGORY_IDS = [17, 19, 18] // Sub-7, Sub-13, Sub-15
+    const LOGO = 'https://res.cloudinary.com/dok6cmxfp/image/upload/v1784142789/jugarlapelota/jpaiducbu5dxvrtnjopg.jpg'
     const insc = await query('SELECT id FROM inscriptions WHERE id=$1', [INSC_ID])
     if (!insc.rows.length) return
     const clubKey = `insc:${INSC_ID}:${NAME.trim().toLowerCase()}`
+
+    // Sub-7 (category_id=17) — mismo id=227 para reenlazar a los 11 jugadores ya existentes
+    const existing227 = await query('SELECT id FROM teams WHERE id=227', [])
+    if (!existing227.rows.length) {
+      await query(
+        'INSERT INTO teams (id,tournament_id,category_id,name,logo,inscription_id,club_key) VALUES (227,$1,$2,$3,$4,$5,$6)',
+        [TOURNAMENT_ID, 17, NAME, LOGO, INSC_ID, clubKey]
+      )
+      console.log('🔧  [recover-venados] equipo id=227 (Sub-7) recreado — 11 jugadores reenlazados automáticamente')
+    }
+
+    // Sub-13 (19) y Sub-15 (18) — mismo club, sin jugadores registrados aún
     let created = 0
-    for (const catId of CATEGORY_IDS) {
-      const existing = await query(
+    for (const catId of [19, 18]) {
+      const already = await query(
         'SELECT id FROM teams WHERE tournament_id=$1 AND category_id=$2 AND inscription_id=$3',
         [TOURNAMENT_ID, catId, INSC_ID]
       )
-      if (existing.rows.length) continue
+      if (already.rows.length) continue
       await query(
-        'INSERT INTO teams (tournament_id,category_id,name,inscription_id,club_key) VALUES ($1,$2,$3,$4,$5)',
-        [TOURNAMENT_ID, catId, NAME, INSC_ID, clubKey]
+        'INSERT INTO teams (tournament_id,category_id,name,logo,inscription_id,club_key) VALUES ($1,$2,$3,$4,$5,$6)',
+        [TOURNAMENT_ID, catId, NAME, LOGO, INSC_ID, clubKey]
       )
       created++
     }
-    if (created) console.log(`🔧  [recover-venados] equipo "${NAME}" recreado en ${created} categoría(s)`)
+    if (created) console.log(`🔧  [recover-venados] equipo "${NAME}" recreado en ${created} categoría(s) más (Sub-13/Sub-15)`)
   } catch (e) {
     console.warn(`⚠️  [recover-venados] no se pudo ejecutar (${e.message})`)
   }
