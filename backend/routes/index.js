@@ -2736,7 +2736,11 @@ const generatingGroupsPhases = new Set()
 // Auto-generate groups for a phase
 router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req, res) => {
   const phaseId = req.params.id
-  const { teamIds, groupCount, advanceCount = 2, startDate, location, daysPerRound = 7, matchesPerTeam } = req.body
+  const { groupCount, advanceCount = 2, startDate, location, daysPerRound = 7, matchesPerTeam } = req.body
+  // Deduplicar por si el cliente manda un id repetido (protege contra la
+  // única forma en que phase_group_teams(group_id,team_id) podría chocar
+  // DENTRO de una sola ejecución, sin que sea una condición de carrera).
+  const teamIds = [...new Set(req.body.teamIds || [])]
   if (!teamIds?.length || !groupCount) return res.status(400).json({ error: 'teamIds y groupCount requeridos' })
 
   if (generatingGroupsPhases.has(phaseId)) {
@@ -2839,6 +2843,19 @@ router.post('/phases/:id/groups/generate', authMiddleware, adminOnly, async (req
 
     if (notFound) return res.status(404).json({ error: 'Fase no encontrada' })
     res.status(201).json({ groups: createdGroups, totalMatches })
+  } catch (e) {
+    // Diagnóstico detallado en vez de dejar que caiga al manejador genérico
+    // de server.js (que solo dice "ya existe un registro", sin decir CUÁL) —
+    // temporal mientras se identifica con certeza la causa real reportada en
+    // producción (409 en /phases/:id/groups/generate sin más contexto).
+    console.error('[groups/generate] error real:', {
+      phaseId, groupCount, teamIds, code: e.code, constraint: e.constraint,
+      detail: e.detail, message: e.message
+    })
+    res.status(500).json({
+      error: `Error al generar grupos: ${e.message}`,
+      debug: { code: e.code, constraint: e.constraint, detail: e.detail }
+    })
   } finally {
     generatingGroupsPhases.delete(phaseId)
   }
