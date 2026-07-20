@@ -578,20 +578,46 @@ router.get('/matches/live', async (_, res) => {
   `, [])).rows
   res.json(rows)
 })
+// Mantiene categories_json de la inscripción sincronizado cuando se agrega una
+// categoría a un equipo desde el admin (Equipos) después de aprobada la
+// inscripción — sin esto, el link de "registro de jugadores" (que solo
+// reconoce categorías dentro de categories_json) ignora la categoría nueva.
+async function syncInscriptionCategory(inscriptionId, categoryId, teamName) {
+  if (!inscriptionId || !categoryId) return
+  const insc = await queryOne('SELECT categories_json FROM inscriptions WHERE id=$1', [inscriptionId])
+  if (!insc) return
+  let cats = []
+  try { cats = JSON.parse(insc.categories_json || '[]') } catch { cats = [] }
+  if (cats.some(c => String(c.id) === String(categoryId))) return
+  const cat = await queryOne('SELECT id,name FROM categories WHERE id=$1', [categoryId])
+  if (!cat) return
+  cats.push({ id: cat.id, name: cat.name, teamName })
+  await query('UPDATE inscriptions SET categories_json=$1 WHERE id=$2', [JSON.stringify(cats), inscriptionId])
+}
+
 router.post('/teams', authMiddleware, adminOnly, async (req, res) => {
   const {tournamentId, categoryId, name, logo, coach, captain, description} = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'El nombre del equipo es requerido' })
   if (!await checkOwnerByTournamentId(req, res, tournamentId)) return
   const dup = (await queryOne('SELECT id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND category_id IS NOT DISTINCT FROM $3', [tournamentId, name.trim(), categoryId || null]))
   if (dup) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
+  // Heredar inscription_id de un equipo "hermano" (mismo nombre, otra categoría) si
+  // existe — así el equipo nuevo de esta categoría sigue ligado a la inscripción
+  // original y su link de registro de jugadores puede reconocerlo.
+  const sibling = await queryOne(
+    'SELECT inscription_id FROM teams WHERE tournament_id=$1 AND LOWER(TRIM(name))=LOWER(TRIM($2)) AND inscription_id IS NOT NULL LIMIT 1',
+    [tournamentId, name.trim()]
+  )
+  const inscriptionId = sibling?.inscription_id || null
   let r
   try {
-    r = await query('INSERT INTO teams (tournament_id,category_id,name,logo,coach,captain,description) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', [tournamentId, categoryId || null, name.trim(), logo || null, coach || null, captain || null, description || null])
+    r = await query('INSERT INTO teams (tournament_id,category_id,name,logo,coach,captain,description,inscription_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', [tournamentId, categoryId || null, name.trim(), logo || null, coach || null, captain || null, description || null, inscriptionId])
   } catch (e) {
     // Última línea de defensa: dos requests pasaron el check de arriba a la vez
     if (isUniqueViolation(e)) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
     throw e
   }
+  if (inscriptionId && categoryId) await syncInscriptionCategory(inscriptionId, categoryId, name.trim())
   res.status(201).json((await queryOne('SELECT t.*,c.name AS "categoryName" FROM teams t LEFT JOIN categories c ON t.category_id=c.id WHERE t.id=$1', [r.lastInsertRowid])))
 })
 
@@ -599,7 +625,8 @@ router.put('/teams/:id', authMiddleware, adminOnly, async (req, res) => {
   const {name, logo, coach, captain, description, categoryId, tournamentId} = req.body
   const id = parseInt(req.params.id)
   if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' })
-  const tid = tournamentId || (await queryOne('SELECT tournament_id FROM teams WHERE id=$1', [id]))?.tournament_id
+  const existing = await queryOne('SELECT tournament_id, inscription_id FROM teams WHERE id=$1', [id])
+  const tid = tournamentId || existing?.tournament_id
   if (!await checkOwnerByTournamentId(req, res, tid)) return
 
   // Duplicado al renombrar: mismo nombre en el torneo y categoría, excluyendo el equipo actual
@@ -612,6 +639,7 @@ router.put('/teams/:id', authMiddleware, adminOnly, async (req, res) => {
     if (isUniqueViolation(e)) return res.status(409).json({ error: `Ya existe un equipo llamado "${name.trim()}" en esta categoría.` })
     throw e
   }
+  if (existing?.inscription_id && categoryId) await syncInscriptionCategory(existing.inscription_id, categoryId, name.trim())
   res.json((await queryOne('SELECT * FROM teams WHERE id=$1', [id])))
 })
 router.get('/teams/:id/players', async (req, res) => {
