@@ -112,6 +112,7 @@ async function init() {
     // Índices únicos de saneamiento (protegen contra condiciones de carrera en
     // registro de jugadores/equipos) — se revisan en cada arranque, ver db-unique-guards.js
     await require('./db-unique-guards').applyUniqueGuards({ query, exec })
+    await require('./repair-team-inscriptions').repairTeamInscriptions({ query })
   } else {
     const Database = require('better-sqlite3')
     const path = require('path'), fs = require('fs')
@@ -123,6 +124,7 @@ async function init() {
     require('./db-sqlite-init')(_db, bcrypt)
 
     await require('./db-unique-guards').applyUniqueGuards({ query, exec })
+    await require('./repair-team-inscriptions').repairTeamInscriptions({ query })
   }
 }
 
