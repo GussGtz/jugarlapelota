@@ -3146,16 +3146,18 @@ router.get('/teams/:id/profile', async (req, res) => {
     WHERE a.team_id=$1 OR p.team_id=$2 ORDER BY a.id
   `, [teamId, teamId])).rows
 
-  const teamIdInt = parseInt(teamId)
+  // Comparar como strings para evitar mismatch number/string de PostgreSQL
+  // (BIGINT vuelve como string) — antes con parseInt() esta comparación nunca
+  // coincidía en producción y wins/losses quedaban siempre en 0.
   const stats = {
     totalGoals:   (await queryOne('SELECT COALESCE(SUM(goals),0) AS v FROM players WHERE team_id=$1', [teamId])).v,
     totalAssists: (await queryOne('SELECT COALESCE(SUM(assists),0) AS v FROM players WHERE team_id=$1', [teamId])).v,
     totalYellow:  (await queryOne('SELECT COALESCE(SUM(yellow_cards),0) AS v FROM players WHERE team_id=$1', [teamId])).v,
     totalRed:     (await queryOne('SELECT COALESCE(SUM(red_cards),0) AS v FROM players WHERE team_id=$1', [teamId])).v,
     matchesPlayed: recentMatches.length,
-    wins:   recentMatches.filter(m => (m.home_team===teamIdInt&&m.home_score>m.away_score)||(m.away_team===teamIdInt&&m.away_score>m.home_score)).length,
+    wins:   recentMatches.filter(m => (String(m.home_team)===String(teamId)&&m.home_score>m.away_score)||(String(m.away_team)===String(teamId)&&m.away_score>m.home_score)).length,
     draws:  recentMatches.filter(m => m.home_score===m.away_score).length,
-    losses: recentMatches.filter(m => (m.home_team===teamIdInt&&m.home_score<m.away_score)||(m.away_team===teamIdInt&&m.away_score<m.home_score)).length,
+    losses: recentMatches.filter(m => (String(m.home_team)===String(teamId)&&m.home_score<m.away_score)||(String(m.away_team)===String(teamId)&&m.away_score<m.home_score)).length,
     followerCount: await teamFollowerCount(teamId),
   }
 
@@ -3862,7 +3864,7 @@ router.post('/superadmin/admins', authMiddleware, superAdminOnly, async (req, re
 // Actualizar admin (nombre, email, rol)
 router.put('/superadmin/admins/:id', authMiddleware, superAdminOnly, async (req, res) => {
   const id = Number(req.params.id)
-  if (id === req.user.id) return res.status(400).json({ error: 'No puedes modificar tu propia cuenta desde aquí' })
+  if (String(id) === String(req.user.id)) return res.status(400).json({ error: 'No puedes modificar tu propia cuenta desde aquí' })
   const { name, email, username, role } = req.body
   const user = (await queryOne('SELECT * FROM users WHERE id=$1', [id]))
   if (!user) return res.status(404).json({ error: 'Admin no encontrado' })
@@ -3896,7 +3898,7 @@ router.patch('/superadmin/admins/:id/password', authMiddleware, superAdminOnly, 
 // Activar / desactivar
 router.patch('/superadmin/admins/:id/status', authMiddleware, superAdminOnly, async (req, res) => {
   const id = Number(req.params.id)
-  if (id === req.user.id) return res.status(400).json({ error: 'No puedes desactivarte a ti mismo' })
+  if (String(id) === String(req.user.id)) return res.status(400).json({ error: 'No puedes desactivarte a ti mismo' })
   const { is_active } = req.body
   const user = (await queryOne('SELECT id FROM users WHERE id=$1', [id]))
   if (!user) return res.status(404).json({ error: 'Admin no encontrado' })

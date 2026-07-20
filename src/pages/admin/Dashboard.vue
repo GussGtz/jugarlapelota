@@ -59,7 +59,7 @@
             Los jugadores, equipos y árbitros no pueden ver cuándo ni dónde se juegan
           </p>
         </div>
-        <router-link to="/admin/partidos?filter=pending-schedule"
+        <router-link :to="pendingScheduleLink"
           class="shrink-0 px-3 py-2 rounded-xl bg-amber-500 text-white text-xs font-black hover:bg-amber-600 transition flex items-center gap-1.5">
           <IconPenLine class="w-3.5 h-3.5"/> Asignar ahora
         </router-link>
@@ -67,8 +67,9 @@
 
       <!-- Mini-lista de los primeros sin asignar -->
       <div v-if="st.matchesNoScheduleList?.length" class="space-y-1.5">
-        <div v-for="m in st.matchesNoScheduleList" :key="m.id"
-          class="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 border border-amber-100">
+        <router-link v-for="m in st.matchesNoScheduleList" :key="m.id"
+          :to="`/admin/partidos?filter=pending-schedule&tournament=${m.tournamentSlug}`"
+          class="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 border border-amber-100 hover:border-amber-300 transition-colors">
           <div class="flex-1 min-w-0">
             <p class="text-xs font-bold text-slate-900 truncate">{{ m.homeTeam }} vs {{ m.awayTeam }}</p>
             <p class="text-[10px] text-slate-500">{{ m.categoryName }} · {{ m.tournamentName }}</p>
@@ -85,7 +86,7 @@
               {{ m.location ? 'Con cancha' : 'Sin cancha' }}
             </span>
           </div>
-        </div>
+        </router-link>
         <p v-if="st.matchesNoSchedule > 5" class="text-[10px] text-amber-600 text-center font-semibold">
           y {{ st.matchesNoSchedule - 5 }} más...
         </p>
@@ -375,6 +376,15 @@ const LiveMatchCard = defineComponent({
 const todayLabel = computed(() =>
   new Date().toLocaleDateString('es-MX', { weekday:'long', day:'2-digit', month:'long' })
 )
+
+// Antes siempre mandaba a /admin/partidos sin torneo — Matches.vue caía en el
+// primer torneo del admin, y si los partidos sin horario eran de OTRO
+// torneo, la lista aparecía vacía. Se pasa el torneo del primer partido
+// pendiente para que Matches.vue lo seleccione directamente.
+const pendingScheduleLink = computed(() => {
+  const slug = st.value.matchesNoScheduleList?.[0]?.tournamentSlug
+  return slug ? `/admin/partidos?filter=pending-schedule&tournament=${slug}` : '/admin/partidos?filter=pending-schedule'
+})
 
 const statCards = computed(() => [
   { label: 'Torneos',      value: st.value.tournaments,  icon: Trophy,        bg: '#0ea5e9' },

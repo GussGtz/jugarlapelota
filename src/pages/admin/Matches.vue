@@ -524,7 +524,14 @@ const route = useRoute()
 onMounted(async () => {
   const { data } = await api.get('/tournaments')
   tournaments.value = data
-  if (data.length) { filterTournament.value = data[0]; await onTournamentChange() }
+  if (data.length) {
+    // Si venimos del Dashboard con un torneo específico (?tournament=slug), lo
+    // respetamos — antes siempre caía en data[0], y si los partidos "sin
+    // horario" pertenecían a OTRO torneo, la lista quedaba vacía sin explicación.
+    const fromQuery = route.query.tournament ? data.find(t => t.slug === route.query.tournament) : null
+    filterTournament.value = fromQuery || data[0]
+    await onTournamentChange()
+  }
   // Activar filtro desde el dashboard (?filter=pending-schedule)
   if (route.query.filter === 'pending-schedule') {
     filterPending.value = true

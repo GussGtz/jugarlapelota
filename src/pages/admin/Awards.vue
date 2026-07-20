@@ -296,7 +296,10 @@ async function onFormTournamentChange() {
 }
 
 async function loadFormPlayers() {
+  // form.teamId quedaba apuntando a un equipo de la categoría anterior (ya no
+  // presente en formTeams tras recargar), dejando el <select> sin coincidencia
   form.playerId = null
+  form.teamId = null
   const t = tournaments.value.find(t => t.id === form.tournamentId)
   if (!t) return
   const params = form.categoryId ? `?cat=${form.categoryId}` : ''

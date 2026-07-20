@@ -37,7 +37,7 @@
         class="bg-white border border-muted rounded-xl px-4 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary">
         <option v-for="t in tournaments" :key="t.slug" :value="t">{{ t.name }}</option>
       </select>
-      <select v-model="filterCategory" @change="activeTab === 'responsables' ? loadResponsables() : loadPlayers()"
+      <select v-model="filterCategory" @change="onCategoryChange"
         class="bg-white border border-muted rounded-xl px-4 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary">
         <option :value="null">Todas las categorías</option>
         <option v-for="c in categories" :key="c.id" :value="c">{{ c.name }}</option>
@@ -607,6 +607,16 @@ async function onTournamentChange() {
   filterCategory.value = null; filterTeam.value = null
   await Promise.all([loadCategories(), loadTeams(), loadPlayers()])
   if (activeTab.value === 'responsables') loadResponsables()
+}
+
+async function onCategoryChange() {
+  // filterTeam quedaba apuntando a un equipo de la categoría anterior (que ya
+  // no existe en la lista recargada), dejando la tabla vacía hasta que el
+  // admin lo notara y lo reseteara manualmente
+  filterTeam.value = null
+  await loadTeams()
+  if (activeTab.value === 'responsables') loadResponsables()
+  else loadPlayers()
 }
 
 async function loadCategories() {
