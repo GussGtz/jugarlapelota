@@ -7,7 +7,7 @@
         <!-- Select de categoría completo con nombre de grupo -->
         <div class="relative flex-1">
           <select
-            :value="selectedId"
+            v-model="selectedId"
             @change="onSelectChange"
             class="w-full appearance-none bg-slate-50 border border-muted rounded-xl pl-3 pr-8 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
           >
@@ -124,15 +124,22 @@ function selectGroup(groupKey) {
   if (firstCat) select(firstCat)
 }
 
-// Mobile select handler
-// Comparar como texto: e.target.value SIEMPRE es string, pero cat.id puede
-// llegar como número (SQLite local) o como string (Postgres en producción,
-// donde las columnas BIGINT se serializan como string en el JSON) — un
-// parseInt()+comparación estricta fallaba en silencio contra ids string,
-// dejando el <select> sin efecto (cambiaba visualmente, pero no disparaba
-// el filtro real de categoría/partidos).
-function onSelectChange(e) {
-  const cat = cats.list.find(c => String(c.id) === e.target.value)
+// Mobile select handler.
+// IMPORTANTE: se usa v-model (no :value + parsear e.target.value a mano).
+// Un <select> nativo siempre reporta e.target.value como STRING, así que
+// leerlo a mano y compararlo contra cat.id con === (o incluso parseInt +
+// ===) se rompe en cuanto cat.id no es un número — que es EXACTAMENTE lo
+// que pasa en producción (Postgres serializa columnas BIGINT como string
+// en el JSON) aunque en local (SQLite) cat.id sea número y todo parezca
+// funcionar. v-model delega la lectura en Vue: cachea el valor original
+// (sin convertir a string) de cada <option :value="cat.id"> en su nodo del
+// DOM y se lo devuelve tal cual a `selectedId` al disparar 'change' — por
+// eso selectedId.value SIEMPRE coincide en tipo con los ids de cats.list,
+// sin importar si vienen como número o como string. Este es el fix
+// definitivo: ya no hay ninguna comparación string-vs-número que pueda
+// fallar en producción y no en local.
+function onSelectChange() {
+  const cat = cats.list.find(c => c.id === selectedId.value)
   if (cat) select(cat)
 }
 
