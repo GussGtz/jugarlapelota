@@ -125,9 +125,14 @@ function selectGroup(groupKey) {
 }
 
 // Mobile select handler
+// Comparar como texto: e.target.value SIEMPRE es string, pero cat.id puede
+// llegar como número (SQLite local) o como string (Postgres en producción,
+// donde las columnas BIGINT se serializan como string en el JSON) — un
+// parseInt()+comparación estricta fallaba en silencio contra ids string,
+// dejando el <select> sin efecto (cambiaba visualmente, pero no disparaba
+// el filtro real de categoría/partidos).
 function onSelectChange(e) {
-  const id  = parseInt(e.target.value)
-  const cat = cats.list.find(c => c.id === id)
+  const cat = cats.list.find(c => String(c.id) === e.target.value)
   if (cat) select(cat)
 }
 
