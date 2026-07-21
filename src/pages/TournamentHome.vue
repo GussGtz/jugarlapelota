@@ -201,7 +201,7 @@
     <!-- ══════════════════════════════════════════════════════════ -->
     <!-- SECCIÓN 3 — Dinámica: Grupos / Eliminatorias / Campeones  -->
     <!-- ══════════════════════════════════════════════════════════ -->
-    <section v-if="standings.length || knockoutMatches.length"
+    <section v-if="activeStandings.length || knockoutMatches.length"
       class="py-16 md:py-24 relative overflow-hidden" style="background:#0f172a">
       <!-- Fondo decorativo -->
       <div class="absolute inset-0 opacity-5"
