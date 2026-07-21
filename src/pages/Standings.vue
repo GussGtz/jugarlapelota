@@ -15,7 +15,7 @@
 
         <div v-if="loading" class="skeleton rounded-2xl h-64"></div>
         <div v-else class="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
-          <StandingsTable :standings="standings" :slug="slug" />
+          <StandingsTable :standings="standings" :slug="slug" uppercase />
         </div>
         <p v-if="!loading && !standings.length" class="text-center text-slate-400 py-12">
           Sin equipos registrados en esta categoría.

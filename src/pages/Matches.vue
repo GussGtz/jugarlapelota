@@ -74,7 +74,7 @@
                     <span class="text-white font-black text-sm ml-0.5">{{ group.advance_count || 1 }}</span>
                   </div>
                 </div>
-                <GroupTable :standings="group.standing || []" :advance-count="group.advance_count || 1" :slug="slug" />
+                <GroupTable :standings="group.standing || []" :advance-count="group.advance_count || 1" :slug="slug" uppercase />
                 <details v-if="groupMatchMap[group.id]?.length" class="border-t border-slate-100">
                   <summary class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none
                     hover:bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 transition-colors">
@@ -86,7 +86,7 @@
                       @click="$router.push(`/${slug}/partido/${m.id}`)"
                       class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors text-xs">
                       <div class="flex items-center gap-2 min-w-0 justify-end">
-                        <span class="font-semibold text-slate-800 truncate text-right">{{ m.homeTeam }}</span>
+                        <span class="font-semibold text-slate-800 truncate text-right uppercase">{{ m.homeTeam }}</span>
                         <span class="w-1.5 h-1.5 rounded-full shrink-0"
                           :class="m.status==='finished'?'bg-emerald-400':m.status==='live'?'bg-red-500 animate-pulse':'bg-slate-200'"/>
                       </div>
@@ -98,7 +98,7 @@
                       <div class="flex items-center gap-2 min-w-0">
                         <span class="w-1.5 h-1.5 rounded-full shrink-0"
                           :class="m.status==='finished'?'bg-emerald-400':m.status==='live'?'bg-red-500 animate-pulse':'bg-slate-200'"/>
-                        <span class="font-semibold text-slate-800 truncate">{{ m.awayTeam }}</span>
+                        <span class="font-semibold text-slate-800 truncate uppercase">{{ m.awayTeam }}</span>
                       </div>
                     </div>
                   </div>
@@ -114,7 +114,7 @@
               <h2 class="text-lg font-extrabold text-slate-900">Clasificación</h2>
             </div>
             <div class="bg-white rounded-2xl border border-muted shadow-sm overflow-hidden">
-              <StandingsTable :standings="leagueStandings" :slug="slug" />
+              <StandingsTable :standings="leagueStandings" :slug="slug" uppercase />
             </div>
           </section>
 
@@ -192,7 +192,7 @@
               <h2 class="text-lg font-extrabold text-slate-900">Clasificación</h2>
             </div>
             <div class="bg-white rounded-2xl border border-muted shadow-sm overflow-hidden">
-              <StandingsTable :standings="leagueStandings" :slug="slug" />
+              <StandingsTable :standings="leagueStandings" :slug="slug" uppercase />
             </div>
           </section>
 

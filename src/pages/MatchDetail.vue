@@ -36,7 +36,7 @@
               <IconShirt v-else class="w-8 h-8 text-slate-400"/>
             </router-link>
             <router-link :to="`/${route.params.slug}/equipo/${match.home_team}`"
-              class="font-black text-slate-900 text-sm leading-tight hover:text-primary transition-colors">
+              class="font-black text-slate-900 text-sm leading-tight hover:text-primary transition-colors uppercase">
               {{ match.homeTeam }}
             </router-link>
             <button @click="following.toggle(match.home_team)"
@@ -89,7 +89,7 @@
               <IconShirt v-else class="w-8 h-8 text-slate-400"/>
             </router-link>
             <router-link :to="`/${route.params.slug}/equipo/${match.away_team}`"
-              class="font-black text-slate-900 text-sm leading-tight hover:text-primary transition-colors">
+              class="font-black text-slate-900 text-sm leading-tight hover:text-primary transition-colors uppercase">
               {{ match.awayTeam }}
             </router-link>
             <button @click="following.toggle(match.away_team)"
@@ -115,7 +115,7 @@
           <div v-for="ev in goalEvents" :key="ev.id"
             class="flex items-center gap-1 text-xs text-slate-600">
             <IconCircleDot class="w-3.5 h-3.5 text-primary"/>
-            <span class="font-semibold">{{ ev.playerName || 'N/A' }}</span>
+            <span class="font-semibold uppercase">{{ ev.playerName || 'N/A' }}</span>
             <span class="text-slate-400 tabular-nums">{{ ev.minute }}'<span v-if="ev.second" class="text-slate-300">{{ String(ev.second).padStart(2,'0') }}</span></span>
             <span v-if="ev.type==='own_goal'" class="text-red-500 text-[10px]">(PP)</span>
           </div>
@@ -164,9 +164,9 @@
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-black text-slate-900">
                   {{ { goal:'¡GOL!', own_goal:'¡Gol en propia!', assist:'Asistencia', yellow_card:'Tarjeta amarilla', red_card:'Tarjeta roja' }[e.type] }}
-                  <span v-if="e.playerName" class="font-semibold text-slate-700"> · {{ e.playerName }}</span>
+                  <span v-if="e.playerName" class="font-semibold text-slate-700 uppercase"> · {{ e.playerName }}</span>
                 </p>
-                <p class="text-xs text-slate-500">{{ e.teamName }}</p>
+                <p class="text-xs text-slate-500 uppercase">{{ e.teamName }}</p>
               </div>
               <!-- Tiempo -->
               <span class="text-xs font-black text-slate-400 tabular-nums shrink-0">
@@ -343,11 +343,11 @@
             </span>
             <!-- Info -->
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-bold text-slate-900 truncate">
+              <p class="text-sm font-bold text-slate-900 truncate uppercase">
                 {{ ev.playerName || 'Jugador' }}
-                <span v-if="ev.type==='own_goal'" class="text-red-500 text-xs">(PP)</span>
+                <span v-if="ev.type==='own_goal'" class="text-red-500 text-xs normal-case">(PP)</span>
               </p>
-              <p class="text-[11px] text-slate-400">{{ ev.teamName }} · {{ eventLabel(ev.type) }}</p>
+              <p class="text-[11px] text-slate-400 uppercase">{{ ev.teamName }} · <span class="normal-case">{{ eventLabel(ev.type) }}</span></p>
             </div>
             <!-- Quitar (solo admin) -->
             <button v-if="isAdmin" @click="removeEvent(ev)"

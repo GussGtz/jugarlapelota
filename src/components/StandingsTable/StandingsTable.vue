@@ -39,10 +39,10 @@
                 <span v-else class="text-[7px] font-black text-slate-500">{{ initials(row.teamName) }}</span>
               </div>
               <router-link v-if="slug && row.team_id" :to="`/${slug}/equipo/${row.team_id}`"
-                :class="dark ? 'font-semibold text-white text-xs md:text-sm truncate max-w-[100px] md:max-w-[160px] hover:text-primary hover:underline' : 'font-semibold text-slate-900 text-xs md:text-sm truncate max-w-[100px] md:max-w-[160px] hover:text-primary hover:underline'">
+                :class="[dark ? 'font-semibold text-white text-xs md:text-sm truncate max-w-[100px] md:max-w-[160px] hover:text-primary hover:underline' : 'font-semibold text-slate-900 text-xs md:text-sm truncate max-w-[100px] md:max-w-[160px] hover:text-primary hover:underline', { uppercase }]">
                 {{ row.teamName }}
               </router-link>
-              <span v-else :class="dark ? 'font-semibold text-white text-xs md:text-sm truncate max-w-[100px] md:max-w-[160px]' : 'font-semibold text-slate-900 text-xs md:text-sm truncate max-w-[100px] md:max-w-[160px]'">
+              <span v-else :class="[dark ? 'font-semibold text-white text-xs md:text-sm truncate max-w-[100px] md:max-w-[160px]' : 'font-semibold text-slate-900 text-xs md:text-sm truncate max-w-[100px] md:max-w-[160px]', { uppercase }]">
                 {{ row.teamName }}
               </span>
             </div>
@@ -105,7 +105,11 @@
 defineProps({
   standings: { type: Array,   default: () => [] },
   slug:      { type: String,  default: '' },
-  dark:      { type: Boolean, default: false }
+  dark:      { type: Boolean, default: false },
+  // Solo lo pasan las vistas públicas (Matches.vue, Standings.vue) — el panel
+  // admin reutiliza este mismo componente y debe seguir mostrando los nombres
+  // tal cual están guardados, sin forzar mayúsculas.
+  uppercase: { type: Boolean, default: false }
 })
 
 function goalDiff(row) {

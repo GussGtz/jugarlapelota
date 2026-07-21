@@ -35,10 +35,11 @@
                 </span>
               </div>
               <router-link v-if="slug && row.team_id" :to="`/${slug}/equipo/${row.team_id}`"
-                class="font-semibold text-slate-900 truncate max-w-[100px] hover:text-primary hover:underline">
+                class="font-semibold text-slate-900 truncate max-w-[100px] hover:text-primary hover:underline"
+                :class="{ uppercase }">
                 {{ row.teamName }}
               </router-link>
-              <span v-else class="font-semibold text-slate-900 truncate max-w-[100px]">{{ row.teamName }}</span>
+              <span v-else class="font-semibold text-slate-900 truncate max-w-[100px]" :class="{ uppercase }">{{ row.teamName }}</span>
               <span v-if="i < advanceCount"
                 class="hidden sm:inline-flex text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full"
                 :style="{ color: zoneColor(i), background: zoneColor(i) + '1a' }">
@@ -92,7 +93,11 @@
 defineProps({
   standings:    { type: Array,  default: () => [] },
   advanceCount: { type: Number, default: 1 },
-  slug:         { type: String, default: '' }
+  slug:         { type: String, default: '' },
+  // Solo lo pasan las vistas públicas (Matches.vue) — el panel admin (Phases.vue,
+  // admin/Standings.vue) reutiliza este mismo componente y debe seguir mostrando
+  // los nombres tal cual están guardados, sin forzar mayúsculas.
+  uppercase:    { type: Boolean, default: false }
 })
 
 function zoneColor(i) {

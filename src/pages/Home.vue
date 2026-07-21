@@ -107,7 +107,7 @@
               <IconShirt v-else class="w-4 h-4 text-slate-400" />
             </div>
             <span class="flex-1 min-w-0 truncate">
-              <span class="block font-semibold text-slate-800 text-sm truncate group-hover:text-primary transition-colors">{{ t.name }}</span>
+              <span class="block font-semibold text-slate-800 text-sm truncate group-hover:text-primary transition-colors uppercase">{{ t.name }}</span>
               <span v-if="t.categoryName" class="block text-xs text-slate-400 truncate">{{ t.categoryName }}</span>
             </span>
             <span class="flex items-center gap-1 text-xs font-bold text-red-500 shrink-0">

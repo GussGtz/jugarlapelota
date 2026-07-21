@@ -44,7 +44,7 @@
                 <img v-if="podio[1].logo" :src="podio[1].logo" class="w-full h-full object-contain p-1" />
                 <span v-else class="text-slate-500 font-black text-lg">{{ initials(podio[1].name) }}</span>
               </router-link>
-              <p class="font-bold text-slate-800 text-sm text-center leading-tight truncate w-full text-center">{{ podio[1].name }}</p>
+              <p class="font-bold text-slate-800 text-sm text-center leading-tight truncate w-full text-center uppercase">{{ podio[1].name }}</p>
               <p v-if="podio[1].pts != null && !podio[1].fromBracket" class="text-xs text-slate-500 mt-0.5">{{ podio[1].pts }}pts</p>
               <p v-else-if="podio[1].fromBracket" class="text-xs text-slate-400 mt-0.5">Subcampeón</p>
               <div class="w-full mt-3 rounded-t-xl flex items-center justify-center py-4 font-black text-2xl"
@@ -65,7 +65,7 @@
                   <IconTrophy class="w-3 h-3 text-white" />
                 </span>
               </div>
-              <p class="font-black text-slate-900 text-base text-center leading-tight truncate w-full text-center">{{ podio[0].name }}</p>
+              <p class="font-black text-slate-900 text-base text-center leading-tight truncate w-full text-center uppercase">{{ podio[0].name }}</p>
               <p v-if="podio[0].pts != null && !podio[0].fromBracket" class="text-xs text-yellow-600 font-bold mt-0.5">{{ podio[0].pts }}pts</p>
               <p v-else-if="podio[0].fromBracket" class="text-xs text-yellow-600 font-bold mt-0.5 flex items-center gap-1"><IconTrophy class="w-3 h-3"/> Campeón</p>
               <div class="w-full mt-3 rounded-t-xl flex items-center justify-center py-5 font-black text-3xl text-white shadow-md"
@@ -80,7 +80,7 @@
                 <img v-if="podio[2].logo" :src="podio[2].logo" class="w-full h-full object-contain p-1" />
                 <span v-else class="text-orange-500 font-black text-lg">{{ initials(podio[2].name) }}</span>
               </router-link>
-              <p class="font-bold text-slate-800 text-sm text-center leading-tight truncate w-full text-center">{{ podio[2].name }}</p>
+              <p class="font-bold text-slate-800 text-sm text-center leading-tight truncate w-full text-center uppercase">{{ podio[2].name }}</p>
               <p v-if="podio[2].pts != null && !podio[2].fromBracket" class="text-xs text-slate-500 mt-0.5">{{ podio[2].pts }}pts</p>
               <p v-else-if="podio[2].fromBracket" class="text-xs text-slate-400 mt-0.5">3er Lugar</p>
               <div class="w-full mt-3 rounded-t-xl flex items-center justify-center py-3 font-black text-2xl text-white"
@@ -117,7 +117,7 @@
               </div>
 
               <!-- Nombre del portero (si está registrado) -->
-              <p v-if="bestKeeper.keeperName" class="font-black text-slate-900 text-sm leading-tight">
+              <p v-if="bestKeeper.keeperName" class="font-black text-slate-900 text-sm leading-tight uppercase">
                 {{ bestKeeper.keeperName }}
               </p>
               <p v-else class="font-semibold text-slate-500 text-xs italic">Portero no registrado</p>
@@ -127,7 +127,7 @@
                 <div class="w-4 h-4 rounded overflow-hidden bg-slate-100 shrink-0">
                   <img v-if="bestKeeper.logo" :src="bestKeeper.logo" class="w-full h-full object-contain" />
                 </div>
-                <p class="text-slate-500 text-xs font-semibold">{{ bestKeeper.name }}</p>
+                <p class="text-slate-500 text-xs font-semibold uppercase">{{ bestKeeper.name }}</p>
               </div>
 
               <p v-if="bestKeeper.description" class="text-sky-600 font-bold text-xs mt-2">{{ bestKeeper.description }}</p>
@@ -155,7 +155,7 @@
                 <img v-if="bestTeam.logo" :src="bestTeam.logo" class="w-full h-full object-contain p-1" />
                 <span v-else class="font-black" :class="bestTeam.isChampion ? 'text-yellow-600' : 'text-emerald-600'">{{ initials(bestTeam.name) }}</span>
               </div>
-              <p class="font-black text-slate-900 text-sm leading-tight">{{ bestTeam.name }}</p>
+              <p class="font-black text-slate-900 text-sm leading-tight uppercase">{{ bestTeam.name }}</p>
               <p v-if="bestTeam.description" class="text-xs text-yellow-600 font-semibold mt-1">{{ bestTeam.description }}</p>
               <div v-else-if="bestTeam.points != null" class="flex items-center gap-2 mt-1 text-xs text-slate-500">
                 <span class="font-bold text-emerald-600">{{ bestTeam.points }}pts</span>
@@ -181,7 +181,7 @@
                 <img v-else-if="award.teamLogo" :src="award.teamLogo" class="w-full h-full object-contain p-1" />
                 <IconUser v-else class="w-7 h-7 text-slate-400" />
               </div>
-              <p class="font-black text-slate-900 text-sm leading-tight">{{ award.playerName || award.teamName || '—' }}</p>
+              <p class="font-black text-slate-900 text-sm leading-tight uppercase">{{ award.playerName || award.teamName || '—' }}</p>
             </router-link>
           </div>
         </section>
@@ -226,8 +226,8 @@
                 <span class="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shadow"
                   :class="i===0?'bg-yellow-400':i===1?'bg-slate-400':'bg-amber-600'">{{ i+1 }}</span>
               </div>
-              <p class="font-black text-slate-900 text-xs leading-tight truncate">{{ p.name }}</p>
-              <p class="text-slate-400 text-[10px] truncate">{{ p.teamName }}</p>
+              <p class="font-black text-slate-900 text-xs leading-tight truncate uppercase">{{ p.name }}</p>
+              <p class="text-slate-400 text-[10px] truncate uppercase">{{ p.teamName }}</p>
               <p class="text-2xl font-black mt-1" :class="tabStatColor">{{ tabStatValue(p) }}</p>
               <p class="text-[10px] text-slate-400">{{ tabStatLabel }}</p>
             </div>
@@ -261,12 +261,12 @@
                         <IconUser v-else class="w-4 h-4 text-slate-400" />
                       </div>
                       <div>
-                        <p class="font-semibold text-slate-900 text-xs leading-tight">{{ p.name }}</p>
+                        <p class="font-semibold text-slate-900 text-xs leading-tight uppercase">{{ p.name }}</p>
                         <p v-if="p.number" class="text-[9px] text-slate-400">#{{ p.number }}</p>
                       </div>
                     </div>
                   </td>
-                  <td class="py-3 px-3 text-slate-500 text-xs hidden sm:table-cell">{{ p.teamName }}</td>
+                  <td class="py-3 px-3 text-slate-500 text-xs hidden sm:table-cell uppercase">{{ p.teamName }}</td>
                   <td class="py-3 px-3 text-center text-slate-400 text-xs hidden sm:table-cell">{{ p.matches_played || 0 }}</td>
                   <td v-for="col in activeCols" :key="col.key"
                     class="py-3 px-3 text-center font-black" :class="col.color">

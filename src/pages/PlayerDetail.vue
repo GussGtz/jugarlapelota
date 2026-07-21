@@ -10,8 +10,8 @@
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-slate-500 text-sm">#{{ player.number }} · {{ player.position }}</p>
-          <h1 class="text-2xl md:text-3xl font-black text-slate-900 break-words">{{ player.name }}</h1>
-          <p class="text-primary text-sm mt-1 truncate">{{ player.teamName }}</p>
+          <h1 class="text-2xl md:text-3xl font-black text-slate-900 break-words uppercase">{{ player.name }}</h1>
+          <p class="text-primary text-sm mt-1 truncate uppercase">{{ player.teamName }}</p>
         </div>
         <button @click="toggleFollow"
           class="shrink-0 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl font-bold text-sm transition-all border"

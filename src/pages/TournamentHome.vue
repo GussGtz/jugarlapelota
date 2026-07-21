@@ -144,11 +144,11 @@
               <div class="flex items-center justify-between gap-3 px-4 py-3">
                 <span class="text-xs text-slate-400 w-14 shrink-0 font-medium">{{ fmtDate(m.date) }}</span>
                 <div class="flex items-center justify-between flex-1 gap-2 min-w-0">
-                  <span class="text-sm font-bold text-slate-900 truncate text-right flex-1">{{ m.homeTeam }}</span>
+                  <span class="text-sm font-bold text-slate-900 truncate text-right flex-1 uppercase">{{ m.homeTeam }}</span>
                   <span class="font-black text-base shrink-0 px-2" :style="{ color: tournament?.primary_color || '#0ea5e9' }">
                     {{ m.home_score }} - {{ m.away_score }}
                   </span>
-                  <span class="text-sm font-bold text-slate-900 truncate flex-1">{{ m.awayTeam }}</span>
+                  <span class="text-sm font-bold text-slate-900 truncate flex-1 uppercase">{{ m.awayTeam }}</span>
                 </div>
                 <span class="inline-flex items-center gap-1 text-[10px] text-emerald-600 font-bold uppercase tracking-wide bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">
                   <IconCheckCircle class="w-3 h-3" /> Final
@@ -185,9 +185,9 @@
               <div class="flex items-center justify-between gap-3 px-4 py-3">
                 <span class="text-xs text-slate-400 w-14 shrink-0 font-medium">{{ fmtDate(m.date) }}</span>
                 <div class="flex items-center justify-between flex-1 gap-2 min-w-0">
-                  <span class="text-sm font-bold text-slate-900 truncate text-right flex-1">{{ m.homeTeam }}</span>
+                  <span class="text-sm font-bold text-slate-900 truncate text-right flex-1 uppercase">{{ m.homeTeam }}</span>
                   <span class="text-xs text-slate-400 shrink-0 px-2 font-bold uppercase tracking-widest">vs</span>
-                  <span class="text-sm font-bold text-slate-900 truncate flex-1">{{ m.awayTeam }}</span>
+                  <span class="text-sm font-bold text-slate-900 truncate flex-1 uppercase">{{ m.awayTeam }}</span>
                 </div>
                 <span class="text-xs text-slate-500 font-semibold shrink-0">{{ fmtTime(m.date) }}</span>
               </div>
@@ -238,7 +238,7 @@
                 <img v-if="topTeams[1].logo" :src="topTeams[1].logo" class="w-full h-full object-contain p-1.5" />
                 <span v-else class="font-black text-white text-lg md:text-xl">{{ teamInitials(topTeams[1].teamName) }}</span>
               </router-link>
-              <p class="font-bold text-white text-xs md:text-sm text-center leading-tight mb-0.5 truncate w-full text-center">{{ topTeams[1].teamName }}</p>
+              <p class="font-bold text-white text-xs md:text-sm text-center leading-tight mb-0.5 truncate w-full text-center uppercase">{{ topTeams[1].teamName }}</p>
               <p v-if="topTeams[1].categoryName" class="text-[10px] text-slate-500 mb-2 text-center truncate w-full">{{ topTeams[1].categoryName }}</p>
               <div class="flex items-center gap-2 mb-3">
                 <span class="text-2xl font-black text-slate-300">{{ topTeams[1].points }}</span>
@@ -263,7 +263,7 @@
                   <span v-else class="font-black text-white text-2xl md:text-3xl">{{ teamInitials(topTeams[0].teamName) }}</span>
                 </router-link>
               </div>
-              <p class="font-black text-white text-sm md:text-base text-center leading-tight mb-0.5 truncate w-full text-center">{{ topTeams[0].teamName }}</p>
+              <p class="font-black text-white text-sm md:text-base text-center leading-tight mb-0.5 truncate w-full text-center uppercase">{{ topTeams[0].teamName }}</p>
               <p v-if="topTeams[0].categoryName" class="text-[10px] text-slate-400 mb-2 text-center truncate w-full">{{ topTeams[0].categoryName }}</p>
               <div class="flex items-center gap-2 mb-3">
                 <span class="text-3xl font-black" :style="{ color: tournament?.secondary_color || '#FFD700' }">{{ topTeams[0].points }}</span>
@@ -282,7 +282,7 @@
                 <img v-if="topTeams[2].logo" :src="topTeams[2].logo" class="w-full h-full object-contain p-1.5" />
                 <span v-else class="font-black text-amber-500 text-lg md:text-xl">{{ teamInitials(topTeams[2].teamName) }}</span>
               </router-link>
-              <p class="font-bold text-white text-xs md:text-sm text-center leading-tight mb-0.5 truncate w-full text-center">{{ topTeams[2].teamName }}</p>
+              <p class="font-bold text-white text-xs md:text-sm text-center leading-tight mb-0.5 truncate w-full text-center uppercase">{{ topTeams[2].teamName }}</p>
               <p v-if="topTeams[2].categoryName" class="text-[10px] text-slate-500 mb-2 text-center truncate w-full">{{ topTeams[2].categoryName }}</p>
               <div class="flex items-center gap-2 mb-3">
                 <span class="text-2xl font-black text-amber-600">{{ topTeams[2].points }}</span>
@@ -306,7 +306,7 @@
                 <img v-if="leaderWins.logo" :src="leaderWins.logo" class="w-full h-full object-contain p-1" />
                 <span v-else class="font-black text-emerald-400 text-sm">{{ teamInitials(leaderWins.teamName) }}</span>
               </div>
-              <p class="font-black text-white text-xs leading-tight truncate">{{ leaderWins.teamName }}</p>
+              <p class="font-black text-white text-xs leading-tight truncate uppercase">{{ leaderWins.teamName }}</p>
               <p v-if="leaderWins.categoryName" class="text-[9px] text-slate-600 truncate mt-0.5">{{ leaderWins.categoryName }}</p>
               <p class="text-2xl font-black text-emerald-400 mt-2">{{ leaderWins.won }}</p>
               <p class="text-[9px] text-slate-500 uppercase tracking-wide">victorias</p>
@@ -319,7 +319,7 @@
                 <img v-if="leaderGoals.logo" :src="leaderGoals.logo" class="w-full h-full object-contain p-1" />
                 <span v-else class="font-black text-sky-400 text-sm">{{ teamInitials(leaderGoals.teamName) }}</span>
               </div>
-              <p class="font-black text-white text-xs leading-tight truncate">{{ leaderGoals.teamName }}</p>
+              <p class="font-black text-white text-xs leading-tight truncate uppercase">{{ leaderGoals.teamName }}</p>
               <p v-if="leaderGoals.categoryName" class="text-[9px] text-slate-600 truncate mt-0.5">{{ leaderGoals.categoryName }}</p>
               <p class="text-2xl font-black text-sky-400 mt-2">{{ leaderGoals.goals_for }}</p>
               <p class="text-[9px] text-slate-500 uppercase tracking-wide">goles a favor</p>
@@ -332,7 +332,7 @@
                 <img v-if="leaderDefense.logo" :src="leaderDefense.logo" class="w-full h-full object-contain p-1" />
                 <span v-else class="font-black text-violet-400 text-sm">{{ teamInitials(leaderDefense.teamName) }}</span>
               </div>
-              <p class="font-black text-white text-xs leading-tight truncate">{{ leaderDefense.teamName }}</p>
+              <p class="font-black text-white text-xs leading-tight truncate uppercase">{{ leaderDefense.teamName }}</p>
               <p v-if="leaderDefense.categoryName" class="text-[9px] text-slate-600 truncate mt-0.5">{{ leaderDefense.categoryName }}</p>
               <p class="text-2xl font-black text-violet-400 mt-2">{{ leaderDefense.goals_against }}</p>
               <p class="text-[9px] text-slate-500 uppercase tracking-wide">goles recibidos</p>
@@ -345,7 +345,7 @@
                 <img v-if="leaderGD.logo" :src="leaderGD.logo" class="w-full h-full object-contain p-1" />
                 <span v-else class="font-black text-amber-400 text-sm">{{ teamInitials(leaderGD.teamName) }}</span>
               </div>
-              <p class="font-black text-white text-xs leading-tight truncate">{{ leaderGD.teamName }}</p>
+              <p class="font-black text-white text-xs leading-tight truncate uppercase">{{ leaderGD.teamName }}</p>
               <p v-if="leaderGD.categoryName" class="text-[9px] text-slate-600 truncate mt-0.5">{{ leaderGD.categoryName }}</p>
               <p class="text-2xl font-black text-amber-400 mt-2">
                 {{ (leaderGD.goals_for - leaderGD.goals_against) >= 0 ? '+' : '' }}{{ leaderGD.goals_for - leaderGD.goals_against }}
@@ -416,7 +416,7 @@
                           <img v-if="m.homeLogo" :src="m.homeLogo" class="w-full h-full object-contain p-1" />
                           <span v-else class="font-black text-white text-sm flex items-center justify-center h-full">{{ teamInitials(m.homeTeam || '?') }}</span>
                         </div>
-                        <p class="text-xs font-black text-white text-center leading-tight truncate w-full max-w-[80px]">{{ m.homeTeam || 'Por definir' }}</p>
+                        <p class="text-xs font-black text-white text-center leading-tight truncate w-full max-w-[80px] uppercase">{{ m.homeTeam || 'Por definir' }}</p>
                       </router-link>
 
                       <!-- Score / VS central -->
@@ -445,7 +445,7 @@
                           <img v-if="m.awayLogo" :src="m.awayLogo" class="w-full h-full object-contain p-1" />
                           <span v-else class="font-black text-slate-300 text-sm flex items-center justify-center h-full">{{ teamInitials(m.awayTeam || '?') }}</span>
                         </div>
-                        <p class="text-xs font-bold text-slate-300 text-center leading-tight truncate w-full max-w-[80px]">{{ m.awayTeam || 'Por definir' }}</p>
+                        <p class="text-xs font-bold text-slate-300 text-center leading-tight truncate w-full max-w-[80px] uppercase">{{ m.awayTeam || 'Por definir' }}</p>
                       </router-link>
                     </div>
                   </div>
@@ -457,7 +457,7 @@
                     <div v-for="m in cat.activeMatches.slice(0,4)" :key="m.id"
                       class="flex items-center gap-2 py-2 border-b border-white/5 last:border-0">
                       <div class="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                        <p class="text-xs font-bold text-white truncate">{{ m.homeTeam || 'TBD' }}</p>
+                        <p class="text-xs font-bold text-white truncate uppercase">{{ m.homeTeam || 'TBD' }}</p>
                         <div class="w-7 h-7 rounded-full overflow-hidden bg-slate-700 border border-white/10 flex-shrink-0">
                           <img v-if="m.homeLogo" :src="m.homeLogo" class="w-full h-full object-contain p-0.5" />
                           <span v-else class="text-[9px] font-black text-white flex items-center justify-center h-full">{{ teamInitials(m.homeTeam||'?') }}</span>
@@ -472,7 +472,7 @@
                           <img v-if="m.awayLogo" :src="m.awayLogo" class="w-full h-full object-contain p-0.5" />
                           <span v-else class="text-[9px] font-black text-white flex items-center justify-center h-full">{{ teamInitials(m.awayTeam||'?') }}</span>
                         </div>
-                        <p class="text-xs font-bold text-white truncate">{{ m.awayTeam || 'TBD' }}</p>
+                        <p class="text-xs font-bold text-white truncate uppercase">{{ m.awayTeam || 'TBD' }}</p>
                       </div>
                     </div>
                   </div>
@@ -535,7 +535,7 @@
                     <img v-if="cat.runnerUp.logo" :src="cat.runnerUp.logo" class="w-full h-full object-contain p-1.5" />
                     <span v-else class="font-black text-slate-200 text-base md:text-lg">{{ teamInitials(cat.runnerUp.teamName) }}</span>
                   </router-link>
-                  <p class="font-bold text-white text-xs text-center leading-tight mb-0.5 truncate w-full">{{ cat.runnerUp.teamName }}</p>
+                  <p class="font-bold text-white text-xs text-center leading-tight mb-0.5 truncate w-full uppercase">{{ cat.runnerUp.teamName }}</p>
                   <p class="text-[10px] text-slate-400 mb-3 font-semibold flex items-center justify-center gap-1"><IconMedal class="w-3.5 h-3.5 text-slate-400"/> Subcampeón</p>
                   <div class="w-full rounded-t-xl flex items-center justify-center pt-5 pb-4 relative"
                     style="background:linear-gradient(180deg,#64748b,#475569); min-height:72px">
@@ -557,7 +557,7 @@
                       <span v-else class="font-black text-white text-xl md:text-2xl">{{ teamInitials(cat.champion.teamName) }}</span>
                     </router-link>
                   </div>
-                  <p class="font-black text-white text-sm text-center leading-tight mb-0.5 truncate w-full">{{ cat.champion.teamName }}</p>
+                  <p class="font-black text-white text-sm text-center leading-tight mb-0.5 truncate w-full uppercase">{{ cat.champion.teamName }}</p>
                   <p class="text-xs font-black mb-1 flex items-center justify-center gap-1" :style="{ color: tournament?.secondary_color || '#FFD700' }"><IconTrophy class="w-3.5 h-3.5"/> Campeón</p>
                   <!-- Score final -->
                   <div class="flex items-center gap-1 mb-3">
@@ -581,7 +581,7 @@
                       <img v-if="cat.thirdPlace.logo" :src="cat.thirdPlace.logo" class="w-full h-full object-contain p-1.5" />
                       <span v-else class="font-black text-amber-400 text-base md:text-lg">{{ teamInitials(cat.thirdPlace.teamName) }}</span>
                     </router-link>
-                    <p class="font-bold text-white text-xs text-center leading-tight mb-0.5 truncate w-full">{{ cat.thirdPlace.teamName }}</p>
+                    <p class="font-bold text-white text-xs text-center leading-tight mb-0.5 truncate w-full uppercase">{{ cat.thirdPlace.teamName }}</p>
                     <!-- Score del 3er lugar -->
                     <div v-if="cat.thirdMatch" class="flex items-center gap-1 mb-1">
                       <span class="text-xs font-black text-white tabular-nums">{{ cat.thirdMatch.home_score ?? 0 }}</span>
@@ -770,7 +770,7 @@
               <img v-if="team.logo" :src="team.logo" class="w-full h-full object-cover" />
               <span v-else>{{ teamInitials(team.name) }}</span>
             </div>
-            <span class="text-white/70 text-xs font-semibold text-center leading-tight group-hover:text-white transition-colors">
+            <span class="text-white/70 text-xs font-semibold text-center leading-tight group-hover:text-white transition-colors uppercase">
               {{ team.name }}
             </span>
           </router-link>
@@ -839,7 +839,7 @@
 
               <!-- Nombre ganador -->
               <div>
-                <p class="font-black text-slate-900 text-sm leading-tight">
+                <p class="font-black text-slate-900 text-sm leading-tight uppercase">
                   {{ award.playerName || award.teamName || '—' }}
                 </p>
                 <p v-if="award.description" class="text-[11px] text-slate-400 mt-0.5 leading-tight">

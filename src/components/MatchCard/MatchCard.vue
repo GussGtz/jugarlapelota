@@ -33,11 +33,11 @@
           <template v-else>{{ teamInitials(match.homeTeam) }}</template>
         </div>
         <router-link v-if="tournamentSlug && match.home_team" :to="`/${tournamentSlug}/equipo/${match.home_team}`" @click.stop
-          class="font-bold text-xs md:text-sm text-center w-full leading-tight px-1 hover:underline"
+          class="font-bold text-xs md:text-sm text-center w-full leading-tight px-1 hover:underline uppercase"
           :class="isWinner('home') ? 'text-slate-900' : isLoser('home') ? 'text-slate-400' : 'text-slate-800'">
           {{ shortName(match.homeTeam) }}
         </router-link>
-        <p v-else class="font-bold text-xs md:text-sm text-center w-full leading-tight px-1"
+        <p v-else class="font-bold text-xs md:text-sm text-center w-full leading-tight px-1 uppercase"
           :class="isWinner('home') ? 'text-slate-900' : isLoser('home') ? 'text-slate-400' : 'text-slate-800'">
           {{ shortName(match.homeTeam) }}
         </p>
@@ -70,11 +70,11 @@
           <template v-else>{{ teamInitials(match.awayTeam) }}</template>
         </div>
         <router-link v-if="tournamentSlug && match.away_team" :to="`/${tournamentSlug}/equipo/${match.away_team}`" @click.stop
-          class="font-bold text-xs md:text-sm text-center w-full leading-tight px-1 hover:underline"
+          class="font-bold text-xs md:text-sm text-center w-full leading-tight px-1 hover:underline uppercase"
           :class="isWinner('away') ? 'text-slate-900' : isLoser('away') ? 'text-slate-400' : 'text-slate-800'">
           {{ shortName(match.awayTeam) }}
         </router-link>
-        <p v-else class="font-bold text-xs md:text-sm text-center w-full leading-tight px-1"
+        <p v-else class="font-bold text-xs md:text-sm text-center w-full leading-tight px-1 uppercase"
           :class="isWinner('away') ? 'text-slate-900' : isLoser('away') ? 'text-slate-400' : 'text-slate-800'">
           {{ shortName(match.awayTeam) }}
         </p>

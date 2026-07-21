@@ -19,7 +19,7 @@
             <template v-else>{{ teamInitials }}</template>
           </div>
           <div class="pb-1 flex-1 min-w-0">
-            <h1 class="text-2xl md:text-3xl font-black text-slate-900 truncate">{{ profile.team.name }}</h1>
+            <h1 class="text-2xl md:text-3xl font-black text-slate-900 truncate uppercase">{{ profile.team.name }}</h1>
             <div class="flex flex-wrap gap-2 mt-2">
               <!-- Categoría activa -->
               <span class="text-xs bg-primary text-white font-bold px-2.5 py-1 rounded-full">
@@ -93,7 +93,7 @@
         <span class="w-3 h-3 rounded-full bg-red-500 animate-pulse shrink-0"></span>
         <div class="flex-1">
           <p class="text-sm font-bold text-red-700">¡Jugando ahora!</p>
-          <p class="text-xs text-red-500">{{ profile.liveMatch.homeTeam }} {{ profile.liveMatch.home_score }} - {{ profile.liveMatch.away_score }} {{ profile.liveMatch.awayTeam }}</p>
+          <p class="text-xs text-red-500"><span class="uppercase">{{ profile.liveMatch.homeTeam }}</span> {{ profile.liveMatch.home_score }} - {{ profile.liveMatch.away_score }} <span class="uppercase">{{ profile.liveMatch.awayTeam }}</span></p>
         </div>
         <router-link :to="`/${slug}/partido/${profile.liveMatch.id}`" class="text-xs text-red-600 font-bold border border-red-300 px-3 py-1.5 rounded-lg">Ver</router-link>
       </div>
@@ -160,7 +160,7 @@
               <template v-else>{{ p.number || '?' }}</template>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="font-semibold text-slate-900 text-sm truncate">{{ p.name }}</p>
+              <p class="font-semibold text-slate-900 text-sm truncate uppercase">{{ p.name }}</p>
               <p class="text-[11px] text-slate-400">{{ p.position || '—' }}</p>
             </div>
             <div class="flex gap-2 text-xs shrink-0 items-center">
@@ -192,7 +192,7 @@
               class="bg-white rounded-2xl border border-yellow-200 shadow-sm p-4 text-center">
               <IconTrophy class="w-8 h-8 mx-auto mb-2 text-yellow-500" />
               <p class="text-xs font-bold text-slate-600 uppercase tracking-wide">{{ awardLabel(a.type) }}</p>
-              <p class="text-sm font-black text-slate-900 mt-1">{{ a.playerName || profile.team.name }}</p>
+              <p class="text-sm font-black text-slate-900 mt-1 uppercase">{{ a.playerName || profile.team.name }}</p>
             </div>
           </div>
           <p v-else class="text-center text-slate-400 py-8">Sin premios registrados.</p>
