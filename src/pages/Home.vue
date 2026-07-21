@@ -106,7 +106,10 @@
               <img v-if="t.logo" :src="t.logo" class="w-full h-full object-contain" />
               <IconShirt v-else class="w-4 h-4 text-slate-400" />
             </div>
-            <span class="flex-1 min-w-0 font-semibold text-slate-800 text-sm truncate group-hover:text-primary transition-colors">{{ t.name }}</span>
+            <span class="flex-1 min-w-0 truncate">
+              <span class="block font-semibold text-slate-800 text-sm truncate group-hover:text-primary transition-colors">{{ t.name }}</span>
+              <span v-if="t.categoryName" class="block text-xs text-slate-400 truncate">{{ t.categoryName }}</span>
+            </span>
             <span class="flex items-center gap-1 text-xs font-bold text-red-500 shrink-0">
               <IconHeart class="w-3.5 h-3.5 fill-red-400" /> {{ t.followerCount }}
             </span>
