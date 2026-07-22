@@ -39,6 +39,27 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        // Por si alguna vez vuelve a existir un redirect hacia esta URL (el
+        // bug real que causaba "Response served by service worker has
+        // redirections" en Safari): al activarse una versión nueva del SW,
+        // borra TODOS los cache buckets de versiones anteriores — así una
+        // entrada precacheada rota de un SW viejo nunca puede seguir
+        // sirviéndose una vez que el usuario recibe el SW corregido.
+        cleanupOutdatedCaches: true,
+        // CRÍTICO: registerType:'autoUpdate' (más abajo) solo aplica la
+        // actualización cuando el JS de la página corre y le manda un
+        // mensaje "SKIP_WAITING" al Service Worker en espera — pero si un
+        // bug (como este mismo, el redirect que Safari rechaza) impide que
+        // la navegación cargue el JS en absoluto, ese mensaje nunca se
+        // manda y el SW nuevo se queda esperando para siempre, sin activarse
+        // nunca, aunque ya esté instalado y corregido. skipWaiting+
+        // clientsClaim hacen que el SW se active solo, sin depender de que
+        // ninguna página termine de cargar — así el usuario se recupera con
+        // el simple intento de navegación (que ya dispara la revisión de
+        // actualización a nivel navegador) aunque ESE intento en particular
+        // siga fallando.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         importScripts: ['/sw-push.js'],
         runtimeCaching: [
