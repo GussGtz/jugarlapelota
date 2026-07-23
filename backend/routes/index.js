@@ -1006,10 +1006,16 @@ router.delete('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
       if (ev.type === 'yellow_card') await query('UPDATE players SET yellow_cards=CASE WHEN yellow_cards>0 THEN yellow_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
       if (ev.type === 'red_card')    await query('UPDATE players SET red_cards=CASE WHEN red_cards>0 THEN red_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
     }
-    // Recalcular standings sin este partido
+  }
+  await query('DELETE FROM matches WHERE id=$1', [req.params.id])
+  // Recalcular standings SIN este partido — debe ir después del DELETE: si se
+  // llama antes, la fila todavía existe con status='finished' y la consulta
+  // de recalculateStandings() la vuelve a contar, dejando la tabla de
+  // posiciones exactamente igual que antes de borrar el partido.
+  if (m.status === 'finished') {
     await recalcStandingsForMatch(m).catch(() => {})
   }
-  await query('DELETE FROM matches WHERE id=$1', [req.params.id]); res.status(204).end()
+  res.status(204).end()
 })
 
 // ── Reacciones rápidas ────────────────────────────────────────────────────
@@ -3145,7 +3151,11 @@ async function getPhaseStandings(phaseId) {
   if (!matches.length) return []
 
   const teamIds = [...new Set(matches.flatMap(m => [m.home_team, m.away_team]))]
-  const teams = (await query(`SELECT id, name, logo FROM teams WHERE id IN (${teamIds.map(()=>'$1').join(',')})`, [...teamIds])).rows
+  // Antes usaba '$1' repetido para cada id (teamIds.map(()=>'$1')) — como
+  // todos esos placeholders apuntan al MISMO parámetro (el primero), la
+  // consulta terminaba filtrando solo por teamIds[0] y dejaba fuera a todos
+  // los demás equipos de la tabla de posiciones de la fase.
+  const teams = (await query(`SELECT id, name, logo FROM teams WHERE id IN (${teamIds.map((_, i) => `$${i + 1}`).join(',')})`, teamIds)).rows
 
   const cards = (await query(`
     SELECT e.team_id,
@@ -3444,6 +3454,14 @@ router.get('/teams/:id/profile', async (req, res) => {
     ORDER BY m.date DESC LIMIT 8
   `, [teamId, teamId])).rows
 
+  // Todos los partidos finalizados (sin LIMIT) — recentMatches está acotado a
+  // 8 para la tarjeta de "partidos recientes", pero las estadísticas totales
+  // (PJ/G/E/P) deben contar TODOS los partidos del equipo, no solo los últimos 8.
+  const allFinishedMatches = (await query(`
+    SELECT home_team, away_team, home_score, away_score
+    FROM matches WHERE (home_team=$1 OR away_team=$2) AND status='finished'
+  `, [teamId, teamId])).rows
+
   const upcomingMatches = (await query(`
     SELECT m.*, ht.name AS "homeTeam", at.name AS "awayTeam", r.name AS "roundName", p.name AS "phaseName"
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
@@ -3471,10 +3489,10 @@ router.get('/teams/:id/profile', async (req, res) => {
     totalAssists: (await queryOne('SELECT COALESCE(SUM(assists),0) AS v FROM players WHERE team_id=$1', [teamId])).v,
     totalYellow:  (await queryOne('SELECT COALESCE(SUM(yellow_cards),0) AS v FROM players WHERE team_id=$1', [teamId])).v,
     totalRed:     (await queryOne('SELECT COALESCE(SUM(red_cards),0) AS v FROM players WHERE team_id=$1', [teamId])).v,
-    matchesPlayed: recentMatches.length,
-    wins:   recentMatches.filter(m => (String(m.home_team)===String(teamId)&&m.home_score>m.away_score)||(String(m.away_team)===String(teamId)&&m.away_score>m.home_score)).length,
-    draws:  recentMatches.filter(m => m.home_score===m.away_score).length,
-    losses: recentMatches.filter(m => (String(m.home_team)===String(teamId)&&m.home_score<m.away_score)||(String(m.away_team)===String(teamId)&&m.away_score<m.home_score)).length,
+    matchesPlayed: allFinishedMatches.length,
+    wins:   allFinishedMatches.filter(m => (String(m.home_team)===String(teamId)&&m.home_score>m.away_score)||(String(m.away_team)===String(teamId)&&m.away_score>m.home_score)).length,
+    draws:  allFinishedMatches.filter(m => m.home_score===m.away_score).length,
+    losses: allFinishedMatches.filter(m => (String(m.home_team)===String(teamId)&&m.home_score<m.away_score)||(String(m.away_team)===String(teamId)&&m.away_score<m.home_score)).length,
     followerCount: await teamFollowerCount(teamId),
   }
 
