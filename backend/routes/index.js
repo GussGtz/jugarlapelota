@@ -11,6 +11,35 @@ const authCtrl        = require('../controllers/auth.controller')
 const tournamentsCtrl = require('../controllers/tournaments.controller')
 const { teamFollowerCount, teamFollowerCounts, playerFollowerCount, playerFollowerCounts, linkDeviceAccount } = require('../utils/followers')
 
+// ── Recalcular standings persistidas al finalizar/editar/borrar un partido ──
+// recalculateStandings(tournamentId,categoryId,phaseId,groupId) escribe en la
+// tabla `standings` (respaldo persistido que alimenta, por ejemplo, "Posición
+// en tabla" en el perfil público del equipo, TeamDetail.vue). Llamarlo con
+// match.group_id a secas falla para un partido "cruzado" entre grupos
+// disparejos: ese partido solo guarda UN group_id (o ninguno, si se creó a
+// mano fuera del generador automático, como los cruces manuales de Sub-9 de
+// Copa Caribe) aunque involucre a dos equipos de grupos distintos. Por eso
+// aquí se busca el grupo REAL de cada equipo vía phase_group_teams (el mismo
+// criterio que ya usa getGroupStandings) y se recalcula una vez por cada
+// grupo involucrado — así ambos equipos ven su resultado reflejado en la
+// tabla de SU propio grupo, nunca mezclado ni perdido.
+async function recalcStandingsForMatch(m) {
+  if (!m.category_id) return
+  if (m.phase_id) {
+    const groupIds = (await query(
+      `SELECT DISTINCT pgt.group_id FROM phase_group_teams pgt
+       JOIN phase_groups pg ON pgt.group_id = pg.id
+       WHERE pg.phase_id = $1 AND pgt.team_id IN ($2,$3)`,
+      [m.phase_id, m.home_team, m.away_team]
+    )).rows.map(r => r.group_id)
+    if (groupIds.length) {
+      for (const gid of groupIds) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, gid)
+      return
+    }
+  }
+  await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id || null)
+}
+
 // ── CURP utility ─────────────────────────────────────────────────────────────
 function parseCURP(curp) {
   if (!curp || typeof curp !== 'string') return null
@@ -906,7 +935,7 @@ router.put('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
   await query('UPDATE matches SET category_id=$1,phase_id=$2,round_id=$3,home_team=$4,away_team=$5,home_score=$6,away_score=$7,date=$8,location=$9,status=$10,match_notes=$11 WHERE id=$12', [categoryId||null,phaseId||null,roundId||null,homeTeam,awayTeam,home_score||0,away_score||0,date,location,status||'scheduled',match_notes||null,req.params.id])
   const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
   if (m.status === 'finished') {
-    if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
+    await recalcStandingsForMatch(m).catch(e => console.error('[standings]', e.message))
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
@@ -933,7 +962,7 @@ router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, r
 
   // Recalcular tabla y bracket si el partido está o queda finalizado
   if (m.status === 'finished') {
-    if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
+    await recalcStandingsForMatch(m).catch(e => console.error('[standings]', e.message))
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
@@ -950,7 +979,7 @@ router.patch('/matches/:id/status', authMiddleware, adminOnly, async (req, res) 
   await query('UPDATE matches SET status=$1 WHERE id=$2', [status, req.params.id])
   const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",t.slug AS "tournamentSlug" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id JOIN tournaments t ON m.tournament_id=t.id WHERE m.id=$1`, [req.params.id]))
   if (status === 'finished') {
-    if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(e => console.error('[standings]', e.message))
+    await recalcStandingsForMatch(m).catch(e => console.error('[standings]', e.message))
     await advanceBracketWinner(m.id, req.io)
     await checkPhaseCompletion(m.phase_id, req.io)
     req.io?.emit('standings:update', { tournamentId: m.tournament_id, categoryId: m.category_id, phaseId: m.phase_id })
@@ -978,7 +1007,7 @@ router.delete('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
       if (ev.type === 'red_card')    await query('UPDATE players SET red_cards=CASE WHEN red_cards>0 THEN red_cards-1 ELSE 0 END WHERE id=$1', [ev.player_id])
     }
     // Recalcular standings sin este partido
-    if (m.category_id) await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id||null).catch(() => {})
+    await recalcStandingsForMatch(m).catch(() => {})
   }
   await query('DELETE FROM matches WHERE id=$1', [req.params.id]); res.status(204).end()
 })
@@ -2731,11 +2760,20 @@ router.get('/phases/:id/matches', async (req, res) => {
 
 // Get matches for a group
 router.get('/phase-groups/:id/matches', async (req, res) => {
+  // Por EQUIPO (vía phase_group_teams), no por m.group_id — mismo criterio
+  // que getGroupStandings, para que un partido "cruzado" entre grupos
+  // disparejos también aparezca aquí para ambos equipos involucrados.
+  const memberIds = (await query('SELECT team_id FROM phase_group_teams WHERE group_id=$1', [req.params.id])).rows.map(r => r.team_id)
+  const n = memberIds.length
+  if (!n) return res.json([])
+  const phHome = memberIds.map((_, i) => `$${i + 1}`).join(',')
+  const phAway = memberIds.map((_, i) => `$${i + 1 + n}`).join(',')
   const rows = (await query(`
     SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",r.name AS "roundName"
     FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id
-    LEFT JOIN rounds r ON m.round_id=r.id WHERE m.group_id=$1 ORDER BY m.date ASC
-  `, [req.params.id])).rows
+    LEFT JOIN rounds r ON m.round_id=r.id
+    WHERE (m.home_team IN (${phHome}) OR m.away_team IN (${phAway})) ORDER BY m.date ASC
+  `, [...memberIds, ...memberIds])).rows
   res.json(rows)
 })
 
