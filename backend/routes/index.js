@@ -40,6 +40,29 @@ async function recalcStandingsForMatch(m) {
   await recalculateStandings(m.tournament_id, m.category_id, m.phase_id, m.group_id || null)
 }
 
+// ── Marcador derivado de los eventos registrados (goles/autogoles) ──────────
+// Fuente de verdad real de un partido con eventos capturados: cada gol ya quedó
+// sumado al marcador Y al jugador en el momento en que POST /matches/:id/events
+// lo procesó. Se usa como blindaje contra un cliente (portal de árbitro) con el
+// marcador desincronizado en memoria — ej. la respuesta de un POST de gol se
+// perdió por mala señal en la cancha, pero el gol SÍ se guardó en el servidor
+// (y ya sumó para el premio individual del jugador) — si luego ese cliente
+// manda "finalizar" con su marcador viejo, sin este blindaje se sobreescribe
+// el marcador correcto con uno más bajo, perdiendo el gol silenciosamente.
+async function getEventDerivedScore(matchId, homeTeamId, awayTeamId) {
+  // Placeholders únicos por cada aparición (nunca reutilizar el mismo $N dos
+  // veces): válido en Postgres, pero rompe la conversión "$N → ?" de SQLite,
+  // que exige un valor propio por cada "?" en el orden en que aparece.
+  const row = await queryOne(`
+    SELECT
+      SUM(CASE WHEN (type='goal' AND team_id=$1) OR (type='own_goal' AND team_id=$2) THEN 1 ELSE 0 END) AS home,
+      SUM(CASE WHEN (type='goal' AND team_id=$3) OR (type='own_goal' AND team_id=$4) THEN 1 ELSE 0 END) AS away,
+      COUNT(*) AS total
+    FROM match_events WHERE match_id=$5 AND type IN ('goal','own_goal')
+  `, [homeTeamId, awayTeamId, awayTeamId, homeTeamId, matchId])
+  return { home: parseInt(row.home) || 0, away: parseInt(row.away) || 0, hasGoalEvents: (parseInt(row.total) || 0) > 0 }
+}
+
 // ── CURP utility ─────────────────────────────────────────────────────────────
 function parseCURP(curp) {
   if (!curp || typeof curp !== 'string') return null
@@ -932,7 +955,17 @@ router.post('/matches', authMiddleware, adminOnly, async (req, res) => {
 })
 router.put('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
   const {categoryId,phaseId,roundId,homeTeam,awayTeam,home_score,away_score,date,location,status,match_notes} = req.body
-  await query('UPDATE matches SET category_id=$1,phase_id=$2,round_id=$3,home_team=$4,away_team=$5,home_score=$6,away_score=$7,date=$8,location=$9,status=$10,match_notes=$11 WHERE id=$12', [categoryId||null,phaseId||null,roundId||null,homeTeam,awayTeam,home_score||0,away_score||0,date,location,status||'scheduled',match_notes||null,req.params.id])
+  // El formulario "Editar partido" del admin (fecha/cancha/equipos/status) NO
+  // manda home_score/away_score — nunca los toca. Antes, home_score||0 volvía
+  // 0-0 el marcador de CUALQUIER partido ya jugado con solo editar su fecha o
+  // cancha. Ahora se conserva el marcador existente salvo que el caller
+  // explícitamente mande un valor (incluyendo 0, de ahí el !== undefined en
+  // vez de ||).
+  const existingMatch = await queryOne('SELECT home_score, away_score FROM matches WHERE id=$1', [req.params.id])
+  if (!existingMatch) return res.status(404).json({ error: 'Partido no encontrado' })
+  const finalHomeScore = home_score !== undefined ? home_score : existingMatch.home_score
+  const finalAwayScore = away_score !== undefined ? away_score : existingMatch.away_score
+  await query('UPDATE matches SET category_id=$1,phase_id=$2,round_id=$3,home_team=$4,away_team=$5,home_score=$6,away_score=$7,date=$8,location=$9,status=$10,match_notes=$11 WHERE id=$12', [categoryId||null,phaseId||null,roundId||null,homeTeam,awayTeam,finalHomeScore,finalAwayScore,date,location,status||'scheduled',match_notes||null,req.params.id])
   const m = (await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id WHERE m.id=$1`, [req.params.id]))
   if (m.status === 'finished') {
     await recalcStandingsForMatch(m).catch(e => console.error('[standings]', e.message))
@@ -945,17 +978,34 @@ router.put('/matches/:id', authMiddleware, adminOnly, async (req, res) => {
 })
 router.patch('/matches/:id/score', authMiddleware, refereeOrAdmin, async (req, res) => {
   const { homeScore, awayScore, finish } = req.body
-  const existing = await queryOne('SELECT status FROM matches WHERE id=$1', [req.params.id])
-  const alreadyFinished = existing?.status === 'finished'
+  const existing = await queryOne('SELECT * FROM matches WHERE id=$1', [req.params.id])
+  if (!existing) return res.status(404).json({ error: 'Partido no encontrado' })
+  const alreadyFinished = existing.status === 'finished'
   const justFinished = !!finish && !alreadyFinished
 
+  let finalHome = homeScore, finalAway = awayScore
+
   if (justFinished) {
+    // Blindaje: si el partido tiene goles/autogoles registrados como eventos,
+    // ESOS mandan sobre lo que el cliente cree que es el marcador final — nunca
+    // al revés. Esto es lo que evita que un marcador desincronizado en el
+    // cliente (portal de árbitro) borre un gol ya contado. Solo aplica al
+    // primer cierre (justFinished): una corrección posterior de un partido ya
+    // finalizado (alreadyFinished) sigue respetando el número que se escriba
+    // a mano, para poder corregir un evento mal registrado sin tener que
+    // editar el log de eventos.
+    const derived = await getEventDerivedScore(req.params.id, existing.home_team, existing.away_team)
+    if (derived.hasGoalEvents && (derived.home !== homeScore || derived.away !== awayScore)) {
+      console.warn(`[score-guard] match ${req.params.id}: cliente mandó ${homeScore}-${awayScore} al finalizar, pero los eventos registrados dicen ${derived.home}-${derived.away} — se usan los eventos.`)
+      finalHome = derived.home
+      finalAway = derived.away
+    }
     // Primer cierre: marcar como finalizado con timestamp
     await query('UPDATE matches SET home_score=$1,away_score=$2,status=$3,finished_at=$4 WHERE id=$5',
-      [homeScore, awayScore, 'finished', new Date().toISOString(), req.params.id])
+      [finalHome, finalAway, 'finished', new Date().toISOString(), req.params.id])
   } else {
     // Actualizar solo el score (partido en vivo o corrección de resultado finalizado)
-    await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [homeScore, awayScore, req.params.id])
+    await query('UPDATE matches SET home_score=$1,away_score=$2 WHERE id=$3', [finalHome, finalAway, req.params.id])
   }
 
   const m = await queryOne(`SELECT m.*,ht.name AS "homeTeam",at.name AS "awayTeam",ht.logo AS "homeLogo",at.logo AS "awayLogo",c.name AS "categoryName",ph.type AS "phaseType",u.name AS "refereeName",t.slug AS "tournamentSlug" FROM matches m JOIN teams ht ON m.home_team=ht.id JOIN teams at ON m.away_team=at.id LEFT JOIN categories c ON m.category_id=c.id LEFT JOIN phases ph ON m.phase_id=ph.id LEFT JOIN users u ON m.referee_id=u.id JOIN tournaments t ON m.tournament_id=t.id WHERE m.id=$1`, [req.params.id])
