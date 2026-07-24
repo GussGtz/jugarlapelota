@@ -864,7 +864,7 @@ router.post('/players', authMiddleware, adminOnly, async (req, res) => {
 })
 
 router.put('/players/:id', authMiddleware, adminOnly, async (req, res) => {
-  const { name, photo, number, position, goals, assists, yellow_cards, red_cards, teamId, minutes_played, matches_played, curp, documento_oficial } = req.body
+  const { name, photo, number, position, teamId, curp, documento_oficial } = req.body
   const pid = parseInt(req.params.id)
 
   const dup = await checkPlayerDuplicate(teamId, name, pid)
@@ -875,10 +875,18 @@ router.put('/players/:id', authMiddleware, adminOnly, async (req, res) => {
     })
   }
 
-  await query(`UPDATE players SET name=$1,photo=$2,number=$3,position=$4,goals=$5,assists=$6,
-    yellow_cards=$7,red_cards=$8,team_id=$9,minutes_played=$10,matches_played=$11,curp=$12,documento_oficial=$13 WHERE id=$14`,
-    [name.trim(), photo, number, position, goals||0, assists||0, yellow_cards||0,
-     red_cards||0, teamId, minutes_played||0, matches_played||0, curp?.trim().toUpperCase() || null, documento_oficial || null, pid])
+  // goals/assists/yellow_cards/red_cards NUNCA se escriben desde aquí — el
+  // formulario "Editar jugador" del admin no tiene ningún control para
+  // cambiarlos a mano (solo los reenvía tal cual los tenía al abrir el
+  // modal). Antes sí se reescribían con goals||0 etc.: si un árbitro
+  // registraba un gol de este jugador MIENTRAS el admin tenía el modal
+  // abierto (editando, por ejemplo, un typo del nombre o la CURP), guardar
+  // esa edición sobreescribía el gol recién contado con el número viejo que
+  // el modal tenía en memoria — el mismo tipo de condición de carrera que el
+  // marcador de partidos. match_events sigue siendo la única fuente real que
+  // modifica estas columnas (ver POST/DELETE /matches/:id/events).
+  await query(`UPDATE players SET name=$1,photo=$2,number=$3,position=$4,team_id=$5,curp=$6,documento_oficial=$7 WHERE id=$8`,
+    [name.trim(), photo, number, position, teamId, curp?.trim().toUpperCase() || null, documento_oficial || null, pid])
   res.json((await queryOne('SELECT * FROM players WHERE id=$1', [pid])))
 })
 
